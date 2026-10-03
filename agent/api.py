@@ -71,7 +71,10 @@ EVENTS: dict[str, list[str]] = {}     # question_id -> progress events, polled b
 
 @app.post("/ai/ask")
 def ai_ask(body: dict = Body(...)) -> dict:
-    """{question_id, template_ids} -> {status, answer (contract Answer, hashed), tool_calls, events}.
+    """{question_id, template_ids} -> {status, answer (contract Answer, hashed), tool_calls, events,
+    config, simulation}. config and simulation are the Config from the agent's last run_rl call
+    and the twin SimResult (plus speedup_pct) from its last simulate call, or null if it made
+    no such call; the dashboard shows them next to the answer.
     The DBA's question text is never received here; the gateway resolved it privately."""
     from agent import agent as agent_mod
     from agent import llm
@@ -81,8 +84,10 @@ def ai_ask(body: dict = Body(...)) -> dict:
         provider = llm.provider()
     except llm.MissingKey as e:
         raise HTTPException(503, str(e)) from None
+    from agent.tools import Toolbox
+    toolbox = Toolbox()
     try:
-        r = agent_mod.ask(qid, tids, provider, on_event=EVENTS[qid].append)
+        r = agent_mod.ask(qid, tids, provider, toolbox=toolbox, on_event=EVENTS[qid].append)
     except llm.RateLimited as e:
         raise HTTPException(503, {"error": "rate limited", "detail": str(e), "events": EVENTS[qid]}) from None
     except llm.OutboundBlocked as e:
@@ -93,7 +98,8 @@ def ai_ask(body: dict = Body(...)) -> dict:
         raise HTTPException(502, {"error": "LLM HTTP error", "detail": f"{e.response.status_code}: {e.response.text[:300]}",
                                   "events": EVENTS[qid]}) from None
     return {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
-            "tool_calls": r.tool_calls, "events": r.events}
+            "tool_calls": r.tool_calls, "events": r.events,
+            "config": toolbox.last_config, "simulation": toolbox.last_simulation}
 
 
 @app.get("/ai/llm")

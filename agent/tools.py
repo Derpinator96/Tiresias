@@ -44,6 +44,10 @@ class Toolbox:
         self.results: dict[str, object] = {}      # tool_call_id -> result
         self.calls: list[dict] = []               # [{tool_call_id, name}]
         self.configs: dict[str, dict] = {}        # config_id -> Config from run_rl
+        # The configuration and twin measurement behind the answer, returned by /ai/ask so the
+        # dashboard shows the same numbers the answer cites. Hashed contracts only.
+        self.last_config: dict | None = None
+        self.last_simulation: dict | None = None
 
     def get_slow_templates(self) -> object:
         return gw.get("/v1/templates/slow")
@@ -60,6 +64,7 @@ class Toolbox:
         from rl import search
         config, trace = search.run()
         self.configs[config["config_id"]] = config
+        self.last_config = config
         return {"config": config, "label": search.LABEL, "final_choice": trace.final_choice,
                 "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
                 "greedy_baseline": trace.greedy}
@@ -103,9 +108,11 @@ class Toolbox:
         sim, _ = search.twin(config)        # reuses run_rl's measurement of the same actions
         # Speedups computed here, by code, so the LLM can cite them instead of computing them.
         # New dicts, so the cached measurement is not changed.
-        return {**sim, "templates": [
+        out = {**sim, "templates": [
             {**t, "speedup_pct": round(100 * (1 - t["after_ms"] / t["before_ms"]), 1) if t["before_ms"] else 0.0}
             for t in sim["templates"]]}
+        self.last_config, self.last_simulation = config, out
+        return out
 
     def call(self, name: str, args: dict) -> tuple[str, object]:
         fn: Callable | None = getattr(self, name, None) if name in {d["name"] for d in DECLARATIONS} else None

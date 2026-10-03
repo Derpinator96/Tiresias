@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 
 import httpx
 
@@ -109,6 +110,30 @@ def adversarial() -> dict | None:
         return json.loads((REPO_ROOT / "runs" / "adversarial.json").read_text(encoding="utf-8"))
     except FileNotFoundError:
         return None
+
+
+def start_background(fn, *args) -> None:
+    """Run fn(*args) in a daemon thread. A separate function so tests can run it inline."""
+    threading.Thread(target=fn, args=args, daemon=True).start()
+
+
+def sql_statements(text: str) -> str:
+    """The runnable SQL in an approve file (migration.sql or rollback.sql), without its comments.
+    A rewrite action is a suggested code change, not SQL to run, so approve writes it as comments;
+    its rewritten query is taken from the commented block that follows "Rewritten:"."""
+    out, in_rewrite = [], False
+    for line in text.splitlines():
+        if line.strip().startswith("--    Rewritten:"):
+            in_rewrite = True
+            out.append("-- rewritten query (application code change)")
+            continue
+        if in_rewrite and line.startswith("--      "):
+            out.append(line[len("--      "):])
+            continue
+        in_rewrite = False
+        if line.strip() and not line.lstrip().startswith("--"):
+            out.append(line)
+    return "\n".join(out)
 
 
 def heat(share: float) -> str:
