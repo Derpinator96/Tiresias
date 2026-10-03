@@ -134,14 +134,29 @@ class Gateway:
 
     def rewrite_candidates(self, snap: Snapshot) -> list[dict]:
         """Rules whose shape matches each slow template's hashed SQL, with the rewritten hashed
-        SQL (values as `?`). Shape only: values are checked when the rewrite is verified."""
+        SQL (values as `?`). Shape only: values are checked when the rewrite is verified.
+        `columns` holds the rewritten query's column roles, as in HashedQuery, so the miner can
+        propose indexes that only help after the rewrite (date_trunc(c) = ? gives c no role;
+        the range it becomes gives c RANGE)."""
         from gateway import rewrite_rules as rr
         out = []
         for t in self.slow_templates(snap):
             for rule in rr.matching(t["sql"]):
                 out.append({"template_id": t["template_id"], "rule_id": rule, "description": rr.RULES[rule].description,
-                            "sql": rr.rewrite_shape(t["sql"], rule), "label": rr.LABEL})
+                            "sql": rr.rewrite_shape(t["sql"], rule), "label": rr.LABEL,
+                            "columns": self._rewritten_columns(snap, t["template_id"], rule)})
         return out
+
+    def _rewritten_columns(self, snap: Snapshot, template_id: str, rule_id: str) -> list[dict]:
+        """Column roles of the template's real logged query after the rule, through the same
+        hash_sql as every HashedQuery. [] when the rule does not apply to the logged values."""
+        from gateway.strip import Unparsed, hash_sql
+        config = {"actions": [{"type": "rewrite", "template_id": template_id, "rule_id": rule_id}]}
+        try:
+            real = self.rewritten_queries(snap, config)[template_id]
+            return hash_sql(real, self.hasher, snap.catalog.schema())[1]
+        except (ValueError, Unparsed):
+            return []
 
     def check_rewrite(self, snap: Snapshot, template_id: str, rule_id: str, twin_dsn: str) -> dict:
         """Rewrite contract object: VeriEQL on the real SQL plus a result checksum on the twin.

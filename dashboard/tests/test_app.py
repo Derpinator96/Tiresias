@@ -87,3 +87,19 @@ def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(a
     assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
     app.toggle[0].set_value(True).run()
     assert not any(REAL.search(c.value) for c in app.code)
+
+
+def test_search_lists_rewrites_and_every_configuration_rechecked_on_the_twin(app):
+    next(b for b in app.button if b.label == "Run search").click().run()
+    assert not app.exception, app.exception
+    text = text_of(app).replace("**", "")
+    # The Q2 rewrite is recommended with its honest check status, next to the Q1 index.
+    assert "with rule date_trunc_eq_to_range (check: TestedOnly)" in text
+    assert "Top configurations re-checked on the twin" in text
+    assert "Final choice: best measured on the twin." in text
+    assert text.count("Chosen. ") == 1
+    assert re.search(r"measured drop -?\d+\.\d% \(median of \d+ runs per query", text)
+    app.toggle[0].set_value(True).run()                 # AI view: codes only, rewrite included
+    hashed = text_of(app)
+    assert not REAL.search(hashed), REAL.search(hashed)
+    assert re.search(r"Rewrite \*\*q_[0-9a-f]{8}\*\* with rule", hashed)

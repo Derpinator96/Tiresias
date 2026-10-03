@@ -46,13 +46,14 @@ REQUIRED = {
     "rl.episodes": int, "rl.actions_per_episode": int, "rl.lambda_write": float,
     "rl.lambda_storage": float, "rl.storage_budget_table_share": float, "rl.configs_verified_on_twin": int,
     "rl.write_penalty_ms_per_index": float, "rl.q_init": float,
+    "rl.lambda_disagreement": float, "rl.sim_cache_s": int,
     "sandbox.twin_hero_table_scale": float, "sandbox.twin_other_tables_scale": float,
     "sandbox.timing_runs": int, "sandbox.pgbench_insert_rate_per_s": int,
     "verify.verieql_rows_per_table": int, "verify.verieql_timeout_s": int,
     "llm.provider": str, "llm.model": str, "llm.api_key_env": str, "llm.temperature": numbers.Real,
     "llm.max_tool_calls": int, "llm.retry_max_attempts": int,
     "approve.post_deploy_check_minutes": int, "approve.rollback_if_median_worse_by": float,
-    "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float,
+    "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float, "tests.q2_min_twin_speedup": float,
 }
 
 # Module path (relative to the repo root) -> the config keys that govern it. Only these
@@ -83,7 +84,8 @@ GOVERNED: dict[str, list[str]] = {
     "agent/agent.py": ["llm.max_tool_calls", "llm.checker_retries"],
     "rl/search.py": ["rl.lambda_write", "rl.lambda_storage", "rl.write_penalty_ms_per_index",
                      "rl.storage_budget_table_share", "rl.actions_per_episode", "rl.alpha", "rl.gamma",
-                     "rl.epsilon_start", "rl.epsilon_min", "rl.episodes"],
+                     "rl.epsilon_start", "rl.epsilon_min", "rl.episodes", "rl.lambda_disagreement",
+                     "rl.sim_cache_s"],
     "db/plangen/run.py": ["plan_generation.parameter_sets_per_query", "plan_generation.early_sample_size",
                           "plan_generation.target_plan_count", "plan_generation.workers",
                           "postgres.statement_timeout_plan_generation_s"],
