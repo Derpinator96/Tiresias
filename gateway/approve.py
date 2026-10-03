@@ -56,6 +56,17 @@ def _indexdef(dsn: str, name: str) -> tuple[str, bool]:
     return row
 
 
+# Doc decision: sharding is written advice only, never simulated or measured. Printed with every
+# partition action, since that is where a DBA weighs splitting the table further.
+SHARDING = [
+    "--    Sharding (written advice only: Blind Tuner does not simulate or measure it). Partitioning keeps every row on",
+    "--    this server. Sharding spreads rows across servers and needs a shard key most queries filter on, routing",
+    "--    (an extension such as Citus, postgres_fdw foreign partitions, or the application), and changes cross-shard",
+    "--    joins, unique keys and transactions. Consider it when one server's storage or write throughput is the limit;",
+    "--    for slow reads on one server, indexes and partitioning come first.",
+]
+
+
 def _partition_steps(table: str, col: str) -> tuple[list[str], list[str]]:
     t, c, new, old = q(table), q(col), q(table + "_partitioned"), q(table + "_old")
     mig = [
@@ -67,6 +78,7 @@ def _partition_steps(table: str, col: str) -> tuple[list[str], list[str]]:
         f"--    c. A primary key or unique index on {new} must include {c}. Foreign keys that reference {t} must be dropped or re-pointed.",
         f"--    d. Copy the rows month by month (INSERT INTO {new} SELECT * FROM {t} WHERE {c} >= ... AND {c} < ...), recreate the other indexes, ANALYZE {new}.",
         f"--    e. In one short transaction: ALTER TABLE {t} RENAME TO {old}; ALTER TABLE {new} RENAME TO {t};",
+        *SHARDING,
     ]
     rb = [f"--    Manual: while {old} exists, copy rows written since the swap into it, then in one transaction rename {t} back to {new} and {old} to {t}."]
     return mig, rb

@@ -50,6 +50,17 @@ workload:
   q2_runs: 5
   # Not in the doc's table: the two-region query added for the rewrite demo (db/workload.py).
   qor_regions: [3, 7]
+  # Not in the doc's table: Q3's month, a half-open range [start, end) (doc: "a monthly report
+  # that reads one month of sales"; the doc gives no SQL or values), and how many times Q3 runs.
+  q3_dates: ["2026-08-01", "2026-09-01"]
+  q3_runs: 5
+  # Not in the doc's table: whether make seed runs Q3. false pending a human decision: with Q3
+  # in the seeded workload (10,000,000 rows, 2026-10-03) the Q1 index no longer pays under the
+  # current lambda_storage and HypoPG's 280 MB size estimate (step reward 0.014 without Q3,
+  # below 0 with it), so the search recommends only the Q2 rewrite and the doc's acceptance
+  # "recommends the Q1 composite index" fails (rl/tests/test_search.py live test, e2e Q1).
+  # Tests that need Q3 run it themselves and reset its statistics (rl/tests/test_partition.py).
+  q3_in_seed: false
   # Q4's parameters (doc: "customer segment plus date"; the doc gives no SQL or values).
   # Not in the doc's table. Two recent days: sales rows are not stored in date order, so a
   # longer range touches most pages and no plain index helps much (HypoPG at 10,000,000 rows,
@@ -184,6 +195,14 @@ rl:
   # The twin measured about 0.03 ms for the Q1 index (see lambda_write); 0.1 kept until a
   # human approves a change.
   write_penalty_ms_per_index: 0.1
+  # Doc, Component 4 item 6: partition keys scored on the twin only, at most two, after the
+  # index search (rl/search.py partition_keys and add_partition).
+  partition_max_keys: 2
+  # Not in the doc's table: HTTP timeout in seconds for a twin measurement with a partition
+  # action. The gateway copies the whole table into a partitioned copy on the twin first: the
+  # full 4-template workload with the Q1 index took 77 s at 10,000,000 sales rows on
+  # 2026-10-03 (loaded machine); other calls keep agent/gateway_client.py's 120 s.
+  partition_twin_timeout_s: 600
 
 sandbox:
   twin_hero_table_scale: 1.0
@@ -210,6 +229,10 @@ sandbox:
     q1: {indexes: [[sales, [region_id, transaction_date]]], rewrite: null}
     q2: {indexes: [[sales, [store_id, transaction_date]]], rewrite: date_trunc_eq_to_range}
     qor: {indexes: [[sales, [region_id, transaction_date]]], rewrite: or_same_column_to_in}
+    # Not in the doc's table: Q3 with a monthly range partition on transaction_date and no
+    # index (the doc's partition query). Measured on a partitioned copy of sales, on pg-prod
+    # too, dropped after the measurement; pg-prod's own sales is never renamed or changed.
+    q3: {indexes: [], rewrite: null, partition: [sales, transaction_date]}
   # Not in the doc's table: where make fidelity writes its result (gateway volume; the
   # dashboard reads it through the gateway, the exporter from the tools container).
   fidelity_path: /var/lib/blind-tuner/twin_fidelity.json

@@ -101,10 +101,10 @@ class Gateway:
     # ---- what-if ----------------------------------------------------------------------
     def decode_config(self, config: dict) -> list[tuple[str, list[str]]]:
         """Real (table, [columns]) for each add_index action. Unknown codes raise KeyError.
-        Rewrite actions are read by decode_rewrites; partition is not simulated yet."""
+        Rewrite actions are read by decode_rewrites, partition actions by decode_partition."""
         out = []
         for a in config["actions"]:
-            if a["type"] == "rewrite":
+            if a["type"] in ("rewrite", "partition"):
                 continue
             if a["type"] != "add_index":
                 raise ValueError(f"action {a['type']} is not simulated yet")
@@ -117,6 +117,22 @@ class Gateway:
                 cols.append(col)
             out.append((table, cols))
         return out
+
+    def decode_partition(self, snap: Snapshot, config: dict) -> tuple[str, str] | None:
+        """Real (table, column) of the config's partition action, or None. The twin builds one
+        partitioned copy per measurement, so a config may hold at most one; the column must
+        belong to the table and hold dates (scheme range_month)."""
+        from gateway.ingest.stats import DATE_TYPES
+        parts = [a for a in config["actions"] if a["type"] == "partition"]
+        if not parts:
+            return None
+        if len(parts) > 1:
+            raise ValueError("at most one partition action per config")
+        table = self.hasher.vault[parts[0]["table"]]["name"]
+        t, col = self.hasher.vault[parts[0]["column"]]["name"].split(".", 1)
+        if t != table or snap.catalog.columns[table][col] not in DATE_TYPES:
+            raise ValueError("partition column must be a date column of the partitioned table")
+        return table, col
 
     @staticmethod
     def decode_rewrites(config: dict) -> dict[str, str]:
@@ -204,6 +220,8 @@ class Gateway:
     def simulate_hypopg(self, snap: Snapshot, config: dict) -> dict:
         from db.sandbox import hypopg
         from gateway.rounding import round_sig
+        # A partition action is left out: HypoPG cannot hypothesise one (doc), so these plans
+        # show the indexes and rewrites only; partitions are measured on the twin only.
         indexes = self.decode_config(config)
         tids = [t["template_id"] for t in self.slow_templates(snap)]
         queries = self.sample_queries(snap, tids)
@@ -220,15 +238,17 @@ class Gateway:
 
     def simulate_twin(self, snap: Snapshot, config: dict, twin_dsn: str) -> tuple[dict, dict]:
         """Measure a Config on the twin. Returns (SimResult, plan agreement per template).
-        Only templates with a logged literal query can be replayed; generic plans cannot run."""
+        Only templates with a logged literal query can be replayed; generic plans cannot run.
+        A partition action is measured on a partitioned copy of its table (twin_measure)."""
         from db.sandbox import twin_measure
         from gateway.rounding import round_ms, round_sig
         indexes = self.decode_config(config)
+        partition = self.decode_partition(snap, config)
         tids = [t["template_id"] for t in self.slow_templates(snap)]
         runnable = {tid: q for tid, (q, generic) in self.sample_queries(snap, tids).items() if not generic}
         if not runnable:
             raise ValueError("no slow template has a logged query to replay")
-        r = twin_measure.measure(self.prod_dsn, twin_dsn, indexes, runnable, self.rewritten_queries(snap, config))
+        r = twin_measure.measure(self.prod_dsn, twin_dsn, indexes, runnable, self.rewritten_queries(snap, config), partition)
         sim = {
             "config_id": config["config_id"],
             "source": "twin",

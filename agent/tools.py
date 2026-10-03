@@ -21,7 +21,8 @@ DECLARATIONS = [
     {"name": "mine_candidates", "description": "Candidate indexes mined from the slow workload, with support.",
      "parameters": {"type": "object", "properties": {}}},
     {"name": "run_rl", "description": "Search for the best configuration of index and rewrite actions. Returns a "
-     "config_id, its actions and predicted times; the final pick is the best measured on the twin of the top few.",
+     "config_id, its actions and predicted times; the final pick is the best measured on the twin of the top few. "
+     "A partition action (monthly ranges) is measured on the twin only and has no predicted time.",
      "parameters": {"type": "object", "properties": {"template_ids": {"type": "array", "items": {"type": "string"}}}}},
     {"name": "gnn_explain", "description": "Why one template's latest plan is slow: the plan nodes with the largest "
      "predicted share of time (from the serving runtime estimator), and nodes where Postgres's row estimate was off "

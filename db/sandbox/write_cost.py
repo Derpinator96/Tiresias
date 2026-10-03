@@ -36,7 +36,7 @@ LABEL = (f"write cost: pgbench on the twin, {RATE} inserts/s for {DURATION_S} s,
 # transactions, so `\set id :id + 1` numbers the new rows.
 SCRIPT = r"""\set src random(1, :k)
 \set id :id + 1
-INSERT INTO sales SELECT :id, customer_id, product_id, store_id, region_id, transaction_date, quantity, amount, payment_method FROM sales WHERE order_id >= :src ORDER BY order_id LIMIT 1;
+INSERT INTO {table} SELECT :id, customer_id, product_id, store_id, region_id, transaction_date, quantity, amount, payment_method FROM sales WHERE order_id >= :src ORDER BY order_id LIMIT 1;
 """
 
 
@@ -47,15 +47,19 @@ def median_ms(log: list[str]) -> float:
     return statistics.median(int(f[2]) - int(f[6]) for f in map(str.split, log)) / 1000
 
 
-def insert_ms(conn: psycopg.Connection) -> float:
+def insert_ms(conn: psycopg.Connection, table: str = "sales") -> float:
     """Run the insert workload on the twin `conn` points at (autocommit, superuser) and return
-    the median INSERT latency in ms. The inserted rows are removed even if pgbench fails."""
-    n = int(conn.execute("SELECT max(order_id) FROM sales").fetchone()[0])
+    the median INSERT latency in ms. The inserted rows are removed even if pgbench fails.
+    `table` is sales or a copy of it with the same columns (a partitioned copy, twin_measure);
+    the source rows always come from sales, so the read part of each insert is the same."""
+    t = sql.Identifier(table)
+    n = int(conn.execute(sql.SQL("SELECT max(order_id) FROM {}").format(t)).fetchone()[0])
+    script = SCRIPT.format(table=t.as_string(conn))
     log = "/tmp/bt_pgbench_$$"     # pg-twin's /tmp; $$ is this shell's pid
     program = (f"PGOPTIONS='-c synchronous_commit=off' pgbench -n -M prepared -R {RATE} -T {DURATION_S}"
                f" --random-seed={int(cfg('dataset.random_seed'))} -l --log-prefix={log}"
                f" -D k={min(n, RATE * DURATION_S)} -D id={n} -f - {shlex.quote(conn.info.dbname)} >/dev/null <<'EOF'\n"
-               f"{SCRIPT}EOF\ns=$?; cat {log}.*; rm -f {log}.*; exit $s")
+               f"{script}EOF\ns=$?; cat {log}.*; rm -f {log}.*; exit $s")
     try:
         with conn.transaction():
             conn.execute("CREATE TEMP TABLE bt_pgbench_log (line text) ON COMMIT DROP")
@@ -66,6 +70,6 @@ def insert_ms(conn: psycopg.Connection) -> float:
             # Skips the foreign key trigger from returns, which would scan returns per deleted row;
             # no return can point at a row pgbench just made.
             conn.execute("SET LOCAL session_replication_role = replica")
-            conn.execute("DELETE FROM sales WHERE order_id > %s", (n,))
-        conn.execute("VACUUM sales")
+            conn.execute(sql.SQL("DELETE FROM {} WHERE order_id > %s").format(t), (n,))
+        conn.execute(sql.SQL("VACUUM {}").format(t))
     return median_ms(log_lines)
