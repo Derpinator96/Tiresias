@@ -60,9 +60,12 @@ for rl.sim_cache_s, so the LLM's run_rl right after /ai/rl/run costs and measure
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import time
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 
@@ -73,7 +76,9 @@ from models.gnn import predictor as pred
 
 LABEL = (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
          f"re-checked on the twin; then up to {cfg('rl.partition_max_keys')} monthly partition keys measured on the "
-         "twin only (drop-index actions pending)")
+         "twin only (drop-index actions pending)"
+         + ("; search result recorded and replayed for a workload searched before (rl.search_mode: recorded)"
+            if cfg("rl.search_mode") == "recorded" else ""))
 PARTITION_LABEL = ("partition: monthly range keys measured on the twin only (HypoPG cannot simulate them), "
                    "tried after the index and rewrite search; predictions do not include them")
 STOP = "stop"
@@ -426,6 +431,31 @@ class QLearningSearch(GreedySearch):
 
 
 def run(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
+    """rl.search_mode "recorded" (human decision 2026-10-04): the result of an earlier live search
+    for the same slow templates and weights is returned without searching; otherwise search live
+    (run_live) and save the result. The trace's final_choice says when a result is replayed."""
+    if cfg("rl.search_mode") != "recorded":
+        return run_live(weights)
+    path = Path(cfg("rl.search_record_path"))
+    key = json.dumps({"templates": sorted(t["template_id"] for t in gw.get("/v1/templates/slow")),
+                      "weights": weights or {}}, sort_keys=True)
+    records = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if key in records:
+        rec = records[key]
+        trace = Trace(**rec["trace"])
+        trace.final_choice = f"recorded search result from {rec['recorded_at']}: {trace.final_choice}"
+        return rec["config"], trace
+    config, trace = run_live(weights)
+    records[key] = {"config": config, "trace": asdict(trace),
+                    "recorded_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(records), encoding="utf-8")
+    tmp.replace(path)
+    return config, trace
+
+
+def run_live(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
     """Fetch hashed inputs from the gateway, mine candidates (original and rewritten shapes),
     check the matching rewrites, calibrate the predictor on the measured plans, search, and
     re-check the top configurations on the twin. Returns (Config, Trace)."""

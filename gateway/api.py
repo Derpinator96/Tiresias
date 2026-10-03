@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 import os
 import socket
+import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
@@ -115,6 +117,12 @@ def simulate_twin(config: dict = Body(...)):
     validate("Config", config)
     g = gw()
     snap = g.snapshot()
+    key = _twin_record_key(config, [t["template_id"] for t in g.slow_templates(snap)])
+    if cfg("sandbox.twin_mode") == "recorded":
+        rec = _twin_records().get(key)
+        if rec is None:   # never touches the twin in this mode
+            raise HTTPException(409, {"not_recorded": "no recorded twin measurement for this config"})
+        return _to_ai("SimResult", {**rec["sim"], "config_id": config["config_id"]})
     try:
         sim, agreement = g.simulate_twin(snap, config, os.environ["TWIN_DSN"])
     except (KeyError, ValueError) as e:
@@ -123,7 +131,41 @@ def simulate_twin(config: dict = Body(...)):
     if disagree:
         raise HTTPException(409, {"plan_disagreement": disagree})
     validate("SimResult", sim)
+    _save_twin_record(key, sim)
     return _to_ai("SimResult", sim)
+
+
+# Recorded twin measurements (human decision 2026-10-04, sandbox.twin_mode). Every live twin
+# measurement is saved here, keyed by the config's actions and the slow-template set; in
+# "recorded" mode the twin is never used: a recorded config is answered from this file, any
+# other config gets 409 (the search reports it and does not choose it).
+# The numbers are real twin measurements, replayed; the dashboard labels them as recorded.
+_TWIN_LOCK = threading.Lock()
+
+
+def _twin_record_key(config: dict, template_ids: list[str]) -> str:
+    """What the config does, not how it was found: an action's contribution (the search's
+    predicted saving) and cand_id (the miner's label) differ between the search and the
+    dashboard for the same action, so both are left out."""
+    actions = [{k: v for k, v in a.items() if k not in ("contribution", "cand_id")} for a in config["actions"]]
+    return json.dumps({"actions": sorted(json.dumps(a, sort_keys=True) for a in actions),
+                       "templates": sorted(template_ids)}, sort_keys=True)
+
+
+def _twin_records() -> dict:
+    path = Path(cfg("sandbox.twin_record_path"))
+    with _TWIN_LOCK:
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _save_twin_record(key: str, sim: dict) -> None:
+    path = Path(cfg("sandbox.twin_record_path"))
+    with _TWIN_LOCK:
+        records = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        records[key] = {"sim": sim, "recorded_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(records, indent=1), encoding="utf-8")
+        tmp.replace(path)
 
 
 @app.get("/v1/rewrite/candidates")

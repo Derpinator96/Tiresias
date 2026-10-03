@@ -2,6 +2,7 @@
 which is why the dashboard is bound to 127.0.0.1 and never hosted publicly."""
 from __future__ import annotations
 
+import functools
 import json
 import os
 import threading
@@ -17,7 +18,9 @@ LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
     "search": (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
                f"re-checked on the twin; then up to {cfg('rl.partition_max_keys')} monthly partition keys measured on the "
-               "twin only (drop-index actions pending)"),
+               "twin only (drop-index actions pending)"
+               + ("; search result recorded and replayed for a workload searched before (rl.search_mode: recorded)"
+                  if cfg("rl.search_mode") == "recorded" else "")),
     "twin": "twin: synthetic from pg_stats, correlations kept only for column pairs the miner flags",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
@@ -176,8 +179,10 @@ def ai(path: str, body=None, method: str | None = None) -> httpx.Response:
     return httpx.request(method or ("POST" if body is not None else "GET"), url, json=body, timeout=TIMEOUT_S)
 
 
+@functools.lru_cache(maxsize=2048)
 def dehash(text: str) -> str:
-    """Real names for codes, via the gateway's private vault."""
+    """Real names for codes, via the gateway's private vault. Cached per text: the Ask page's
+    result fragment reruns every second and would otherwise ask the gateway again each time."""
     return gateway("/v1/answers/dehash", {"question_id": "qn_00000000", "text": text, "numbers": []})["text"]
 
 

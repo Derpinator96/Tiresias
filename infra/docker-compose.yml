@@ -145,6 +145,8 @@ services:
       HTTPS_PROXY: http://egress-proxy:3128
     # Only hashed-side code is mounted. No db/, no gateway/, no .env.
     volumes:
+      # rl.search_record_path: recorded search results (rl.search_mode), kept across restarts.
+      - ai-state:/var/lib/blind-tuner-ai
       - ./config.yaml:/app/config.yaml:ro
       - ./contracts:/app/contracts:ro
       - ./common:/app/common:ro
@@ -247,5 +249,6 @@ volumes:
   pgprod-log:
   pgtwin-data:
   gateway-ledger:
+  ai-state:
   pgbench-data:
   bench-raw:
