@@ -1,0 +1,22 @@
+# Streamlit 1.65.0 options, checked with `streamlit config show` in the pinned image.
+[client]
+# "minimal": hides the deploy button and developer options; with no other options set,
+# the default menu is hidden too.
+toolbarMode = "minimal"
+showErrorDetails = "type"
+showSidebarNavigation = false
+
+[browser]
+gatherUsageStats = false
+# Set manually so Streamlit does not look up the public IP at startup (bootstrap.py calls
+# checkip.amazonaws.com only when this is unset and server.headless is true).
+serverAddress = "127.0.0.1"
+
+[server]
+headless = true
+
+[theme]
+base = "light"
+primaryColor = "#1F5F8B"
+baseRadius = "0.25rem"
+buttonRadius = "0.25rem"

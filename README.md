@@ -50,6 +50,8 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make test-agent` | number checker, Gemini adapter (mocked) and agent loop | `$DC run --rm -T tools python -m pytest agent/tests/test_agent.py` |
 | `make test-llm` | live Gemini checks in the ai container (needs GEMINI_API_KEY) | `$DC exec -T ai python -m pytest -p no:cacheprovider -rs agent/tests/test_live_llm.py` |
 | `make test-verify` | result checksums on the twin | `$DC run --rm -T tools python -m pytest verify/tests` |
+| `make demo` | start the dashboard and open http://127.0.0.1:8501 | `$DC up -d dashboard`, then open the URL |
+| `make test-dashboard` | dashboard AppTest suite | `$DC exec -T dashboard python -m pytest -p no:cacheprovider /app/dashboard/tests` |
 | `make test-db` | data generation checks against the seeded pg-prod | `$DC run --rm -T tools python -m pytest db/tests` |
 
 Targets still to come:
@@ -57,7 +59,6 @@ Targets still to come:
 | Target | Does | Build step |
 | --- | --- | --- |
 | `make e2e` | run the Q1 end-to-end test | 14 |
-| `make demo` | open the operator dashboard on 127.0.0.1 | 13 |
 | `make export` | write results.json from the latest e2e run | 15 |
 | `make site` | build the public site | 15 |
 

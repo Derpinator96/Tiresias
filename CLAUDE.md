@@ -59,7 +59,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | Statistical twin | db/twin/build.py, make twin | SIMPLIFIED: columns generated independently from pg_stats, no correlations; label "twin: synthetic from pg_stats, no column correlations yet". sales at full size (1,000,000), others 20% or the FK distinct floor | db/twin/tests/test_twin.py (8) |
 | LLM agent and number checker | agent/llm.py, agent/agent.py, agent/tools.py, agent/number_checker.py, /ai/ask | REAL code; 5 of 8 tools (gnn_explain, rewrite_candidates, verify MISSING) | agent/tests/test_agent.py (16, scripted model and mock transport). Live Gemini path UNTESTED: GEMINI_API_KEY not set, so agent/tests/test_live_llm.py skips |
 | Checksum verification | verify/checksum.py, db/sandbox/checksum.py, gateway /v1/twin/checksum | REAL for "index does not change Q1's answer" on the twin; status TestedOnly because VeriEQL is MISSING; rewrite equivalence MISSING | verify/tests/test_checksum.py (4) |
-| Operator dashboard | dashboard/ | MISSING | untested: step 13 |
+| Operator dashboard | dashboard/app.py, dashboard/data.py, make demo | REAL; every simplified component labelled on screen; ledger counter includes the dashboard's own reads (labelled) | dashboard/tests/test_app.py (5, AppTest); "rate limited" warning display untested |
 | Q1 end-to-end test | e2e/ | MISSING | untested: step 14 |
 | results.json export and public site | scripts/, site/ | MISSING | untested: step 15 |
 | Makefile | Makefile | MISSING | untested: step 16 |
@@ -72,4 +72,3 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | VeriEQL | verify/ | MISSING (out of scope this session) | untested |
 | Approve, migration and rollback scripts | gateway/, dashboard/ | MISSING (out of scope this session) | untested |
 | Twin correlations | db/twin/ | MISSING (out of scope this session) | untested |
-| Operator dashboard app | dashboard/app.py | PLACEHOLDER: a page saying so, until step 13 | untested |
