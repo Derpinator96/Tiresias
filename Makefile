@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin fidelity demo drift-demo e2e adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
+.PHONY: keygen up down seed twin fidelity demo drift-demo e2e e2e-offline adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -178,3 +178,17 @@ test-airgap: airgap
 		-e PG_TWIN_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $$($(DC) ps -q pg-twin)) \
 		ai python -m pytest -p no:cacheprovider -rs -v infra/tests/test_airgap_network.py
 	$(TOOLS) python -m pytest -p no:cacheprovider -rs -s infra/tests/test_airgap_q1.py
+
+## Offline end-to-end scenarios, no LLM API call (needs make up and make seed): unparsable query
+## withheld, invented number blocked, Q4 drift on the configured window (about 3.5 drift windows plus
+## two searches: 14 minutes measured on a shared, loaded machine). The invented-number scenario recreates ai in air-gapped mode and
+## serves the scripted stand-in e2e/standin_llm.py from the host's python3 (stdlib only) on
+## llm.ollama.base_url's address; ai is put back in online mode afterwards, before the drift run.
+STANDIN_ADDR := 10.31.31.1 11434
+e2e-offline:
+	$(TOOLS) python -m pytest -p no:cacheprovider -v -s e2e/test_unparsable.py
+	$(AIRGAP) up -d --no-deps ai
+	python3 -m e2e.standin_llm $(STANDIN_ADDR) & pid=$$!; \
+		$(TOOLS) python -m pytest -p no:cacheprovider -v -s e2e/test_invented_number.py; s=$$?; \
+		kill $$pid; $(DC) up -d --no-deps ai && exit $$s
+	$(TOOLS) python -m pytest -p no:cacheprovider -v -s e2e/test_drift.py

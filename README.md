@@ -56,6 +56,7 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make drift-demo` | switch the workload mix to the Q4 drift query over about 10 minutes (demo window 120 s); the dashboard's drift panel shows the trigger and the re-tuned recommendation | `$DC run --rm -T tools python -m db.drift_demo` |
 | `make test-dashboard` | dashboard AppTest suite | `$DC exec -T dashboard python -m pytest -p no:cacheprovider /app/dashboard/tests` |
 | `make e2e` | the Q1 end-to-end test; fails without GEMINI_API_KEY; a pass writes runs/latest.json | `$DC run --rm -T tools python -m pytest -p no:cacheprovider -v e2e` |
+| `make e2e-offline` | the offline end-to-end scenarios, no LLM API call: unparsable query withheld, invented number blocked (ai recreated in air-gapped mode against the scripted stand-in `e2e/standin_llm.py`, run with the host's `python3`, then put back online), Q4 drift on the configured window (14 minutes measured on a loaded machine) | see the Makefile `e2e-offline` target |
 | `make export` | write site/results.json from the latest passing e2e run; refuses if none | `$DC run --rm -T tools python -m scripts.export_results` |
 | `make site` | build the public site into site/dist | `$DC run --rm -T tools python site/build.py` |
 | `make test-site` | exporter and site build tests | `$DC run --rm -T tools python -m pytest scripts/tests` |
