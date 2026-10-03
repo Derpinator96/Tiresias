@@ -23,6 +23,8 @@ LABELS = {
     "write_cost": (f"write cost: pgbench on the twin, {cfg('sandbox.pgbench_insert_rate_per_s')} inserts/s for "
                    f"{cfg('sandbox.pgbench_duration_s')} s, median INSERT latency with minus without the indexes "
                    "(WAL flush wait excluded)"),
+    "approve_demo": (f"post-deploy check demo: runs on the twin with a shortened replay of {cfg('approve.demo_check_minutes')} "
+                     f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
 }
 
 

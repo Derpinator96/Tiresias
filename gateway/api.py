@@ -4,14 +4,15 @@ AI-facing endpoints return only hashed contracts, and every one of their respons
 through Gateway.send_to_ai: validated against its contract, canary-scanned and written to
 the ledger before it leaves. A canary hit blocks the response (fail closed, HTTP 403).
 
-Endpoints that later build steps implement return 501 with the step that adds them.
+Private-side endpoints (dashboard) are not ledgered; /v1/approve refuses the ai container.
 """
 from __future__ import annotations
 
 import os
+import socket
 from functools import lru_cache
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from common.config import cfg
@@ -32,10 +33,6 @@ def _to_ai(contract: str | None, payload) -> Response:
     except Blocked as b:
         raise HTTPException(403, {"blocked": True, "payload_id": b.entry["payload_id"],
                                   "canary_hits": b.entry["canary_hits"]}) from None
-
-
-def _pending(step: int, what: str):
-    raise HTTPException(501, f"{what}: not built yet (build step {step})")
 
 
 @app.get("/healthz")
@@ -201,6 +198,55 @@ def negative_control():
     return gw().negative_control()
 
 
+def _not_ai(request: Request) -> None:
+    """Refuse the ai container on endpoints whose output holds real names and values. Its
+    addresses come from Compose's DNS (service `ai`); no answer means ai is not running."""
+    try:
+        ai_ips = socket.gethostbyname_ex("ai")[2]
+    except OSError:
+        return
+    if request.client and request.client.host in ai_ips:
+        raise HTTPException(403, "private-side endpoint: not served to the ai service")
+
+
 @app.post("/v1/approve")
-def approve():
-    raise HTTPException(501, "approve and migration scripts: out of scope this session")
+def approve(request: Request, config: dict = Body(...)):
+    """Config -> {config_id, files: {migration.sql, rollback.sql, post_deploy_check.py}} in real
+    names, for the operator dashboard. Not ledgered and never sent to ai: the files hold real
+    names and logged values. Runs nothing on pg-prod; the DBA runs the files. The doc's table
+    says `config_id` in; the gateway keeps no config store, so the dashboard sends the Config."""
+    from gateway import approve as approve_mod
+    _not_ai(request)
+    validate("Config", config)
+    g = gw()
+    try:
+        files = approve_mod.build(g, g.snapshot(), config)
+    except KeyError as e:
+        raise HTTPException(400, f"cannot approve this config: unknown code {e}") from None
+    except ValueError as e:
+        raise HTTPException(400, f"cannot approve this config: {e}") from None
+    return JSONResponse({"config_id": config["config_id"], "files": files})
+
+
+@app.post("/v1/approve/twin-check")
+def approve_twin_check(request: Request, config: dict = Body(...)):
+    """Demo: run the approve files on pg-twin (never pg-prod) with a shortened replay; the twin
+    is returned to its baseline afterwards. See gateway.approve.twin_check."""
+    import subprocess
+
+    import psycopg
+
+    from gateway import approve as approve_mod
+    _not_ai(request)
+    validate("Config", config)
+    g = gw()
+    try:
+        return JSONResponse(approve_mod.twin_check(g, g.snapshot(), config, os.environ["TWIN_DSN"]))
+    except KeyError as e:
+        raise HTTPException(400, f"cannot check this config: unknown code {e}") from None
+    except ValueError as e:
+        raise HTTPException(400, f"cannot check this config: {e}") from None
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(409, f"post-deploy check failed on the twin: {e.stderr.strip().splitlines()[-1:]}") from None
+    except psycopg.Error as e:
+        raise HTTPException(409, f"migration or rollback failed on the twin: {e}") from None

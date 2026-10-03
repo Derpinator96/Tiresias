@@ -205,6 +205,9 @@ llm:
 approve:
   post_deploy_check_minutes: 10
   rollback_if_median_worse_by: 0.10
+  # Not in the doc's table: replay minutes per phase when the dashboard demo runs the
+  # post-deploy check on the twin (labelled on screen as shortened). Production uses the 10 above.
+  demo_check_minutes: 0.1
 
 tests:
   fast_suite_limit_s: 120

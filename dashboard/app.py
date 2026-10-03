@@ -100,15 +100,19 @@ else:
     st.dataframe([{"template": view(t["template_id"]), "query": view(t["sql"]), "calls": t["calls"],
                    "mean ms": t["mean_ms"], "total ms": t["total_ms"]} for t in slow], hide_index=True)
 
-    top = slow[0]
-    st.header("Plan of the slowest template")
-    plans = data.gateway(f"/v1/templates/{top['template_id']}/plans")
+    st.header("Plan tree per slow template")
+    # Options are rank numbers, so two templates whose cut-off query text matches stay distinct.
+    rank = st.selectbox("Template (slowest first)", range(len(slow)), format_func=lambda i: f"{i + 1}. {view(slow[i]['template_id'])}")
+    tid = slow[rank]["template_id"]
+    plans = data.gateway(f"/v1/templates/{tid}/plans")
     if plans:
         pr = data.ai("/ai/gnn/predict", [plans[0]])
         prediction = pr.json()[0] if pr.status_code == 200 else None
         st.graphviz_chart(data.plan_dot(plans[0], prediction, view))
         st.caption(f"Measured self times from the auto_explain log. Predicted shares from the {estimator}. "
                    "Node colour: grey (small predicted share) to red (large).")
+    else:
+        st.info("No auto_explain plan is logged for this template.")
 
 # ---- Recommendation, twin, verification -----------------------------------------------------
 st.header("Recommended configuration")
@@ -224,3 +228,44 @@ else:
                    + f"), index storage {tw['storage_mb']} MB measured, score {e['score']:.3f}.")
         st.dataframe([{"template": view(t["template_id"]), "before ms (measured)": t["before_ms"],
                        "after ms (measured)": t["after_ms"]} for t in tw["templates"]], hide_index=True)
+
+# ---- Approve -------------------------------------------------------------------------------
+st.header("Approve: migration, rollback and post-deploy check")
+st.caption(f"{data.LABELS['approve_demo']}. The files hold real names and logged query values, so they stay on this "
+           "page and never go to the AI side. Nothing runs on production: the DBA runs the files.")
+rl = st.session_state.get("rl")
+if st.session_state.get("ai_view"):
+    st.info("Hidden in the AI view: the approve files hold real table, column and index names and logged query values.")
+elif not rl:
+    st.info("Run the search above first: Approve turns its configuration into the three files.")
+else:
+    if st.button("Approve"):
+        # The recommended configuration plus every rewrite checked above and not Rejected.
+        have = {(a["template_id"], a["rule_id"]) for a in rl["config"]["actions"] if a["type"] == "rewrite"}
+        extra = [{"type": "rewrite", "template_id": t, "rule_id": r}
+                 for (t, r), rw in st.session_state.get("rewrites", {}).items() if rw["status"] != "Rejected" and (t, r) not in have]
+        actions = rl["config"]["actions"] + extra
+        config = {**rl["config"], "actions": actions[:5]}          # the Config contract allows 5 actions
+        st.session_state["approve"] = (config, data.gateway("/v1/approve", config), len(actions) - len(config["actions"]))
+        st.session_state.pop("approve_check", None)
+    if "approve" in st.session_state:
+        config, ap, left_out = st.session_state["approve"]
+        if left_out:
+            st.warning(f"{left_out} checked rewrites left out: a configuration holds at most 5 actions.")
+        for name, text in ap["files"].items():
+            with st.expander(name):
+                st.code(text, language="python" if name.endswith(".py") else "sql")
+            st.download_button(f"Download {name}", text, file_name=name, mime="text/plain")
+        if st.button("Run the post-deploy check on the twin"):
+            st.session_state["approve_check"] = data.gateway("/v1/approve/twin-check", config)
+        tc = st.session_state.get("approve_check")
+        if tc:
+            for tid, after in tc["templates"].items():
+                b = tc["baseline"][tid]
+                st.markdown(f"{view(tid)}: median {b['median_ms']:.1f} ms before ({b['runs']} runs), "
+                            f"{after['median_ms']:.1f} ms after ({after['runs']} runs), measured on the twin")
+            st.markdown(f"Post-deploy check on the twin: **{'rolled back' if tc['rolled_back'] else 'kept'}**. It rolls back "
+                        f"when a template's median is more than {100 * tc['worse_by']:.0f}% worse. The twin was returned "
+                        "to its baseline afterwards.")
+            st.caption(f"Ran on the twin with a shortened duration: {data.LABELS['approve_demo']}. {data.LABELS['twin']}. "
+                       "On a busy machine a short replay is noisy, so a template the change does not touch can cross the threshold.")
