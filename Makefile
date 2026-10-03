@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down test test-infra
+.PHONY: keygen up down seed test test-infra test-db
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -21,9 +21,17 @@ up:
 down:
 	$(DC) down
 
+## Load QuickMart into pg-prod, apply settings from config.yaml, run the Q1 workload.
+seed:
+	$(TOOLS) python -m db.seed
+
 ## Fast unit and contract tests, run in the tools container.
 test:
 	$(TOOLS) python -m pytest contracts/tests common/tests
+
+## Data generation checks against the seeded pg-prod (run after make seed).
+test-db:
+	$(TOOLS) python -m pytest db/tests
 
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:

@@ -50,7 +50,13 @@ REQUIRED = {
 
 # Module paths (relative to the repo root) -> config sections that govern them.
 # Each build step adds its modules here as it creates them.
-GOVERNED: dict[str, list[str]] = {}
+GOVERNED: dict[str, list[str]] = {
+    "db/generate.py": ["dataset", "workload"],
+    "db/apply_settings.py": ["postgres", "workload"],
+    "db/run_q1.py": ["workload"],
+    "db/workload.py": ["dataset", "workload"],
+    "db/seed.py": ["dataset", "workload", "postgres"],
+}
 
 # Values too generic to flag as hardcoded config (loop starts, booleans, identity).
 IGNORED_VALUES = {0, 1, -1, True, False}
