@@ -77,13 +77,25 @@ def test_only_the_proxy_reaches_the_internet_and_only_ai_reaches_the_proxy():
     compose = yaml.safe_load((REPO_ROOT / "infra" / "docker-compose.yml").read_text(encoding="utf-8"))
     nets = {name: set(svc.get("networks", [])) for name, svc in compose["services"].items()}
     internet = {n for n, spec in compose["networks"].items() if not (spec or {}).get("internal")}
-    # dashboard: the 127.0.0.1-bound operator network (SIMPLIFIED, see the compose header).
-    assert {s for s, n in nets.items() if n & internet} == {"egress-proxy", "dashboard"}
+    # dashboard and web: the 127.0.0.1-bound operator network (SIMPLIFIED, see the compose header).
+    # web added with human approval 2026-10-04 (site/web live Ask page).
+    assert {s for s, n in nets.items() if n & internet} == {"egress-proxy", "dashboard", "web"}
     assert nets["dashboard"] & internet == {"operator"}
+    assert nets["web"] & internet == {"operator"}
+    assert "private" not in nets["web"]
     assert {s for s, n in nets.items() if "ai-proxy" in n} == {"ai", "egress-proxy"}
     assert compose["networks"]["ai-proxy"]["internal"] is True
     proxy = urlsplit(compose["services"]["ai"]["environment"]["HTTPS_PROXY"])
     assert (proxy.hostname, str(proxy.port)) == ("egress-proxy", compose["services"]["egress-proxy"]["command"][-1])
+
+
+def test_published_ports_bind_loopback_only():
+    compose = yaml.safe_load((REPO_ROOT / "infra" / "docker-compose.yml").read_text(encoding="utf-8"))
+    published = {name: svc["ports"] for name, svc in compose["services"].items() if svc.get("ports")}
+    assert set(published) == {"dashboard", "web"}
+    for name, ports in published.items():
+        for p in ports:
+            assert str(p).startswith("127.0.0.1:"), (name, p)
 
 
 def test_dashboard_label_matches_the_proxy():

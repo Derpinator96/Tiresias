@@ -1,0 +1,179 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* dark: only under a .dark class, which this light-only site never sets */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Light only (CLAUDE.md design rules): no dark theme, no purple, no pill buttons.
+   Glass = translucent white over a slate page with faint blue and slate tints. */
+:root {
+  /* glass tokens */
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-strong-bg: rgb(255 255 255 / 0.9);
+  --glass-subtle-bg: rgb(255 255 255 / 0.5);
+  --glass-border: rgb(255 255 255 / 0.65);
+  --glass-edge: rgb(226 232 240 / 0.9); /* slate-200: keeps glass edges visible on light glass */
+  --glass-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.06), 0 4px 6px -2px rgb(15 23 42 / 0.03);
+  --glass-shadow-lg: 0 24px 48px -12px rgb(15 23 42 / 0.14);
+  --glass-blur: 20px;
+  --inset-bg: rgb(248 250 252 / 0.72);
+
+  /* shadcn tokens, pointed at the glass */
+  --background: oklch(0.968 0.007 247.896); /* slate-100 */
+  --foreground: oklch(0.208 0.042 265.755); /* slate-900 */
+  --card: var(--glass-bg);
+  --card-foreground: oklch(0.208 0.042 265.755);
+  --popover: var(--glass-strong-bg);
+  --popover-foreground: oklch(0.208 0.042 265.755);
+  --primary: oklch(0.208 0.042 265.755);
+  --primary-foreground: oklch(0.984 0.003 247.858);
+  --secondary: var(--glass-subtle-bg);
+  --secondary-foreground: oklch(0.208 0.042 265.755);
+  --muted: oklch(0.968 0.007 247.896 / 0.7);
+  --muted-foreground: oklch(0.446 0.043 257.281); /* slate-600: AA on glass */
+  --accent: oklch(0.968 0.007 247.896 / 0.8);
+  --accent-foreground: oklch(0.208 0.042 265.755);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--glass-edge);
+  --input: var(--glass-edge);
+  --ring: oklch(0.546 0.245 262.881); /* blue-600 */
+  --chart-1: oklch(0.546 0.245 262.881);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.554 0.046 257.417);
+  --chart-5: oklch(0.208 0.042 265.755);
+  --radius: 0.625rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    color: var(--foreground);
+    background-color: var(--background);
+    background-image:
+      radial-gradient(60rem 40rem at 0% 0%, rgb(191 219 254 / 0.35), transparent 70%),
+      radial-gradient(50rem 40rem at 100% 100%, rgb(203 213 225 / 0.45), transparent 70%),
+      radial-gradient(40rem 30rem at 85% 10%, rgb(224 242 254 / 0.5), transparent 70%);
+    background-attachment: fixed;
+  }
+}
+
+/* Every shadcn surface gets the glass treatment here, once, by its data-slot. */
+@layer components {
+  [data-slot="card"],
+  [data-slot="alert"],
+  [data-slot="table-container"],
+  [data-slot="tabs-list"],
+  [data-slot="accordion-item"] {
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-shadow);
+  }
+  [data-slot="dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="navigation-menu-content"] {
+    background-color: var(--glass-strong-bg);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+    box-shadow: var(--glass-shadow-lg);
+  }
+  [data-slot="input"],
+  [data-slot="textarea"] {
+    background-color: var(--inset-bg);
+    backdrop-filter: blur(4px);
+  }
+  /* playground stage nodes: glass plus a state edge (utilities would fight over border and shadow) */
+  .stage-card {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: 0.75rem;
+    box-shadow: var(--glass-shadow);
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .stage-card[data-state="processing"] {
+    border-color: rgb(59 130 246);
+    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.2), var(--glass-shadow);
+  }
+  .stage-card[data-state="done"] {
+    border-color: rgb(16 185 129 / 0.7);
+  }
+  .stage-card[data-selected="true"] {
+    outline: 2px solid rgb(15 23 42 / 0.7);
+    outline-offset: 2px;
+  }
+  [data-slot="tabs-trigger"][data-active] {
+    background-color: rgb(255 255 255 / 0.95);
+  }
+}
+
+@utility glass {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+@utility glass-strong {
+  background-color: var(--glass-strong-bg);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow-lg);
+}
+@utility glass-subtle {
+  background-color: var(--glass-subtle-bg);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+}
+@utility glass-bar {
+  background-color: rgb(255 255 255 / 0.8);
+  backdrop-filter: blur(calc(var(--glass-blur) * 2));
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow: 0 14px 34px rgb(15 23 42 / 0.08);
+  border-radius: 0.75rem;
+}
+@utility inset-field {
+  background-color: var(--inset-bg);
+  border: 1px solid var(--glass-edge);
+  border-radius: 0.5rem;
+  backdrop-filter: blur(4px);
+}

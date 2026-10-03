@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin fidelity demo drift-demo e2e e2e-offline adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
+.PHONY: keygen up down seed twin fidelity demo drift-demo e2e e2e-offline adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap test-web record-ask
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -156,6 +156,18 @@ test-all:
 ## Exporter and site build tests (no services needed).
 test-site:
 	$(TOOLS) python -m pytest scripts/tests
+
+## Record one live Ask session (hashed only) for the public site's /ask page. Needs make up,
+## make seed and an LLM key in .env; uses LLM quota. Refuses to write if a real name or canary appears.
+record-ask:
+	$(TOOLS) python -m scripts.record_ask
+
+## Public build of site/web (NEXT_PUBLIC_BT_LOCAL unset) in a node container, its unit tests,
+## then the public-page scan (no real names, canaries, dashes, badges or live Ask code).
+test-web:
+	docker run --rm -u "$$(id -u):$$(id -g)" -e HOME=/tmp -e NEXT_TELEMETRY_DISABLED=1 -v "$(CURDIR)/site/web:/w" -w /w node:24.14.0-slim \
+		sh -c "npm ci && npm run build && npm test"
+	$(TOOLS) env BT_REQUIRE_WEB_BUILD=1 python -m pytest -p no:cacheprovider scripts/tests -k web
 
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:

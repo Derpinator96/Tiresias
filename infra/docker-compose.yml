@@ -186,6 +186,26 @@ services:
     networks: [private, boundary, operator]
     depends_on: [gateway, ai]
 
+  # Local site with the live Ask page (site/web, built with NEXT_PUBLIC_BT_LOCAL=1). Shows real
+  # names, so 127.0.0.1 only and never public. Calls only gateway and ai, so no `private` network
+  # (no route to Postgres; human decision 2026-10-04). Rejects foreign Host headers (BT_WEB_HOSTS).
+  web:
+    build:
+      context: site/web
+    image: blind-tuner-web:local
+    environment:
+      BT_LOCAL: "1"
+      GATEWAY_URL: http://gateway:8000
+      AI_URL: http://ai:8100
+      BT_CONFIG: /config/config.yaml
+      BT_WEB_HOSTS: "127.0.0.1:3000,localhost:3000"
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [boundary, operator]
+    depends_on: [gateway, ai]
+
   # Private-side runner for seeding, exports and tests. Not part of the product.
   # Started on demand: docker compose ... run --rm tools <command>
   tools:
