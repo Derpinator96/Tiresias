@@ -1,4 +1,4 @@
-# Plan generation image (step 18): the shared Python 3.11 packages plus the DSB and TPC-H
+# Plan generation image (step 18): the shared Python image plus the DSB and TPC-H
 # generators, built from pinned commits. Used only by the `bench` tools service on the
 # private network; never by gateway, ai or dashboard. Build context: infra/.
 #
@@ -20,18 +20,12 @@ RUN git clone https://github.com/gregrahn/tpch-kit.git \
  && git -C tpch-kit checkout --quiet 852ad0a5ee31ebefeed884cea4188781dd9613a3 \
  && make -C tpch-kit/dbgen MACHINE=LINUX DATABASE=POSTGRESQL CC="gcc -fcommon"
 
-FROM python:3.11.17-slim
+# Reuse the shared Python image (built by `make up`) instead of reinstalling the lock: on a
+# slow network that saves the whole package download.
+FROM blind-tuner-python:local
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/app \
-    DSB_HOME=/opt/dsb \
+ENV DSB_HOME=/opt/dsb \
     TPCH_HOME=/opt/tpch
-
-COPY python/requirements.lock /tmp/requirements.lock
-RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock \
- && rm /tmp/requirements.lock
 
 COPY --from=kits /src/dsb/code/tools /opt/dsb/tools
 COPY --from=kits /src/dsb/scripts /opt/dsb/scripts

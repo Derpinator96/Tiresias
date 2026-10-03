@@ -55,7 +55,7 @@ site:
 ## Plan generation (GNN training data, step 18). Builds the bench image (DSB and TPC-H kits
 ## from pinned commits) and starts pg-bench. Loads dsb, tpch and a smaller QuickMart copy.
 plans-load:
-	$(DC) build pg-prod
+	$(DC) build pg-prod gateway
 	$(DC) --profile bench up -d pg-bench
 	$(DC) --profile bench build bench
 	$(BENCH) python -m db.plangen load
