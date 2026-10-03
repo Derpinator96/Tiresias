@@ -26,6 +26,22 @@ INDEX_ROLES = ("EQ", "JOIN", "RANGE", "ORDER", "GROUP")
 ROLE_ORDER = {role: rank for rank, role in enumerate(["EQ", "JOIN", "RANGE", "ORDER"])}
 
 
+def with_rewritten_shapes(templates: list[dict], rewrites: list[dict]) -> list[dict]:
+    """Templates whose columns also hold the roles of their rewritten shapes (the gateway's
+    rewrite candidates, hashed). A rule that unwraps a column (date_trunc(c) = ? becomes a range
+    on c) gives c a role, so an index that only helps after the rewrite is mined too. Each
+    template keeps its own time, counted once, so support stays a share of real query time."""
+    extra: dict[str, list[dict]] = {}
+    for r in rewrites:
+        extra.setdefault(r["template_id"], []).extend(r.get("columns", []))
+    out = []
+    for t in templates:
+        cols = list(t["columns"])
+        cols += [c for c in extra.get(t["template_id"], []) if c not in cols]
+        out.append({**t, "columns": cols})
+    return out
+
+
 def baskets(templates: list[dict]) -> tuple[list[set[str]], list[float], dict[str, str], list[str]]:
     """(item sets, weights, column -> table, template IDs) from HashedQuery objects."""
     items, weights, col_table, tids = [], [], {}, []

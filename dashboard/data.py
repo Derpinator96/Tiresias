@@ -13,7 +13,8 @@ TIMEOUT_S = 300.0
 # On-screen labels for simplified or missing parts. The text matches the modules that own them.
 LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
-    "search": "search: Q-learning, index actions only (rewrite, partition and top-3 twin re-check pending)",
+    "search": (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
+               "re-checked on the twin (partition and drop-index actions pending)"),
     "twin": "twin: synthetic from pg_stats, no column correlations yet",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
@@ -30,6 +31,13 @@ def estimator_label() -> str:
         return r.json()["label"] if r.status_code == 200 else LABELS["estimator"]
     except httpx.HTTPError:
         return LABELS["estimator"]
+
+
+def describe(action: dict, name=lambda code: code) -> str:
+    """One Config action in words, names through `name` (dehash or identity)."""
+    if action["type"] == "rewrite":
+        return f"Rewrite {name(action['template_id'])} with rule {action['rule_id']}"
+    return f"Add index on {name(action['table'])} ({', '.join(name(c) for c in action['columns'])})"
 
 
 def gateway(path: str, body=None, method: str | None = None):

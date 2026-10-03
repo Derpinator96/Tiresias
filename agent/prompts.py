@@ -22,7 +22,8 @@ and what index fixes it. Follow these rules exactly.
 
 A typical sequence: get_slow_templates, get_plan for the template, mine_candidates, run_rl,
 then simulate with the config_id that run_rl returned. If a template's filter wraps a column
-in a function, also call rewrite_candidates and verify."""
+in a function, also call rewrite_candidates and verify. If run_rl's configuration holds a
+rewrite action, call verify with its template_id and rule_id and report the status it returns."""
 
 
 def system_prompt(max_tool_calls: int) -> str:

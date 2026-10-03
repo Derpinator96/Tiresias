@@ -119,11 +119,16 @@ if st.button("Run search"):
 rl = st.session_state.get("rl")
 if rl:
     if not rl["config"]["actions"]:
-        st.info("The search found no index worth its write and storage cost.")
+        st.info("The search found no index or rewrite worth its write and storage cost.")
+    checks = {(c["template_id"], c["rule_id"]): c["status"] for c in rl.get("rewrites", [])}
     for a in rl["config"]["actions"]:
-        cols = ", ".join(view(c) for c in a["columns"])
-        st.markdown(f"Add index on **{view(a['table'])} ({cols})**: predicted saving "
-                    f"{a['contribution']['predicted_ms_saved']:.1f} ms per call ({rl.get('estimator_label', estimator)})")
+        if a["type"] == "rewrite":
+            head = f"Rewrite **{view(a['template_id'])}** with rule **{a['rule_id']}** " \
+                   f"(check: {checks.get((a['template_id'], a['rule_id']), 'not checked')})"
+        else:
+            head = f"Add index on **{view(a['table'])} ({', '.join(view(c) for c in a['columns'])})**"
+        st.markdown(f"{head}: predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call "
+                    f"({rl.get('estimator_label', estimator)})")
     st.caption(f"Predicted workload time {rl['baseline_predicted_ms']:.1f} ms before, {rl['final_predicted_ms']:.1f} ms after. "
                "Predictions rank candidates; the twin measurement below is the reported result.")
     g = rl.get("greedy") or {}
@@ -140,7 +145,7 @@ if rl:
     if "twin" in st.session_state:
         sim, chk = st.session_state["twin"]
         tables = {t["table"]: t["rows"] for t in data.gateway("/v1/meta/tables")}
-        hero = rl["config"]["actions"][0]["table"] if rl["config"]["actions"] else None
+        hero = next((a["table"] for a in rl["config"]["actions"] if a["type"] == "add_index"), None)
         for t in sim["templates"]:
             speedup = 100 * (1 - t["after_ms"] / t["before_ms"]) if t["before_ms"] else 0.0
             c1, c2, c3, c4 = st.columns(4)
@@ -190,3 +195,27 @@ for c in cands:
     st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
                 + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
     st.code(view(c["sql"]), language="sql")
+
+# ---- Search re-check on the twin -------------------------------------------------------------
+st.header("Top configurations re-checked on the twin")
+st.caption(f"{data.LABELS['search']}. Each configuration is scored by its measured drop in workload time, minus the "
+           f"assumed write penalty ({data.cfg('rl.lambda_write') * data.cfg('rl.write_penalty_ms_per_index'):g} per index, "
+           "an assumption, not a measurement) and the measured storage against the budget, minus the gap between the "
+           "estimator's predicted drop and raw HypoPG cost. The best score is the recommendation above.")
+if not rl:
+    st.info("Run the search above to see the configurations it re-checked.")
+else:
+    st.markdown(f"Final choice: **{rl.get('final_choice', 'best predicted')}**.")
+    for i, e in enumerate(rl.get("top_configs", []), 1):
+        what = "; ".join(data.describe(a, view) for a in e["actions"])
+        st.markdown(f"{i}. {'**Chosen.** ' if e.get('chosen') else ''}{what}")
+        if "twin_error" in e:
+            st.caption(f"Not measured: the twin returned HTTP {e['twin_error']}.")
+            continue
+        tw = e["twin"]
+        st.caption(f"Predicted drop {100 * e['predicted_drop']:.1f}%, raw HypoPG cost drop {100 * e['hypopg_cost_drop']:.1f}%, "
+                   f"measured drop {100 * e['measured_drop']:.1f}% (median of {tw['runs']} runs per query"
+                   + (", reused from an earlier measurement of the same actions" if tw["cached"] else "")
+                   + f"), index storage {tw['storage_mb']} MB measured, score {e['score']:.3f}.")
+        st.dataframe([{"template": view(t["template_id"]), "before ms (measured)": t["before_ms"],
+                       "after ms (measured)": t["after_ms"]} for t in tw["templates"]], hide_index=True)

@@ -59,3 +59,18 @@ def test_itemsets_spanning_two_tables_are_not_candidates():
 def test_candidates_match_contract():
     for c in candidates([tpl("q_00000001", 100.0, [(T, A, "EQ"), (T, B, "RANGE")])], META):
         assert errors("Candidate", c) == []
+
+
+def test_rewritten_shape_adds_index_only_useful_after_rewrite():
+    # The original wraps B in a function (no role); its rewrite makes B a range. Q2 shape:
+    # D joins, B is filtered only after the rewrite. The other template keeps the total honest.
+    from miner.fpgrowth import with_rewritten_shapes
+    q2 = tpl("q_00000002", 300.0, [(T, D, "JOIN")])
+    other = tpl("q_00000003", 100.0, [(T, A, "EQ")])
+    assert [D, B] not in [c["columns"] for c in candidates([q2, other], META)]
+    rw = [{"template_id": "q_00000002", "rule_id": "date_trunc_eq_to_range",
+           "columns": [{"table": T, "col": D, "role": "JOIN"}, {"table": T, "col": B, "role": "RANGE"}]}]
+    cands = {tuple(c["columns"]): c for c in candidates(with_rewritten_shapes([q2, other], rw), META)}
+    assert (D, B) in cands
+    assert cands[(D, B)]["support"] == 0.75                 # 300 of 400 ms: each template counted once
+    assert cands[(A,)]["support"] == 0.25

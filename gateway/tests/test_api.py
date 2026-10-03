@@ -208,3 +208,31 @@ def test_rule_that_does_not_fit_is_refused(client):
     c = _template_with(client, "date_trunc_eq_to_range")[0]
     r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
     assert r.status_code == 409
+
+
+# ---- rewrite plus index (step 23) -------------------------------------------------------------
+def test_rewrite_candidate_carries_the_rewritten_column_roles(client, codes):
+    # date_trunc(transaction_date) gives the column no role in Q2; after the rewrite it is a
+    # range, so the miner (AI side) can propose an index on it. Codes and roles only.
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    assert {"table": codes["t"], "col": codes["td"], "role": "RANGE"} in c["columns"]
+    assert_clean(c)
+
+
+def test_rewrite_plus_index_is_scored_on_the_rewritten_query(client, codes):
+    """HypoPG and the twin both run the rewritten Q2 when the config holds its rewrite."""
+    tid = _template_with(client, "date_trunc_eq_to_range")[0]["template_id"]
+    rw = {"type": "rewrite", "template_id": tid, "rule_id": "date_trunc_eq_to_range"}
+    idx = {"type": "add_index", "table": codes["t"], "columns": [client.g.hasher.column("sales", "store_id"), codes["td"]]}
+
+    def q2_cost(actions):
+        out = client.post("/v1/simulate/hypopg", json={"config_id": "cfg_0000000a", "search": "q_learning",
+                                                       "actions": actions}).json()
+        plan = next(p for p in out["plans"] if p["template_id"] == tid)
+        return next(n["est_cost"] for n in plan["nodes"] if n["parent_id"] is None)
+    both = q2_cost([rw, idx])
+    assert both < q2_cost([idx]) and both < q2_cost([rw])
+    r = client.post("/v1/simulate/twin", json={"config_id": "cfg_0000000b", "search": "q_learning", "actions": [rw, idx]})
+    assert r.status_code == 200, r.text
+    t = next(x for x in r.json()["templates"] if x["template_id"] == tid)
+    assert 1 - t["after_ms"] / t["before_ms"] > cfg("tests.q2_min_twin_speedup"), t

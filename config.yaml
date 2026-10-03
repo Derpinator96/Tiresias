@@ -148,6 +148,15 @@ rl:
   lambda_storage: 0.25
   storage_budget_table_share: 0.25
   configs_verified_on_twin: 3
+  # Not in the doc's table: weight of the disagreement penalty in the top-3 re-check (doc:
+  # "penalise disagreement" between the estimator and raw HypoPG cost, weight not given).
+  # Score = measured reward - this x |estimator's predicted drop - HypoPG cost drop|.
+  lambda_disagreement: 1.0
+  # Not in the doc's table: seconds a HypoPG result or twin measurement of the same set of
+  # actions is reused in the ai process (doc: identical configs are never re-costed), so
+  # run_rl and simulate do not re-cost or rebuild what /ai/rl/run just did. A reseed within
+  # this window serves the earlier numbers; the dashboard labels reused measurements.
+  sim_cache_s: 1800
   # Not in the doc's table: assumed insert cost of one new index during search
   # (doc: "use a simple per-index penalty in search"). An assumption, not a measurement.
   write_penalty_ms_per_index: 0.1
@@ -191,3 +200,5 @@ tests:
   fast_suite_limit_s: 120
   # e2e acceptance threshold (doc: "Q1 measured on the twin drops by over 50%").
   q1_min_twin_speedup: 0.50
+  # e2e acceptance threshold (doc: "Q2 measured on the twin drops by over 50%").
+  q2_min_twin_speedup: 0.50

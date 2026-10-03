@@ -24,7 +24,7 @@ def existing_indexes(column_meta: list[dict]) -> list[tuple[str, list[str]]]:
 
 
 def mine() -> dict:
-    templates = gw.get("/v1/templates/slow")
+    templates = fpgrowth.with_rewritten_shapes(gw.get("/v1/templates/slow"), gw.get("/v1/rewrite/candidates"))
     meta = gw.get("/v1/meta/columns")
     return {"candidates": fpgrowth.candidates(templates, meta, existing_indexes(meta)),
             "drift": {"state": "MISSING", "note": "drift detection is not built yet"}}
@@ -92,14 +92,17 @@ def ai_ask_events(question_id: str) -> dict:
 @app.post("/ai/rl/run")
 def ai_rl_run(body: dict | None = Body(None)) -> dict:
     """Template weights (optional; default share of calls) -> best Config with each action's
-    contribution, plus the search trace."""
+    contribution, plus the search trace. top_configs holds every configuration re-checked on
+    the twin (predicted, raw HypoPG and measured numbers, and which one was chosen); rewrites
+    holds the check status of every matching rewrite."""
     from rl import search
     config, trace = search.run((body or {}).get("weights"))
     validate("Config", config)
     return {"config": config, "label": search.LABEL, "estimator_label": pred.load_predictor().label,
             "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
             "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits,
-            "episodes": trace.episodes, "top_configs": trace.top_configs, "greedy": trace.greedy}
+            "episodes": trace.episodes, "top_configs": trace.top_configs, "greedy": trace.greedy,
+            "rewrites": trace.rewrites, "final_choice": trace.final_choice}
 
 
 @app.get("/ai/gnn/estimator")

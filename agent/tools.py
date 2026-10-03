@@ -20,7 +20,8 @@ DECLARATIONS = [
      "parameters": {"type": "object", "properties": {"template_id": {"type": "string"}}, "required": ["template_id"]}},
     {"name": "mine_candidates", "description": "Candidate indexes mined from the slow workload, with support.",
      "parameters": {"type": "object", "properties": {}}},
-    {"name": "run_rl", "description": "Search for the best index configuration. Returns a config_id, its actions and predicted times.",
+    {"name": "run_rl", "description": "Search for the best configuration of index and rewrite actions. Returns a "
+     "config_id, its actions and predicted times; the final pick is the best measured on the twin of the top few.",
      "parameters": {"type": "object", "properties": {"template_ids": {"type": "array", "items": {"type": "string"}}}}},
     {"name": "gnn_explain", "description": "Why one template's latest plan is slow: the plan nodes with the largest "
      "predicted share of time (from the serving runtime estimator), and nodes where Postgres's row estimate was off "
@@ -59,7 +60,7 @@ class Toolbox:
         from rl import search
         config, trace = search.run()
         self.configs[config["config_id"]] = config
-        return {"config": config, "label": search.LABEL,
+        return {"config": config, "label": search.LABEL, "final_choice": trace.final_choice,
                 "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
                 "greedy_baseline": trace.greedy}
 
@@ -98,11 +99,13 @@ class Toolbox:
         config = self.configs.get(config_id)
         if config is None:
             return {"error": f"unknown config_id {config_id}; call run_rl first"}
-        sim = gw.post("/v1/simulate/twin", config)
+        from rl import search
+        sim, _ = search.twin(config)        # reuses run_rl's measurement of the same actions
         # Speedups computed here, by code, so the LLM can cite them instead of computing them.
-        for t in sim["templates"]:
-            t["speedup_pct"] = round(100 * (1 - t["after_ms"] / t["before_ms"]), 1) if t["before_ms"] else 0.0
-        return sim
+        # New dicts, so the cached measurement is not changed.
+        return {**sim, "templates": [
+            {**t, "speedup_pct": round(100 * (1 - t["after_ms"] / t["before_ms"]), 1) if t["before_ms"] else 0.0}
+            for t in sim["templates"]]}
 
     def call(self, name: str, args: dict) -> tuple[str, object]:
         fn: Callable | None = getattr(self, name, None) if name in {d["name"] for d in DECLARATIONS} else None
