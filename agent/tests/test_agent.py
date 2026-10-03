@@ -224,7 +224,7 @@ def test_gnn_explain_numbers_pass_the_checker():
     def cite(contents):
         resp = contents[-1]["parts"][0]["functionResponse"]["response"]
         pct = resp["result"]["top_nodes"][0]["predicted_share_pct"]
-        return {"role": "model", "parts": [{"text": f"The scan takes {pct}% of predicted time [{resp['tool_call_id']}]."}]}
+        return {"role": "model", "parts": [{"text": f"The scan takes {pct}% [{resp['tool_call_id']}] of predicted time."}]}
     model = ScriptedLLM([call("gnn_explain", {"template_id": "q_00000001"}), cite])
     r = agent_mod.ask("qn_00000001", ["q_00000001"], model, ExplainTools())
     assert r.status == "ok", r
