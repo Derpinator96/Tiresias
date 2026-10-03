@@ -1,0 +1,99 @@
+{
+ "run_id": "run_9247c060",
+ "finished_at": "2026-10-03T06:51:32Z",
+ "git_commit": "f9ed1ccc2959050b4a86b01e53d48b4545853ad9",
+ "dataset": {
+  "hero_table_rows": 1000000,
+  "hero_table_size_mb": 95.0,
+  "assumption": "synthetic retail data generated for the demo; sizes rounded to 2 significant figures"
+ },
+ "results": [
+  {
+   "name": "Hero query before the index",
+   "value": 37.942,
+   "unit": "ms",
+   "source": "twin measurement",
+   "assumption": "measured on the statistical twin (synthetic rows from pg_stats, no column correlations yet), 1,000,000-row demo table (rounded to 2 significant figures), not production size, median of 5 warm runs"
+  },
+  {
+   "name": "Hero query after the recommended index",
+   "value": 2.065,
+   "unit": "ms",
+   "source": "twin measurement",
+   "assumption": "measured on the statistical twin (synthetic rows from pg_stats, no column correlations yet), 1,000,000-row demo table (rounded to 2 significant figures), not production size, median of 5 warm runs"
+  },
+  {
+   "name": "Speedup",
+   "value": 94.6,
+   "unit": "%",
+   "source": "computed from the two measurements above",
+   "assumption": "measured on the statistical twin (synthetic rows from pg_stats, no column correlations yet), 1,000,000-row demo table (rounded to 2 significant figures), not production size, median of 5 warm runs"
+  },
+  {
+   "name": "Index storage",
+   "value": 6.8,
+   "unit": "MB",
+   "source": "pg_relation_size on the twin",
+   "assumption": "1,000,000-row demo table (rounded to 2 significant figures), not production size"
+  },
+  {
+   "name": "Result checksum with the index",
+   "value": "match",
+   "unit": "",
+   "source": "MD5 of sorted result rows on the twin",
+   "assumption": "checksum only; SQL equivalence checking (VeriEQL) is not built yet"
+  },
+  {
+   "name": "Predicted time before",
+   "value": 40.085,
+   "unit": "ms",
+   "source": "search prediction",
+   "assumption": "estimator: Postgres cost x calibration (GNN pending); search: greedy (RL pending); predictions rank candidates and are not results"
+  },
+  {
+   "name": "Predicted time after",
+   "value": 12.025,
+   "unit": "ms",
+   "source": "search prediction",
+   "assumption": "estimator: Postgres cost x calibration (GNN pending); search: greedy (RL pending); predictions rank candidates and are not results"
+  },
+  {
+   "name": "Payloads sent to the AI side in this run",
+   "value": 32,
+   "unit": "",
+   "source": "payload ledger",
+   "assumption": "AI-facing API responses plus LLM request bodies, each scanned before leaving"
+  },
+  {
+   "name": "Canary hits in those payloads",
+   "value": 0,
+   "unit": "",
+   "source": "canary scanner",
+   "assumption": "20 canary placements; exact and 6-character fragment matching"
+  },
+  {
+   "name": "LLM tool calls",
+   "value": 5,
+   "unit": "",
+   "source": "agent log",
+   "assumption": "gemini gemini-3.8-flash, temperature 0"
+  },
+  {
+   "name": "Numbers in the answer checked against tool results",
+   "value": 7,
+   "unit": "",
+   "source": "number checker",
+   "assumption": "an answer with any unmatched number is blocked"
+  }
+ ],
+ "not_built": [
+  "GNN cost model (Postgres cost estimates stand in)",
+  "Q-learning (greedy search stands in)",
+  "twin column correlations",
+  "write-cost measurement",
+  "VeriEQL",
+  "adversarial leak test",
+  "queries Q2 to Q4",
+  "air-gapped mode"
+ ]
+}
