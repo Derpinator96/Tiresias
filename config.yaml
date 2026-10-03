@@ -234,6 +234,25 @@ llm:
   retry_max_backoff_s: 30.0
   checker_retries: 1
 
+privacy:
+  # Not in the doc's table: characters of one run's payloads the adversarial leak test sends to
+  # the LLM in its single request (LLM bodies first, then AI-side payloads), to stay inside the
+  # free Gemini tier's tokens per minute. Measured 2026-10-03 on one live Q1 ask: 223 distinct
+  # payloads, 769,666 characters, most of them ~200 HypoPG costings from the search; 300,000
+  # got HTTP 429 on all retries; 100,000 already holds the 4 LLM bodies and all 37 table and
+  # column codes. The result file and the dashboard report how much of the run was sent.
+  adversarial_max_chars: 120000
+
+egress:
+  # Not in the doc's table (the doc says "only to the LLM API"): what the egress proxy for ai
+  # (infra/egress_proxy.py) opens tunnels to. HTTP CONNECT only; every other host, port or
+  # method is denied. The host must match agent/llm.py's GEMINI_URL (a test checks it).
+  allowed_hosts: [generativelanguage.googleapis.com]
+  allowed_ports: [443]
+  # Not in the doc's table: seconds the proxy waits for a request head and for the upstream
+  # connection before giving up.
+  connect_timeout_s: 10
+
 approve:
   post_deploy_check_minutes: 10
   rollback_if_median_worse_by: 0.10

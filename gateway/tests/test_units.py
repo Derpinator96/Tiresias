@@ -181,3 +181,19 @@ def test_drift_windows_are_closed_and_aligned():
     wins = w.windows(100)
     assert [x["end"] for x in wins] == [200, 300]      # [100, 200) and [200, 300); 300 to 325 is open
     assert wins[0]["templates"] == {"q_0000000a": {"time_share": 1.0, "call_share": 1.0}}
+
+
+def test_ledger_keeps_allowed_bodies_for_the_window(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    first = led.record("ai", b'{"a": 1}', [])
+    led.record("ai", b'{"a": 1}', [])                                   # same bytes: one copy
+    led.record("llm", b"x", [{"canary_id": canaries.QUESTION.canary_id, "match": "exact"}])  # blocked
+    led.record("local_scanner", b"raw", [])                             # negative control
+    led.record("ai", b'{"bundle": 1}', [], keep_body=False)             # re-send of kept bodies
+    led.record("llm", b'{"c": 1}', [])
+    lo = datetime.fromisoformat(first["time"].replace("Z", "+00:00"))
+    hi = datetime.now(timezone.utc)
+    assert [(p["destination"], p["body"]) for p in led.payloads(lo, hi)] == [("ai", '{"a": 1}'), ("llm", '{"c": 1}')]
+    assert led.payloads(hi + timedelta(seconds=1), hi + timedelta(seconds=2)) == []
+    assert "raw" not in (tmp_path / "ledger_bodies.jsonl").read_text()

@@ -1,4 +1,5 @@
-"""Run inside the `ai` container. Proves the AI side cannot reach either Postgres.
+"""Run inside the `ai` container. Proves the AI side cannot reach either Postgres, and reaches
+the internet only through the egress proxy, only to the LLM API host.
 
 PG_PROD_IP and PG_TWIN_IP are passed in by infra/tests/run.sh (read from `docker inspect`
 on the host), so the test also covers connecting by IP, not just by name. If they are
@@ -6,6 +7,7 @@ missing the test fails rather than skips: an untested boundary is not a proven o
 """
 import os
 import socket
+from urllib.parse import urlsplit
 
 import httpx
 import pytest
@@ -37,7 +39,34 @@ def test_gateway_is_reachable():
     assert r.status_code == 200
 
 
+LLM_HOST = "generativelanguage.googleapis.com"
+
+
+def _connect_via_proxy(target: str, method: str = "CONNECT") -> int:
+    """Send one request line to the egress proxy (HTTPS_PROXY) and return its status code."""
+    proxy = urlsplit(os.environ["HTTPS_PROXY"])
+    with socket.create_connection((proxy.hostname, proxy.port), timeout=TIMEOUT_S) as s:
+        s.sendall(f"{method} {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode())
+        return int(s.recv(1024).split(b" ", 2)[1])
+
+
 def test_llm_api_host_is_reachable():
-    # SIMPLIFIED egress (decision D): ai has unrestricted internet, so this passes for any
-    # host. It shows the LLM route exists, not that other hosts are blocked.
-    _connect("generativelanguage.googleapis.com", 443)
+    # Through the egress proxy (ai has no direct internet route): the tunnel opens.
+    assert _connect_via_proxy(f"{LLM_HOST}:443") == 200
+
+
+@pytest.mark.parametrize("target,method,status", [
+    ("example.com:443", "CONNECT", 403),          # host not on the allowlist
+    (f"{LLM_HOST}:80", "CONNECT", 403),           # allowed host, port not on the allowlist
+    ("1.1.1.1:443", "CONNECT", 403),              # an IP literal is not an allowed host
+    ("http://example.com/", "GET", 405),          # plain forwarding is not offered
+])
+def test_non_allowlisted_host_is_blocked_by_the_proxy(target, method, status):
+    assert _connect_via_proxy(target, method) == status
+
+
+@pytest.mark.parametrize("host", [LLM_HOST, "example.com", "1.1.1.1"])
+def test_no_direct_internet_route(host):
+    # Not even the LLM host is reachable directly: the proxy is ai's only way out.
+    with pytest.raises(OSError):
+        _connect(host, 443)

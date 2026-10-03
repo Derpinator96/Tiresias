@@ -223,3 +223,30 @@ def test_drift_trigger_reruns_the_search_with_the_new_mix(monkeypatch):
     text = text_of(at)
     assert "Drift triggered by the window ending" in text and "Q-table" in text
     assert "New recommendation: add index on" in text or any("no index worth" in i.value for i in at.info)
+ADVERSARIAL = {  # shape written by privacy_tests/adversarial.py
+    "window": {"since": "2026-10-03T10:00:00+00:00", "until": "2026-10-03T10:02:00+00:00"},
+    "llm": {"provider": "gemini", "model": "m", "temperature": 0, "llm_payload_id": "pay_0000abcd", "guesses_returned": 4},
+    "material": {"payloads_in_window": 9, "payloads_sent": 9, "chars_in_window": 1200, "chars_sent": 1200, "llm_payloads_sent": 2},
+    "hashed": {"all": {"codes": 4, "exact": 1, "synonym": 1, "exact_rate": 0.25, "rate": 0.5},
+               "table": {"codes": 1, "exact": 0, "synonym": 1, "exact_rate": 0.0, "rate": 1.0},
+               "column": {"codes": 3, "exact": 1, "synonym": 0, "exact_rate": 0.3333, "rate": 0.3333}},
+    "baseline_random_common_names": {"exact_rate": 0.02, "rate": 0.031, "table_names_listed": 40, "column_names_listed": 60},
+    "plaintext_upper_bound": {"rate": 1.0, "assumption": "by construction"},
+    "plaintext_llm_control": "pending air-gapped mode",
+}
+
+
+@pytest.mark.parametrize("result", [None, ADVERSARIAL])
+def test_adversarial_panel_shows_score_baseline_and_label(monkeypatch, result):
+    monkeypatch.setattr(data, "adversarial", lambda: result)
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.run()
+    assert not at.exception, at.exception
+    assert data.LABELS["adversarial"] in text_of(at)
+    metrics = {m.label: m.value for m in at.metric}
+    if result is None:
+        assert any("make adversarial" in i.value for i in at.info)
+    else:
+        assert metrics["Codes the adversary named from hashed payloads"] == "2 of 4 (50%)"
+        assert metrics["Random common-name guess (expected)"] == "3.1%"
+        assert metrics["Plaintext payloads (upper bound)"] == "100%"

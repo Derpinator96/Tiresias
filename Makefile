@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin fidelity demo drift-demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin fidelity demo drift-demo e2e adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -55,6 +55,11 @@ drift-demo:
 ## End-to-end Q1 test (needs make up, make seed and GEMINI_API_KEY in .env). Writes runs/latest.json.
 e2e:
 	$(TOOLS) python -m pytest -p no:cacheprovider -v e2e
+
+## Adversarial leak test on the payloads of the last passing e2e run (one live LLM call).
+## Any other window: make adversarial SINCE=<iso time> UNTIL=<iso time>. Writes runs/adversarial.json.
+adversarial:
+	$(TOOLS) python -m privacy_tests.adversarial $(SINCE) $(UNTIL)
 
 ## Write site/results.json from the latest passing e2e run (refuses if there is none).
 export:
@@ -146,7 +151,7 @@ test-dashboard:
 
 ## Every suite that runs in the tools container (component suites need make up and make seed).
 test-all:
-	$(TOOLS) python -m pytest -p no:cacheprovider contracts/tests common/tests db/tests gateway/tests miner/tests models/gnn/tests rl/tests db/sandbox/tests db/twin/tests agent/tests verify/tests scripts/tests
+	$(TOOLS) python -m pytest -p no:cacheprovider contracts/tests common/tests db/tests gateway/tests miner/tests models/gnn/tests rl/tests db/sandbox/tests db/twin/tests agent/tests verify/tests scripts/tests privacy_tests/tests infra/tests/test_egress_proxy.py
 
 ## Exporter and site build tests (no services needed).
 test-site:

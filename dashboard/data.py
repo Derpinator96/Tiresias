@@ -2,11 +2,12 @@
 which is why the dashboard is bound to 127.0.0.1 and never hosted publicly."""
 from __future__ import annotations
 
+import json
 import os
 
 import httpx
 
-from common.config import cfg
+from common.config import REPO_ROOT, cfg
 
 TIMEOUT_S = 300.0
 
@@ -18,7 +19,7 @@ LABELS = {
     "twin": "twin: synthetic from pg_stats, correlations kept only for column pairs the miner flags",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
-    "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
+    "egress": "AI egress: allowlist proxy, CONNECT to the LLM API host only (checks the host name, not the traffic inside TLS)",
     # Same text as db/sandbox/write_cost.LABEL (db/sandbox/tests/test_write_cost.py checks it).
     "write_cost": (f"write cost: pgbench on the twin, {cfg('sandbox.pgbench_insert_rate_per_s')} inserts/s for "
                    f"{cfg('sandbox.pgbench_duration_s')} s, median INSERT latency with minus without the indexes "
@@ -27,6 +28,8 @@ LABELS = {
                      f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
     "fidelity": "fidelity: configurations from config.yaml (the doc's expected picks), not from a live search run",
     "miner": "miner: covered-index check knows primary keys only",
+    "adversarial": "adversarial leak test: a fresh LLM session guesses table and column names from one run's payloads "
+                   "(values not scored; plaintext LLM control pending air-gapped mode)",
 }
 
 
@@ -84,6 +87,15 @@ def fidelity_rows(doc: dict, names: bool) -> list[dict]:
                      "plans agree before / after": f"{'yes' if q['plan_agrees']['before'] else 'no'} / "
                                                    f"{'yes' if q['plan_agrees']['after'] else 'no'}"})
     return rows
+
+
+def adversarial() -> dict | None:
+    """The last adversarial leak test result: runs/adversarial.json, written by make adversarial
+    (privacy_tests/adversarial.py). Counts and match flags only, no names. None until it ran."""
+    try:
+        return json.loads((REPO_ROOT / "runs" / "adversarial.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
 
 
 def heat(share: float) -> str:

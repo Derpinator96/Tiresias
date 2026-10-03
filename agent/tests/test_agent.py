@@ -235,3 +235,16 @@ def test_all_eight_doc_tools_are_declared():
     from agent.tools import DECLARATIONS
     assert {d["name"] for d in DECLARATIONS} == {"get_slow_templates", "get_plan", "mine_candidates", "run_rl",
                                                  "simulate", "gnn_explain", "rewrite_candidates", "verify"}
+
+
+def test_adapter_waits_the_retry_delay_in_a_gemini_429_body_and_names_the_quota(outbound):
+    err = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+         "violations": [{"quotaMetric": "m", "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21s"}]}}
+    waits = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: httpx.Response(429, json=err)), sleep=waits.append)
+    with pytest.raises(llm.RateLimited, match="quota: GenerateRequestsPerMinutePerProjectPerModel-FreeTier"):
+        g.generate("sys", [], [])
+    from common.config import cfg
+    assert waits == [min(21.0, cfg("llm.retry_max_backoff_s"))] * (cfg("llm.retry_max_attempts") - 1)

@@ -254,3 +254,20 @@ def test_drift_windows_send_only_codes_and_shares(client, q1):
     assert_clean(body)
     assert len(client.g.ledger.entries()) == before + 1       # scanned and ledgered like every AI payload
     assert client.get("/v1/workload/windows?window_s=0").status_code == 400
+
+
+# ---- payload bodies for the adversarial leak test (step 27) ----------------------------------
+def test_ledger_payloads_returns_the_window_hashed_and_not_itself(client):
+    from datetime import datetime, timezone
+    since = datetime.now(timezone.utc)
+    client.get("/v1/meta/tables")
+    window = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    got = client.get("/v1/ledger/payloads", params=window).json()["payloads"]
+    assert [p["destination"] for p in got] == ["ai"]
+    assert_clean(json.loads(got[0]["body"]))
+    # The bundle above was ledgered as a payload to ai, but its bytes were not kept.
+    wider = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    assert client.get("/v1/ledger/payloads", params=wider).json()["payloads"] == got
+    assert client.get("/v1/ledger/payloads", params={"since": "yesterday", "until": "now"}).status_code == 400
+    naive = {"since": "2026-10-03T00:00:00", "until": "2026-10-03T01:00:00"}
+    assert client.get("/v1/ledger/payloads", params=naive).status_code == 400

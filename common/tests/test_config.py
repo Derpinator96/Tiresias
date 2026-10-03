@@ -59,6 +59,8 @@ REQUIRED = {
     "approve.post_deploy_check_minutes": int, "approve.rollback_if_median_worse_by": float,
     "approve.demo_check_minutes": float,
     "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float, "tests.q2_min_twin_speedup": float,
+    "privacy.adversarial_max_chars": int,
+    "egress.allowed_hosts": list, "egress.allowed_ports": list, "egress.connect_timeout_s": numbers.Real,
 }
 
 # Module path (relative to the repo root) -> the config keys that govern it. Only these
@@ -113,6 +115,8 @@ GOVERNED: dict[str, list[str]] = {
                            "approve.demo_check_minutes", "sandbox.warmup_runs"],
     "gateway/post_deploy_check.py": ["approve.post_deploy_check_minutes", "approve.rollback_if_median_worse_by",
                                      "sandbox.warmup_runs"],
+    "agent/adversary.py": ["privacy.adversarial_max_chars"],
+    "infra/egress_proxy.py": ["egress.connect_timeout_s"],
 }
 
 # Values too generic to flag as hardcoded config (loop starts, booleans, identity).

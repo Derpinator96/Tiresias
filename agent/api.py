@@ -124,3 +124,23 @@ def ai_gnn_predict(plans: list[dict] = Body(...)) -> list[dict]:
         return predict_plans(plans)
     except pred.NotCalibrated as e:
         raise HTTPException(409, str(e)) from None
+
+
+@app.post("/ai/privacy/adversary")
+def ai_privacy_adversary(body: dict = Body(...)) -> dict:
+    """{since, until} (ISO times with a timezone) -> the adversarial LLM's guess per code for the
+    payloads of that window (agent/adversary.py). Scored on the private side."""
+    from urllib.parse import urlencode
+
+    from agent import adversary, llm
+    if not {"since", "until"} <= body.keys():
+        raise HTTPException(400, "body needs since and until")
+    try:
+        material = gw.get("/v1/ledger/payloads?" + urlencode({"since": body["since"], "until": body["until"]}))
+        return adversary.run(material["payloads"], llm.provider())
+    except llm.MissingKey as e:
+        raise HTTPException(503, str(e)) from None
+    except llm.RateLimited as e:
+        raise HTTPException(503, {"error": "rate limited", "detail": str(e)}) from None
+    except llm.OutboundBlocked as e:
+        raise HTTPException(403, {"error": "LLM request blocked by canary scan", "payload_id": e.entry["payload_id"]}) from None

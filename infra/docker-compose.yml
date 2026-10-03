@@ -5,8 +5,11 @@
 # Networks (architecture doc, "Services, APIs and network isolation"; decision D):
 #   private   internal: pg-prod, pg-twin, gateway, dashboard, tools. No internet.
 #   boundary  internal: gateway, ai, dashboard, tools. No internet.
-#   egress    ai only, for the LLM API. SIMPLIFIED: unrestricted internet, not an
-#             allowlist of the LLM API host (allowlist proxy pending).
+#   ai-proxy  internal: ai, egress-proxy. ai's only way out: it has no internet route of its
+#             own and reaches the LLM API through HTTPS_PROXY.
+#   egress    egress-proxy only (internet). The proxy opens HTTP CONNECT tunnels only to the
+#             hosts and ports in config.yaml egress.* (the LLM API host, 443) and denies the
+#             rest. It checks the host name, not the traffic inside TLS.
 #   operator  dashboard only, so the host browser can reach it. Port bound to 127.0.0.1.
 #             SIMPLIFIED: a non-internal Docker network also gives the dashboard an
 #             internet route; it makes no outbound calls of its own.
@@ -136,6 +139,8 @@ services:
     environment:
       GATEWAY_URL: http://gateway:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # httpx (0.28.1) sends https:// requests through this proxy; http://gateway goes direct.
+      HTTPS_PROXY: http://egress-proxy:3128
     # Only hashed-side code is mounted. No db/, no gateway/, no .env.
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -147,8 +152,19 @@ services:
       - ./agent:/app/agent:ro
       - ./verify:/app/verify:ro
       - ./infra/tests:/app/infra/tests:ro
-    networks: [boundary, egress]
-    depends_on: [gateway]
+    networks: [boundary, ai-proxy]
+    depends_on: [gateway, egress-proxy]
+
+  # Egress allowlist proxy for ai (stdlib CONNECT proxy, infra/egress_proxy.py; see
+  # infra/NOTES.md for why not tinyproxy). Mounts only config, common and its own file.
+  egress-proxy:
+    <<: *python
+    command: ["python", "/app/egress_proxy.py", "3128"]
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./common:/app/common:ro
+      - ./infra/egress_proxy.py:/app/egress_proxy.py:ro
+    networks: [ai-proxy, egress]
 
   dashboard:
     <<: *python
@@ -163,6 +179,8 @@ services:
       - ./contracts:/app/contracts:ro
       - ./common:/app/common:ro
       - ./dashboard:/app/dashboard:ro
+      # Result files (adversarial leak test); counts only, no names.
+      - ./runs:/app/runs:ro
     ports:
       - "127.0.0.1:8501:8501"
     networks: [private, boundary, operator]
@@ -214,6 +232,8 @@ networks:
   private:
     internal: true
   boundary:
+    internal: true
+  ai-proxy:
     internal: true
   egress: {}
   operator: {}
