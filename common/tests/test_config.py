@@ -66,6 +66,8 @@ GOVERNED: dict[str, list[str]] = {
     "gateway/rounding.py": ["gateway.round_significant_figures"],
     "gateway/canary_scan.py": ["gateway.canary_fragment_chars"],
     "gateway/ingest/stats.py": ["gateway.skew_top_mcv_count"],
+    "miner/fpgrowth.py": ["miner.unweighted_min_support", "miner.min_weighted_support",
+                          "miner.max_index_columns", "miner.min_leading_distinct", "miner.candidates_kept"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
                            "gateway.dehash_query_chars", "workload.slow_query_ms"],
 }
