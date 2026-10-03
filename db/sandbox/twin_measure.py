@@ -7,7 +7,8 @@ SIMPLIFIED twin. Private side: works on real names; runs in the gateway.
    (EXPLAIN on both) before any twin number is used. A mismatch is reported, not hidden.
 3. Before: median of N warm runs (sandbox.timing_runs after sandbox.warmup_runs).
 4. Build the configuration's indexes for real on the twin, measure again, record their size
-   from pg_relation_size, then drop them so the twin returns to its baseline.
+   from pg_relation_size, then drop them so the twin returns to its baseline. before_after()
+   does steps 3 and 4 on any connection; db/sandbox/fidelity.py reuses it on pg-prod.
 """
 from __future__ import annotations
 
@@ -94,6 +95,27 @@ class TwinResult:
     runs: int
     plan_agreement: dict[str, bool]
     twin_queries: dict[str, str]     # private: twin literals, never sent
+    after_ops: dict[str, list[str]]  # operator sequence of each after query, with the indexes
+
+
+def before_after(conn, indexes: list[tuple[str, list[str]]], queries: dict[str, str],
+                 after_queries: dict[str, str], prefix: str):
+    """On one connection: median ms of each query, then build the indexes for real, record
+    their size, each after query's operator sequence and median ms, and drop the indexes
+    whatever happens. Returns (before, after, index bytes, after operator sequences)."""
+    before = {tid: _median_ms(conn, q) for tid, q in queries.items()}
+    names = [f"{prefix}{i}" for i in range(len(indexes))]
+    try:
+        for name, (table, cols) in zip(names, indexes):
+            conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
+                sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
+        size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
+        ops = {tid: op_sequence(_explain(conn, q)) for tid, q in after_queries.items()}
+        after = {tid: _median_ms(conn, q) for tid, q in after_queries.items()}
+    finally:
+        for name in names:
+            conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
+    return before, after, size, ops
 
 
 def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
@@ -107,15 +129,5 @@ def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
         prod_ops = {tid: op_sequence(_explain(prod, q)) for tid, q in queries.items()}
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
         agree = {tid: op_sequence(_explain(conn, q)) == prod_ops[tid] for tid, q in twin_q.items()}
-        before = {tid: _median_ms(conn, q) for tid, q in twin_q.items()}
-        names = [f"bt_sim_{i}" for i in range(len(indexes))]
-        try:
-            for name, (table, cols) in zip(names, indexes):
-                conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
-                    sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
-            size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
-            after = {tid: _median_ms(conn, q) for tid, q in twin_after.items()}
-        finally:
-            for name in names:
-                conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
-    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q)
+        before, after, size, ops = before_after(conn, indexes, twin_q, twin_after, "bt_sim_")
+    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q, ops)

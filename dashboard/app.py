@@ -190,3 +190,20 @@ for c in cands:
     st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
                 + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
     st.code(view(c["sql"]), language="sql")
+
+# ---- Twin fidelity -------------------------------------------------------------------------
+st.header("Twin fidelity: twin speedup divided by pg-prod speedup, per query")
+st.caption(f"{data.LABELS['fidelity']}. {data.LABELS['twin']}.")
+fid = data.gateway("/v1/twin/fidelity")
+if not fid:
+    st.info("Not measured yet. Run make fidelity: it builds each configuration's indexes on pg-prod only while it "
+            "measures, drops them, and checks that pg-prod is back to primary key indexes only.")
+else:
+    st.dataframe(data.fidelity_rows(fid, names=not st.session_state.get("ai_view")), hide_index=True)
+    st.markdown(f"Assumptions: speedup = before ms / after ms; fidelity 1.0 means the twin predicted pg-prod's speedup "
+                f"exactly, below 1.0 that it understated it. Before is the original query without the new indexes, after "
+                f"is the rewritten query (where there is a rewrite) with them; each is the median of {fid['runs']} warm runs "
+                f"after {fid['warmup_runs']} warm-up run(s). On pg-prod the indexes existed only during the measurement and "
+                f"were dropped. Twin and pg-prod were measured one after the other on the same machine; background load "
+                f"was not controlled. Measured {fid['generated_at']}; twin label at measurement: {fid['twin_label']}. "
+                f"Plans agree: the operator sequence on the twin matches pg-prod's, before and after.")

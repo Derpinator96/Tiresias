@@ -92,3 +92,20 @@ def test_q1_plan_agrees_and_index_speeds_it_up(twin):
     assert r.storage_mb > 0
     left = twin.execute("SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname LIKE 'bt_sim_%%'").fetchone()[0]
     assert left == 0, "measurement must drop its indexes"
+
+
+def test_flagged_store_region_pair_keeps_each_regions_share_of_sales(twin, prod):
+    # The miner flags stores (region_id, store_id) from Q2. Without the pair, a twin store's
+    # region was drawn independently of how many sales the store carries, so Q2's region
+    # filter selected the wrong share of sales.
+    region = twin_measure.load_map()["stores.region_id"][str(cfg("dataset.hero_region_id"))]
+    share = "SELECT avg((st.region_id = %s)::int)::float FROM sales s JOIN stores st USING (store_id)"
+    real = prod.execute(share, (cfg("dataset.hero_region_id"),)).fetchone()[0]
+    assert abs(twin.execute(share, (region,)).fetchone()[0] - real) < 0.01
+
+
+@pytest.mark.parametrize("query", [workload.q2_sql, workload.qor_sql])
+def test_other_workload_plans_agree(twin, prod, query):
+    q = query()
+    twin_q = twin_measure.map_query(q, twin_measure.load_map())
+    assert twin_measure.op_sequence(twin_measure._explain(twin, twin_q)) == twin_measure.op_sequence(twin_measure._explain(prod, q))

@@ -208,3 +208,13 @@ def test_rule_that_does_not_fit_is_refused(client):
     c = _template_with(client, "date_trunc_eq_to_range")[0]
     r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
     assert r.status_code == 409
+
+
+def test_twin_fidelity_is_null_or_free_of_names_and_canaries(client):
+    # Private read for the dashboard, but reachable on the boundary network, so it must hold
+    # no real name: the fidelity file stores query IDs, rule IDs and timings only.
+    r = client.get("/v1/twin/fidelity")
+    assert r.status_code == 200
+    if r.json() is not None:
+        assert_clean(r.json())
+        assert {q["query"] for q in r.json()["queries"]} >= {"q1", "q2"}

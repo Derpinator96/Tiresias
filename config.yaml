@@ -162,6 +162,21 @@ sandbox:
   # most-common values -> twin values). Lives in the gateway's volume; never sent.
   twin_map_path: /var/lib/blind-tuner/twin_map.json
   pgbench_insert_rate_per_s: 200
+  # Not in the doc's table: the configuration measured per query for twin fidelity (doc:
+  # "twin speedup / production speedup, reported per query"). The search has no rewrite
+  # actions yet, so these are the doc's expected picks: Q1 its composite index; Q2 the
+  # date_trunc rewrite plus the index HypoPG costed cheapest for the rewritten Q2 on 2026-10-03
+  # at 10,000,000 rows (store_id, transaction_date: 125,322 against 149,616 for
+  # transaction_date alone and 160,399 with no index); the two-region query its IN rewrite plus
+  # Q1's index. make fidelity builds these indexes on pg-prod only while it measures, then drops
+  # them (human-approved 2026-10-03).
+  fidelity_queries:
+    q1: {indexes: [[sales, [region_id, transaction_date]]], rewrite: null}
+    q2: {indexes: [[sales, [store_id, transaction_date]]], rewrite: date_trunc_eq_to_range}
+    qor: {indexes: [[sales, [region_id, transaction_date]]], rewrite: or_same_column_to_in}
+  # Not in the doc's table: where make fidelity writes its result (gateway volume; the
+  # dashboard reads it through the gateway, the exporter from the tools container).
+  fidelity_path: /var/lib/blind-tuner/twin_fidelity.json
 
 verify:
   verieql_rows_per_table: 5

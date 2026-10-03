@@ -8,6 +8,7 @@ Endpoints that later build steps implement return 501 with the step that adds th
 """
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 
@@ -199,6 +200,17 @@ def ledger():
 @app.post("/v1/privacy/negative-control")
 def negative_control():
     return gw().negative_control()
+
+
+@app.get("/v1/twin/fidelity")
+def twin_fidelity():
+    """The last `make fidelity` result (db/sandbox/fidelity.py), or null before the first run.
+    For the dashboard; the file holds query IDs and timings, no table or column name."""
+    try:
+        with open(cfg("sandbox.fidelity_path"), encoding="utf-8") as f:
+            return JSONResponse(json.load(f))
+    except FileNotFoundError:
+        return None
 
 
 @app.post("/v1/approve")
