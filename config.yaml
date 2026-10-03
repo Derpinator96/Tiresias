@@ -136,14 +136,14 @@ verify:
 
 llm:
   # Decision C. Model name taken from https://ai.google.dev/gemini-api/docs/models on
-  # 2026-10-03 (newest stable Flash listed). Not yet confirmed against the API's own
-  # model list; step 11 does that once GEMINI_API_KEY exists.
+  # 2026-10-03 (newest stable Flash listed), confirmed the same day against the API's own
+  # model list by agent/tests/test_live_llm.py.
   provider: gemini
   model: gemini-3.8-flash
   api_key_env: GEMINI_API_KEY
   temperature: 0
   max_tool_calls: 8
-  # Not in the doc's table: HTTP 429 backoff (decision C).
+  # Not in the doc's table: backoff for HTTP 429 (decision C) and transient 500/503/504.
   retry_max_attempts: 5
   retry_initial_backoff_s: 2.0
   retry_backoff_multiplier: 2.0

@@ -12,7 +12,7 @@ functionResponse {id, name, response}, thoughtSignature). The model's own turn i
 unchanged so any thoughtSignature parts are returned as the API expects.
 Not yet exercised against the live API: GEMINI_API_KEY was not set when this was written.
 
-HTTP 429 is retried with exponential backoff (llm.retry_* in config.yaml), honouring a
+HTTP 429, and the transient server errors 500, 503 and 504, are retried with exponential backoff (llm.retry_* in config.yaml), honouring a
 Retry-After header when present. Each retry is reported through on_event, which the
 dashboard shows as "rate limited, retrying".
 """
@@ -29,6 +29,15 @@ from agent import gateway_client as gw
 from common.config import cfg
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+
+# 429 is rate limiting; 500, 503 and 504 are transient server errors (a 503 "service
+# unavailable" was seen on the first live run, 2026-10-03). All use the same backoff.
+RETRYABLE = {429, 500, 503, 504}
+
+
+def _reason(status: int) -> str:
+    return "rate limited" if status == 429 else f"LLM service unavailable (HTTP {status})"
 
 
 class MissingKey(RuntimeError):
@@ -68,10 +77,12 @@ class GeminiREST:
 
         attempts = int(cfg("llm.retry_max_attempts"))
         delay = float(cfg("llm.retry_initial_backoff_s"))
+        status = 0
         for attempt in range(1, attempts + 1):
             r = self._client.post(GEMINI_URL.format(model=self.model), content=body.encode("utf-8"),
                                   headers={"Content-Type": "application/json", "x-goog-api-key": self._key})
-            if r.status_code != 429:
+            status = r.status_code
+            if status not in RETRYABLE:
                 r.raise_for_status()
                 return r.json()
             if attempt == attempts:
@@ -79,11 +90,11 @@ class GeminiREST:
             retry_after = r.headers.get("Retry-After")
             wait = min(float(retry_after) if retry_after and retry_after.isdigit() else delay,
                        float(cfg("llm.retry_max_backoff_s")))
-            on_event(f"rate limited, retrying in {wait:.0f} s (attempt {attempt + 1} of {attempts})")
+            on_event(f"{_reason(status)}, retrying in {wait:.0f} s (attempt {attempt + 1} of {attempts})")
             self._sleep(wait)
             delay *= float(cfg("llm.retry_backoff_multiplier"))
-        on_event(f"rate limited, gave up after {attempts} attempts")
-        raise RateLimited(f"LLM API returned 429 on all {attempts} attempts")
+        on_event(f"{_reason(status)}, gave up after {attempts} attempts")
+        raise RateLimited(f"LLM API returned HTTP {status} on all {attempts} attempts")
 
 
 def provider(transport: httpx.BaseTransport | None = None, sleep: Callable[[float], None] = time.sleep):

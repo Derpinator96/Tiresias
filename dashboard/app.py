@@ -68,7 +68,7 @@ def answer_panel():
     job = JOBS.get(qid, {})
     events = data.ai(f"/ai/ask/{qid}/events", method="GET").json()["events"]
     for e in events:
-        if e.startswith("rate limited"):
+        if e.startswith(("rate limited", "LLM service unavailable")):
             st.warning(e)
     if not job.get("done"):
         st.info(f"Agent working: {len([e for e in events if e.startswith('tool ')])} tool calls so far")
