@@ -139,6 +139,8 @@ services:
     environment:
       GATEWAY_URL: http://gateway:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # httpx (0.28.1) sends https:// requests through this proxy; http://gateway goes direct.
       HTTPS_PROXY: http://egress-proxy:3128
     # Only hashed-side code is mounted. No db/, no gateway/, no .env.
@@ -200,6 +202,8 @@ services:
       AI_URL: http://ai:8100
       PGLOG_DIR: /var/log/pglog
       GEMINI_API_KEY_PRESENT: ${GEMINI_API_KEY:+yes}
+      NVIDIA_API_KEY_PRESENT: ${NVIDIA_API_KEY:+yes}
+      OPENAI_API_KEY_PRESENT: ${OPENAI_API_KEY:+yes}
       VERIEQL_URL: http://verieql:8300
     volumes:
       - ./:/app

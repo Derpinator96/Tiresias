@@ -67,10 +67,13 @@ def test_tunnel_relays_bytes_and_denies_other_ports(monkeypatch):
 
 
 def test_allowlist_is_the_llm_host():
+    # Exactly the hosted LLM APIs (Gemini; NVIDIA NIM and OpenAI, added 2026-10-03 at the
+    # human's request), nothing else.
     from agent import llm
-    url = urlsplit(llm.GEMINI_URL)
-    assert cfg("egress.allowed_hosts") == [url.hostname]
-    assert (url.port or 443) in cfg("egress.allowed_ports")
+    urls = [urlsplit(llm.GEMINI_URL), urlsplit(cfg("llm.nim.base_url")), urlsplit(cfg("llm.openai.base_url"))]
+    assert sorted(cfg("egress.allowed_hosts")) == sorted(u.hostname for u in urls)
+    for u in urls:
+        assert (u.port or 443) in cfg("egress.allowed_ports")
 
 
 def test_only_the_proxy_reaches_the_internet_and_only_ai_reaches_the_proxy():
