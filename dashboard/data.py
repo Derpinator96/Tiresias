@@ -19,6 +19,7 @@ LABELS = {
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
     "write_cost": "write cost: not measured (pgbench pending)",
+    "miner": "miner: covered-index check knows primary keys only",
 }
 
 

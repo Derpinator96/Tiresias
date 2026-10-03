@@ -25,6 +25,7 @@ from gateway.ingest import stats as stats_mod
 from gateway.ingest import statements as statements_mod
 from gateway.keys import hmac_key
 from gateway.ledger import Ledger
+from gateway.windows import Windows
 
 RESOLVER_MAP = os.path.join(os.path.dirname(__file__), "resolver_map.yaml")
 CODE_RE = re.compile(r"\b([tciq])_[0-9a-f]{8}\b")
@@ -62,6 +63,7 @@ class Gateway:
         self.hasher = Hasher(hmac_key())
         self.scanner = Scanner()
         self.ledger = Ledger(ledger_path or cfg("gateway.ledger_path"))
+        self.windows = Windows(self.template_totals)
 
     # ---- ingestion -------------------------------------------------------------------
     def snapshot(self) -> Snapshot:
@@ -74,6 +76,12 @@ class Gateway:
                     self.hasher.column(t, c)
             templates, withheld = statements_mod.read(conn, self.hasher, schema)
         return Snapshot(cat, templates, withheld, plans_mod.read_log(self.log_dir))
+
+    def template_totals(self) -> dict[str, tuple[float, float]]:
+        """Raw cumulative (calls, total ms) per template code, for drift windows. Private."""
+        with psycopg.connect(self.prod_dsn, autocommit=True) as conn:
+            templates, _ = statements_mod.read(conn, self.hasher, catalog_mod.read(conn).schema())
+        return {t.template_id: (t.calls, t.total_ms) for t in templates}
 
     def slow_templates(self, snap: Snapshot) -> list[dict]:
         threshold = float(cfg("workload.slow_query_ms"))

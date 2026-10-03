@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo drift-demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -39,6 +39,11 @@ demo:
 	$(DC) up -d dashboard
 	@echo "Operator dashboard: http://127.0.0.1:8501"
 	-python -m webbrowser -t http://127.0.0.1:8501
+
+## Drift demo (needs make seed): run the seeded mix, roll Q4 out over one drift window, then run
+## the Q4-heavy mix. About 10 minutes with the demo window; watch the dashboard's drift panel.
+drift-demo:
+	$(TOOLS) python -m db.drift_demo
 
 ## End-to-end Q1 test (needs make up, make seed and GEMINI_API_KEY in .env). Writes runs/latest.json.
 e2e:

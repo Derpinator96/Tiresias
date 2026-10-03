@@ -9,6 +9,7 @@ Endpoints that later build steps implement return 501 with the step that adds th
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from functools import lru_cache
 
 from fastapi import Body, FastAPI, HTTPException
@@ -16,14 +17,23 @@ from fastapi.responses import JSONResponse, Response
 
 from common.config import cfg
 from contracts.validate import validate
+from gateway import windows as windows_mod
 from gateway.service import Blocked, Gateway
 
-app = FastAPI(title="Blind Tuner gateway", docs_url=None, redoc_url=None, openapi_url=None)
+
+@asynccontextmanager
+async def lifespan(_app):
+    gw()                     # the real gateway starts sampling drift windows at boot
+    yield
+
+app = FastAPI(title="Blind Tuner gateway", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
 
 @lru_cache(maxsize=1)
 def gw() -> Gateway:
-    return Gateway(os.environ["PROD_DSN"], os.environ["PGLOG_DIR"])
+    g = Gateway(os.environ["PROD_DSN"], os.environ["PGLOG_DIR"])
+    g.windows.start()
+    return g
 
 
 def _to_ai(contract: str | None, payload) -> Response:
@@ -48,6 +58,17 @@ def healthz() -> dict:
 def templates_slow():
     g = gw()
     return _to_ai("HashedQuery", g.slow_templates(g.snapshot()))
+
+
+@app.get("/v1/workload/windows")
+def workload_windows(window_s: int | None = None):
+    """-> {window_s, windows: [{end, templates: {template_id: {time_share, call_share}}}]}, closed
+    windows oldest first. Shares only. window_s defaults to the configured drift window; a
+    shorter one is a test-only parameter, the configured value is what the demo uses."""
+    w = windows_mod.window_s() if window_s is None else window_s
+    if w <= 0:
+        raise HTTPException(400, "window_s must be positive")
+    return _to_ai(None, {"window_s": w, "windows": gw().windows.windows(w)})
 
 
 @app.get("/v1/templates/{template_id}/plans")

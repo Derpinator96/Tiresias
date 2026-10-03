@@ -52,6 +52,7 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make test-llm` | live Gemini checks in the ai container (needs GEMINI_API_KEY) | `$DC exec -T ai python -m pytest -p no:cacheprovider -rs agent/tests/test_live_llm.py` |
 | `make test-verify` | result checksums on the twin | `$DC run --rm -T tools python -m pytest verify/tests` |
 | `make demo` | start the dashboard and open http://127.0.0.1:8501 | `$DC up -d dashboard`, then open the URL |
+| `make drift-demo` | switch the workload mix to the Q4 drift query over about 10 minutes (demo window 120 s); the dashboard's drift panel shows the trigger and the re-tuned recommendation | `$DC run --rm -T tools python -m db.drift_demo` |
 | `make test-dashboard` | dashboard AppTest suite | `$DC exec -T dashboard python -m pytest -p no:cacheprovider /app/dashboard/tests` |
 | `make e2e` | the Q1 end-to-end test; fails without GEMINI_API_KEY; a pass writes runs/latest.json | `$DC run --rm -T tools python -m pytest -p no:cacheprovider -v e2e` |
 | `make export` | write site/results.json from the latest passing e2e run; refuses if none | `$DC run --rm -T tools python -m scripts.export_results` |

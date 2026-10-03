@@ -208,3 +208,20 @@ def test_rule_that_does_not_fit_is_refused(client):
     c = _template_with(client, "date_trunc_eq_to_range")[0]
     r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
     assert r.status_code == 409
+
+
+def test_drift_windows_send_only_codes_and_shares(client, q1):
+    from db import workload
+    w = client.g.windows
+    w.sample(now=100.0)
+    with psycopg.connect(run_q1.app_dsn(os.environ["PROD_DSN"]), autocommit=True) as conn:
+        conn.execute(workload.q1_sql()).fetchall()
+    w.sample(now=199.0)                                    # the window [100, 200) ends at this sample
+    w.sample(now=201.0)                                    # a sample past 200 closes it
+    before = len(client.g.ledger.entries())
+    body = client.get("/v1/workload/windows?window_s=100").json()
+    assert body["window_s"] == 100 and [x["end"] for x in body["windows"]] == [200]
+    assert body["windows"][0]["templates"] == {q1["template_id"]: {"time_share": 1.0, "call_share": 1.0}}
+    assert_clean(body)
+    assert len(client.g.ledger.entries()) == before + 1       # scanned and ledgered like every AI payload
+    assert client.get("/v1/workload/windows?window_s=0").status_code == 400

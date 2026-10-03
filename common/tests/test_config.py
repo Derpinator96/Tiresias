@@ -39,6 +39,9 @@ REQUIRED = {
     "miner.min_weighted_support": float, "miner.max_index_columns": int, "miner.candidates_kept": int,
     "miner.min_leading_distinct": int, "miner.drift_window_production_s": int,
     "miner.drift_window_demo_s": int, "miner.drift_js_threshold": float, "miner.drift_windows_required": int,
+    "miner.drift_window_mode": str, "miner.drift_sample_s": numbers.Real, "miner.drift_windows_kept": int,
+    "workload.q4_segment": str, "workload.q4_dates": list, "workload.drift_before": list,
+    "workload.drift_after": list,
     "gnn.layers": int, "gnn.hidden_size": int, "gnn.dropout": float, "gnn.learning_rate": float,
     "gnn.batch_size": int, "gnn.max_epochs": int, "gnn.patience": int, "gnn.template_split": list,
     "gnn.dataset_dir": str, "gnn.misestimate_ratio_alert": numbers.Real,
@@ -91,6 +94,12 @@ GOVERNED: dict[str, list[str]] = {
                                           "dataset.stores_rows"],
     "models/gnn/train.py": ["gnn.learning_rate", "gnn.batch_size", "gnn.max_epochs", "gnn.patience",
                             "gnn.hidden_size", "gnn.layers", "gnn.dropout"],
+    # drift_windows_required (2) is not listed for miner/drift.py: its literal 2 is the log base of
+    # the Jensen-Shannon distance (the doc's 0-to-1 scale), not a window count.
+    "miner/drift.py": ["miner.drift_js_threshold"],
+    "gateway/windows.py": ["miner.drift_sample_s", "miner.drift_windows_kept", "miner.drift_window_demo_s",
+                           "miner.drift_window_production_s"],
+    "db/drift_demo.py": ["miner.drift_windows_required"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
                            "gateway.dehash_query_chars", "workload.slow_query_ms"],
 }

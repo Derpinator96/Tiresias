@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 
 import streamlit as st
 
+from common.config import cfg
 from dashboard import data
 
 st.set_page_config(page_title="Blind Tuner operator dashboard", layout="wide")
@@ -34,7 +36,7 @@ estimator = data.estimator_label()   # names the estimator the ai service is ser
 with st.container(border=True):
     st.markdown("**Simplified components in this build**")
     st.markdown(f"- {estimator}")
-    for key in ("search", "twin", "verify", "write_cost", "egress"):
+    for key in ("search", "twin", "verify", "write_cost", "egress", "miner"):
         st.markdown(f"- {data.LABELS[key]}")
 
 st.toggle("Show what the AI sees (hashed codes) instead of what the DBA sees (real names)", key="ai_view")
@@ -190,3 +192,42 @@ for c in cands:
     st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
                 + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
     st.code(view(c["sql"]), language="sql")
+
+# ---- Workload drift and mining candidates ---------------------------------------------------
+mined = data.ai("/ai/mine", {}).json()
+drift = mined["drift"]
+
+st.header("Workload drift")
+st.button("Check for drift")            # a click reruns the page, which reads the windows again
+c1, c2, c3 = st.columns(3)
+c1.metric("Current JS distance", "no two windows yet" if drift["current_js_distance"] is None
+          else f"{drift['current_js_distance']:.2f}")
+c2.metric("Trigger rule", f"above {drift['threshold']} for {drift['windows_required']} windows")
+c3.metric("Drift", "triggered" if drift["triggered"] else "not triggered")
+st.caption(f"Windows of {drift['window_s']} s. The distance compares consecutive windows' shares of total query time "
+           f"(Jensen-Shannon, 0 = same mix, 1 = no template in common). {drift['windows']} of the last "
+           f"{cfg('miner.drift_windows_kept')} windows had queries. Run make drift-demo to switch the mix.")
+if drift["triggered"]:
+    if st.session_state.get("drift_rl_for") != drift["triggered_at"]:
+        st.session_state["drift_rl"] = data.ai("/ai/rl/run", {"weights": drift["weights"]}).json()
+        st.session_state["drift_rl_for"] = drift["triggered_at"]
+    rec = st.session_state["drift_rl"]
+    st.markdown(f"Drift triggered by the window ending {time.strftime('%H:%M:%S', time.gmtime(drift['triggered_at']))} UTC. "
+                f"The search re-ran with that window's mix (each template's share of calls) and kept its learned "
+                f"Q-table ({rec['q_entries']:,} entries).")
+    if not rec["config"]["actions"]:
+        st.info("For the new mix the search found no index worth its write and storage cost.")
+    for a in rec["config"]["actions"]:
+        st.markdown(f"New recommendation: add index on **{view(a['table'] + ' (' + ', '.join(a['columns']) + ')')}**: "
+                    f"predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call ({rec['estimator_label']})")
+    st.caption(rec["label"])
+
+st.header("Candidate indexes from mining")
+st.caption(f"{data.LABELS['miner']}. Support: the share of slow query time in which the candidate's column roles "
+           "appear together (FP-Growth, weighted by total time).")
+if not mined["candidates"]:
+    st.info("No candidate reaches the minimum support.")
+else:
+    st.dataframe([{"candidate index": view(c["table"] + " (" + ", ".join(c["columns"]) + ")"),
+                   "support": f"{100 * c['support']:.1f}%", "templates": len(c["evidence"]["templates"])}
+                  for c in mined["candidates"]], hide_index=True)

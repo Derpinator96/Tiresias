@@ -161,3 +161,23 @@ def test_ledger_entry_valid_and_verdict(tmp_path):
     assert ok["verdict"] == "allow" and bad["verdict"] == "block"
     assert errors("LedgerEntry", ok) == [] and errors("LedgerEntry", bad) == []
     assert [e["payload_id"] for e in led.entries()] == [ok["payload_id"], bad["payload_id"]]
+
+
+def test_drift_window_shares_count_a_reset_counter_whole():
+    from gateway.windows import shares
+    before = {"q_0000000a": (10, 1000.0), "q_0000000b": (5, 500.0)}
+    after = {"q_0000000a": (14, 1300.0), "q_0000000b": (2, 100.0), "q_0000000c": (0, 0.0)}   # b was reset
+    assert shares(before, after) == {"q_0000000a": {"time_share": 0.75, "call_share": 0.6667},
+                                     "q_0000000b": {"time_share": 0.25, "call_share": 0.3333}}
+
+
+def test_drift_windows_are_closed_and_aligned():
+    from gateway.windows import Windows
+    totals = {"q_0000000a": (0, 0.0)}
+    w = Windows(lambda: dict(totals))
+    for t in range(95, 330, 5):                        # one call of 100 ms per 5 s
+        totals["q_0000000a"] = (t // 5, t // 5 * 100.0)
+        w.sample(now=float(t))
+    wins = w.windows(100)
+    assert [x["end"] for x in wins] == [200, 300]      # [100, 200) and [200, 300); 300 to 325 is open
+    assert wins[0]["templates"] == {"q_0000000a": {"time_share": 1.0, "call_share": 1.0}}

@@ -87,3 +87,45 @@ def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(a
     assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
     app.toggle[0].set_value(True).run()
     assert not any(REAL.search(c.value) for c in app.code)
+
+
+def test_mining_candidates_panel_shows_support(app):
+    assert any(h.value == "Candidate indexes from mining" for h in app.header)
+    rows = app.dataframe[-1].value.to_dict("records")
+    q1 = [r for r in rows if r["candidate index"] == "sales (region_id, transaction_date)"]
+    assert q1 and q1[0]["support"].endswith("%") and q1[0]["templates"] >= 1, rows
+
+
+def test_drift_panel_shows_distance_and_trigger_state(app):
+    assert any(h.value == "Workload drift" for h in app.header)
+    labels = {m.label: m.value for m in app.metric}
+    assert labels["Drift"] in ("triggered", "not triggered")
+    assert labels["Current JS distance"] == "no two windows yet" or 0.0 <= float(labels["Current JS distance"]) <= 1.0
+    next(b for b in app.button if b.label == "Check for drift").click().run()
+    assert not app.exception, app.exception
+
+
+def test_drift_trigger_reruns_the_search_with_the_new_mix(monkeypatch):
+    """The live trigger is proven by miner/tests/test_drift_live.py; here ai's drift state is
+    forced to triggered to check what the panel does with it."""
+    real = data.ai
+    sent = []
+
+    def ai(path, body=None, method=None):
+        r = real(path, body, method)
+        if path == "/ai/mine":
+            body_ = r.json()
+            body_["drift"].update(triggered=True, triggered_at=1791000000)
+            r.json = lambda: body_
+        if path == "/ai/rl/run":
+            sent.append(body)
+        return r
+    monkeypatch.setattr(data, "ai", ai)
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.run()
+    assert not at.exception, at.exception
+    assert any(m.label == "Drift" and m.value == "triggered" for m in at.metric)
+    assert sent and "weights" in sent[-1]
+    text = text_of(at)
+    assert "Drift triggered by the window ending" in text and "Q-table" in text
+    assert "New recommendation: add index on" in text or any("no index worth" in i.value for i in at.info)
