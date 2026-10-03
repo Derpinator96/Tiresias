@@ -69,6 +69,10 @@
   --color-signal-soft: #ffedd5;
 }
 
+/* registered so the cursor-driven backdrop position can ease between values */
+@property --mx { syntax: "<percentage>"; inherits: true; initial-value: 30%; }
+@property --my { syntax: "<percentage>"; inherits: true; initial-value: 20%; }
+
 /* Light only (CLAUDE.md design rules): no dark theme, no purple, no pill buttons.
    Glass = translucent white over a slate page with faint blue and slate tints. */
 :root {
@@ -123,17 +127,16 @@
   body {
     color: var(--foreground);
     background-color: var(--background);
-    /* the backdrop the glass blurs: accent and signal tints over slate, drifting slowly */
-    background-image: linear-gradient(120deg, var(--color-accent-soft) 0%, #f1f5f9 45%, var(--color-signal-soft) 100%);
-    background-size: 300% 300%;
+    /* the backdrop the glass blurs: an accent tint under the cursor and a signal tint opposite
+       it (human request 2026-10-04: the colour moves only with the cursor). --mx and --my are
+       set by src/components/site/site-effects.tsx; without a mouse they stay at the defaults. */
+    background-image:
+      radial-gradient(70rem 70rem at var(--mx) var(--my), var(--color-accent-soft) 0%, transparent 60%),
+      radial-gradient(60rem 60rem at calc(100% - var(--mx)) calc(100% - var(--my)), var(--color-signal-soft) 0%, transparent 60%);
     background-attachment: fixed;
-    animation: backdrop-drift 24s ease-in-out infinite;
+    transition: --mx 400ms ease-out, --my 400ms ease-out;
     font-size: var(--text-sm);
     line-height: var(--text-sm--line-height);
-  }
-  @keyframes backdrop-drift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
   }
   /* fixed sizes for raw headings and paragraphs: the same four sizes as the utilities */
   h1 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); font-weight: 600; letter-spacing: -0.01em; }
@@ -142,7 +145,7 @@
   p, li, td, th, label, input, textarea, button { font-size: var(--text-sm); }
   small, caption, figcaption, code, kbd { font-size: var(--text-xs); }
   /* press bounce (human request 2026-10-04): every button springs when clicked. The class is set
-     by src/components/site/press-bounce.tsx on click and removed when the animation ends. */
+     by src/components/site/site-effects.tsx on click and removed when the animation ends. */
   button:active { transform: scale(0.96); }
   .is-pressed { animation: press-bounce 360ms cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes press-bounce {
@@ -271,7 +274,7 @@
     animation: none;
   }
   body {
-    animation: none;
+    transition: none;
   }
 }
 @utility glass-subtle {
