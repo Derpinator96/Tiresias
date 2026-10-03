@@ -190,3 +190,26 @@ for c in cands:
     st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
                 + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
     st.code(view(c["sql"]), language="sql")
+
+# ---- Adversarial leak test -------------------------------------------------------------------
+st.header("Adversarial leak test")
+st.caption(data.LABELS["adversarial"])
+adv = data.adversarial()
+if adv is None:
+    st.info("No adversarial leak test result yet. After a run that reached the LLM, run make adversarial.")
+else:
+    a, t, c = (adv["hashed"][k] for k in ("all", "table", "column"))
+    b, m = adv["baseline_random_common_names"], adv["material"]
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Codes the adversary named from hashed payloads", f"{a['exact'] + a['synonym']} of {a['codes']} ({100 * a['rate']:.0f}%)")
+    c2.metric("Random common-name guess (expected)", f"{100 * b['rate']:.1f}%")
+    c3.metric("Plaintext payloads (upper bound)", f"{100 * adv['plaintext_upper_bound']['rate']:.0f}%")
+    st.markdown(f"Named exactly {a['exact']}, by synonym {a['synonym']}. Tables {t['exact'] + t['synonym']} of {t['codes']}, "
+                f"columns {c['exact'] + c['synonym']} of {c['codes']}. Model {adv['llm']['model']} at temperature "
+                f"{adv['llm']['temperature']}, one request ({adv['llm']['llm_payload_id']}), canary-scanned and ledgered like "
+                f"every LLM payload. It saw {m['payloads_sent']} of the {m['payloads_in_window']} distinct payloads "
+                f"({m['chars_sent']:,} of {m['chars_in_window']:,} characters) sent between {adv['window']['since']} and "
+                f"{adv['window']['until']}.")
+    st.caption(f"Baseline: one uniform random guess per code from {b['table_names_listed']} common table names or "
+               f"{b['column_names_listed']} common column names; a guess on a small fixed synonym list counts as correct. "
+               f"Plaintext: {adv['plaintext_upper_bound']['assumption']}; {adv['plaintext_llm_control']}.")

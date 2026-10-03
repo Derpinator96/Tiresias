@@ -227,13 +227,14 @@ class Gateway:
             return stats_mod.table_meta(conn, snap.catalog, self.hasher)
 
     # ---- the only way out --------------------------------------------------------------
-    def send_to_ai(self, contract: str | None, payload) -> bytes:
-        """Validate, scan and ledger a payload bound for the AI side. Raises Blocked on a hit."""
+    def send_to_ai(self, contract: str | None, payload, keep_body: bool = True) -> bytes:
+        """Validate, scan and ledger a payload bound for the AI side. Raises Blocked on a hit.
+        keep_body=False ledgers it without keeping its bytes (for re-sends of kept payloads)."""
         if contract:
             for item in (payload if isinstance(payload, list) else [payload]):
                 validate(contract, item)
         body = json.dumps(payload).encode("utf-8")
-        entry = self.ledger.record("ai", body, self.scanner.scan(body.decode("utf-8")))
+        entry = self.ledger.record("ai", body, self.scanner.scan(body.decode("utf-8")), keep_body)
         if entry["verdict"] == "block":
             raise Blocked(entry)
         return body

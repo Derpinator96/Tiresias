@@ -161,3 +161,19 @@ def test_ledger_entry_valid_and_verdict(tmp_path):
     assert ok["verdict"] == "allow" and bad["verdict"] == "block"
     assert errors("LedgerEntry", ok) == [] and errors("LedgerEntry", bad) == []
     assert [e["payload_id"] for e in led.entries()] == [ok["payload_id"], bad["payload_id"]]
+
+
+def test_ledger_keeps_allowed_bodies_for_the_window(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    first = led.record("ai", b'{"a": 1}', [])
+    led.record("ai", b'{"a": 1}', [])                                   # same bytes: one copy
+    led.record("llm", b"x", [{"canary_id": canaries.QUESTION.canary_id, "match": "exact"}])  # blocked
+    led.record("local_scanner", b"raw", [])                             # negative control
+    led.record("ai", b'{"bundle": 1}', [], keep_body=False)             # re-send of kept bodies
+    led.record("llm", b'{"c": 1}', [])
+    lo = datetime.fromisoformat(first["time"].replace("Z", "+00:00"))
+    hi = datetime.now(timezone.utc)
+    assert [(p["destination"], p["body"]) for p in led.payloads(lo, hi)] == [("ai", '{"a": 1}'), ("llm", '{"c": 1}')]
+    assert led.payloads(hi + timedelta(seconds=1), hi + timedelta(seconds=2)) == []
+    assert "raw" not in (tmp_path / "ledger_bodies.jsonl").read_text()

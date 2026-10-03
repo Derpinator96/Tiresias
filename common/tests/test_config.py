@@ -53,6 +53,8 @@ REQUIRED = {
     "llm.max_tool_calls": int, "llm.retry_max_attempts": int,
     "approve.post_deploy_check_minutes": int, "approve.rollback_if_median_worse_by": float,
     "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float,
+    "privacy.adversarial_max_chars": int,
+    "egress.allowed_hosts": list, "egress.allowed_ports": list, "egress.connect_timeout_s": numbers.Real,
 }
 
 # Module path (relative to the repo root) -> the config keys that govern it. Only these
@@ -93,6 +95,8 @@ GOVERNED: dict[str, list[str]] = {
                             "gnn.hidden_size", "gnn.layers", "gnn.dropout"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
                            "gateway.dehash_query_chars", "workload.slow_query_ms"],
+    "agent/adversary.py": ["privacy.adversarial_max_chars"],
+    "infra/egress_proxy.py": ["egress.connect_timeout_s"],
 }
 
 # Values too generic to flag as hardcoded config (loop starts, booleans, identity).

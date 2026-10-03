@@ -208,3 +208,20 @@ def test_rule_that_does_not_fit_is_refused(client):
     c = _template_with(client, "date_trunc_eq_to_range")[0]
     r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
     assert r.status_code == 409
+
+
+# ---- payload bodies for the adversarial leak test (step 27) ----------------------------------
+def test_ledger_payloads_returns_the_window_hashed_and_not_itself(client):
+    from datetime import datetime, timezone
+    since = datetime.now(timezone.utc)
+    client.get("/v1/meta/tables")
+    window = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    got = client.get("/v1/ledger/payloads", params=window).json()["payloads"]
+    assert [p["destination"] for p in got] == ["ai"]
+    assert_clean(json.loads(got[0]["body"]))
+    # The bundle above was ledgered as a payload to ai, but its bytes were not kept.
+    wider = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    assert client.get("/v1/ledger/payloads", params=wider).json()["payloads"] == got
+    assert client.get("/v1/ledger/payloads", params={"since": "yesterday", "until": "now"}).status_code == 400
+    naive = {"since": "2026-10-03T00:00:00", "until": "2026-10-03T01:00:00"}
+    assert client.get("/v1/ledger/payloads", params=naive).status_code == 400

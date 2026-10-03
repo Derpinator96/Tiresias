@@ -9,6 +9,7 @@ Endpoints that later build steps implement return 501 with the step that adds th
 from __future__ import annotations
 
 import os
+from datetime import datetime
 from functools import lru_cache
 
 from fastapi import Body, FastAPI, HTTPException
@@ -26,9 +27,9 @@ def gw() -> Gateway:
     return Gateway(os.environ["PROD_DSN"], os.environ["PGLOG_DIR"])
 
 
-def _to_ai(contract: str | None, payload) -> Response:
+def _to_ai(contract: str | None, payload, keep_body: bool = True) -> Response:
     try:
-        return Response(gw().send_to_ai(contract, payload), media_type="application/json")
+        return Response(gw().send_to_ai(contract, payload, keep_body), media_type="application/json")
     except Blocked as b:
         raise HTTPException(403, {"blocked": True, "payload_id": b.entry["payload_id"],
                                   "canary_hits": b.entry["canary_hits"]}) from None
@@ -162,6 +163,21 @@ def ledger_outbound(payload: dict = Body(...)):
     """ai submits each LLM request body here first and sends it only on verdict allow."""
     validate("OutboundPayload", payload)
     return gw().check_outbound(payload["body"])
+
+
+@app.get("/v1/ledger/payloads")
+def ledger_payloads(since: str, until: str):
+    """Payloads already sent to the AI side or the LLM between two ISO times with a timezone,
+    one copy each: the input of the adversarial leak test (privacy_tests/). Leaves through
+    send_to_ai like every AI-facing response; its own bytes are not kept, so a later window
+    never contains this bundle."""
+    try:
+        lo, hi = datetime.fromisoformat(since), datetime.fromisoformat(until)
+    except ValueError:
+        raise HTTPException(400, "since and until must be ISO times") from None
+    if lo.tzinfo is None or hi.tzinfo is None:
+        raise HTTPException(400, "since and until need a timezone")
+    return _to_ai(None, {"payloads": gw().ledger.payloads(lo, hi)}, keep_body=False)
 
 
 # ---- private side (dashboard) ----------------------------------------------------------

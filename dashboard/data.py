@@ -2,11 +2,12 @@
 which is why the dashboard is bound to 127.0.0.1 and never hosted publicly."""
 from __future__ import annotations
 
+import json
 import os
 
 import httpx
 
-from common.config import cfg
+from common.config import REPO_ROOT, cfg
 
 TIMEOUT_S = 300.0
 
@@ -17,8 +18,10 @@ LABELS = {
     "twin": "twin: synthetic from pg_stats, no column correlations yet",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
-    "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
+    "egress": "AI egress: allowlist proxy, CONNECT to the LLM API host only (checks the host name, not the traffic inside TLS)",
     "write_cost": "write cost: not measured (pgbench pending)",
+    "adversarial": "adversarial leak test: a fresh LLM session guesses table and column names from one run's payloads "
+                   "(values not scored; plaintext LLM control pending air-gapped mode)",
 }
 
 
@@ -47,6 +50,15 @@ def ai(path: str, body=None, method: str | None = None) -> httpx.Response:
 def dehash(text: str) -> str:
     """Real names for codes, via the gateway's private vault."""
     return gateway("/v1/answers/dehash", {"question_id": "qn_00000000", "text": text, "numbers": []})["text"]
+
+
+def adversarial() -> dict | None:
+    """The last adversarial leak test result: runs/adversarial.json, written by make adversarial
+    (privacy_tests/adversarial.py). Counts and match flags only, no names. None until it ran."""
+    try:
+        return json.loads((REPO_ROOT / "runs" / "adversarial.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
 
 
 def heat(share: float) -> str:

@@ -13,7 +13,7 @@ unchanged so any thoughtSignature parts are returned as the API expects.
 Not yet exercised against the live API: GEMINI_API_KEY was not set when this was written.
 
 HTTP 429, and the transient server errors 500, 503 and 504, are retried with exponential backoff (llm.retry_* in config.yaml), honouring a
-Retry-After header when present. Each retry is reported through on_event, which the
+Retry-After header, else the body's RetryInfo.retryDelay, when present. Each retry is reported through on_event, which the
 dashboard shows as "rate limited, retrying".
 """
 from __future__ import annotations
@@ -40,6 +40,18 @@ def _reason(status: int) -> str:
     return "rate limited" if status == 429 else f"LLM service unavailable (HTTP {status})"
 
 
+def _google_hint(r: httpx.Response) -> tuple[float | None, str]:
+    """From a Gemini error body: RetryInfo.retryDelay ("33s") and the QuotaFailure quota IDs, per
+    the google.rpc error model. Not every 429 carries them; anything unexpected gives (None, "").
+    Added 2026-10-03 after a 429 that outlasted the header-less backoff (2+4+8+16 s)."""
+    try:
+        details = r.json()["error"]["details"]
+        delay = next((float(d["retryDelay"].rstrip("s")) for d in details if "retryDelay" in d), None)
+        return delay, ", ".join(v["quotaId"] for d in details for v in d.get("violations", []) if "quotaId" in v)
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None, ""
+
+
 class MissingKey(RuntimeError):
     pass
 
@@ -64,20 +76,19 @@ class GeminiREST:
 
     def generate(self, system: str, contents: list[dict], declarations: list[dict],
                  on_event: Callable[[str], None] = lambda _: None) -> dict:
-        body = json.dumps({
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": contents,
-            "tools": [{"functionDeclarations": declarations}],
-            "toolConfig": {"functionCallingConfig": {"mode": "AUTO"}},
-            "generationConfig": {"temperature": cfg("llm.temperature")},
-        })
-        entry = gw.post("/v1/ledger/outbound", {"destination": "llm", "body": body})
+        req = {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents}
+        if declarations:              # no declarations: a session with no tools at all
+            req["tools"] = [{"functionDeclarations": declarations}]
+            req["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+        req["generationConfig"] = {"temperature": cfg("llm.temperature")}
+        body = json.dumps(req)
+        entry = self.last_entry = gw.post("/v1/ledger/outbound", {"destination": "llm", "body": body})
         if entry["verdict"] != "allow":
             raise OutboundBlocked(entry)
 
         attempts = int(cfg("llm.retry_max_attempts"))
         delay = float(cfg("llm.retry_initial_backoff_s"))
-        status = 0
+        status, quotas = 0, ""
         for attempt in range(1, attempts + 1):
             r = self._client.post(GEMINI_URL.format(model=self.model), content=body.encode("utf-8"),
                                   headers={"Content-Type": "application/json", "x-goog-api-key": self._key})
@@ -85,16 +96,18 @@ class GeminiREST:
             if status not in RETRYABLE:
                 r.raise_for_status()
                 return r.json()
+            hinted, quotas = _google_hint(r)
             if attempt == attempts:
                 break
             retry_after = r.headers.get("Retry-After")
-            wait = min(float(retry_after) if retry_after and retry_after.isdigit() else delay,
+            wait = min(float(retry_after) if retry_after and retry_after.isdigit() else hinted or delay,
                        float(cfg("llm.retry_max_backoff_s")))
             on_event(f"{_reason(status)}, retrying in {wait:.0f} s (attempt {attempt + 1} of {attempts})")
             self._sleep(wait)
             delay *= float(cfg("llm.retry_backoff_multiplier"))
         on_event(f"{_reason(status)}, gave up after {attempts} attempts")
-        raise RateLimited(f"LLM API returned HTTP {status} on all {attempts} attempts")
+        raise RateLimited(f"LLM API returned HTTP {status} on all {attempts} attempts"
+                          + (f" (quota: {quotas})" if quotas else ""))
 
 
 def provider(transport: httpx.BaseTransport | None = None, sleep: Callable[[float], None] = time.sleep):
