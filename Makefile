@@ -5,8 +5,9 @@
 export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
+BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin demo e2e export site test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e export site plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -50,6 +51,30 @@ export:
 ## Build the public static site into site/dist (deploy that folder to Vercel).
 site:
 	$(TOOLS) python site/build.py
+
+## Plan generation (GNN training data, step 18). Builds the bench image (DSB and TPC-H kits
+## from pinned commits) and starts pg-bench. Loads dsb, tpch and a smaller QuickMart copy.
+plans-load:
+	$(DC) build pg-prod
+	$(DC) --profile bench up -d pg-bench
+	$(DC) --profile bench build bench
+	$(BENCH) python -m db.plangen load
+
+## The early sample (plan_generation.early_sample_size runs) into data/plans/.
+plans-sample:
+	$(BENCH) python -m db.plangen sample
+
+## Every template x parameter set x index setup, then dedupe. Resumable: rerun to continue.
+plans:
+	$(BENCH) python -m db.plangen run
+
+## Rebuild data/plans/plans.jsonl and summary.json from plans_raw.jsonl.
+plans-dedupe:
+	$(BENCH) python -m db.plangen dedupe
+
+## Plan generation unit and component tests (component tests need make plans-load).
+test-plangen:
+	$(BENCH) python -m pytest -p no:cacheprovider db/plangen/tests
 
 ## Fast unit and contract tests, run in the tools container.
 test:

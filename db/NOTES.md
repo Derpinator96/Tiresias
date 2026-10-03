@@ -14,8 +14,8 @@ Record every decision here with its date, so a fresh session can pick up without
 
 ## Plug-in points not built yet
 
-- DSB and TPC-H loaders (MISSING).
-- Plan generation for GNN training (MISSING).
+- DSB and TPC-H loaders: built in step 18 (db/plangen/load.py).
+- Plan generation for GNN training: built in step 18 (db/plangen/), see below.
 - Twin correlations for column pairs the miner flags (MISSING).
 - pgbench write-cost scripts (MISSING).
 - Q2 to Q4 (MISSING).
@@ -40,3 +40,10 @@ Record every decision here with its date, so a fresh session can pick up without
 - 2026-10-03: foreign keys moved from schema.sql to foreign_keys.sql and are added after COPY, so Postgres validates each key in one pass instead of one trigger call per row.
 - 2026-10-03: the twin builder streams every table in chunks too. Each column's synthetic most-common values are fixed once per column and shared by every chunk (db/twin/tests/test_sampler.py). Foreign key triggers are skipped during the twin load with `session_replication_role = replica`; generated keys are in range by construction.
 - 2026-10-03: a human changed `sales_rows` to 10,000,000 (the doc's fallback) before the 50,000,000 seed ran here: the free Gemini tier times out on the 50,000,000 flow. Chunked generation stays.
+- 2026-10-03: plan generation (step 18) runs on its own Postgres, `pg-bench` (profile `bench`), never on pg-prod: thousands of EXPLAIN ANALYZE runs and index setups would otherwise land in pg-prod's pg_stat_statements and auto_explain log and break its primary-key-only invariant. pg-bench holds three databases: `dsb` (SF `plan_generation.dsb_scale_factor`), `tpch` (SF `tpch_scale_factor`) and `quickmart` (a QuickMart copy at `quickmart_sales_rows`, 5,000,000, made by db/generate.py).
+- 2026-10-03: kits are built in infra/bench/Dockerfile from pinned commits: microsoft/dsb ec9a156 (MIT) and gregrahn/tpch-kit 852ad0a (TPC EULA 2.2: built and used locally, never redistributed, no performance results published from it). Build and CLI facts were read from the repos' sources, not recalled; facts still UNVERIFIED until the image runs: whether bookworm's bison provides `yacc` (worked around with LINUX_YACC="bison -y"), dsqgen's output wrapping, whether DSB .dat files hold Latin-1 bytes (loaded with ENCODING 'LATIN1').
+- 2026-10-03: index setups (db/plangen/setups.py): 5 per database. QuickMart and TPC-H setups are hand-written (base, foreign keys, dates, combinations, composites); DSB uses its own scripts/dsb_index_pg.sql as the full setup, two seeded halves of it, and its date-key subset. TPC-H primary keys come from the TPC-H specification because tpch-kit's dss.ddl declares none.
+- 2026-10-03: QuickMart plan templates (db/plangen/quickmart_templates.py): 14, including Q1, Q2, the Q2 rewrite, and Q3 and Q4 written from the doc's one-line descriptions. Those five are flagged `demo` so GNN training can hold them out. Parameters come from the generator's domains, never from canaries.
+- 2026-10-03: each run is EXPLAIN (ANALYZE, FORMAT JSON) twice, keeping the second. That JSON holds the estimated and the actual values per node, so it serves as both plans. A run hitting statement_timeout keeps the plain EXPLAIN plan, labelled timed_out ("at least" the timeout). Runs use `plan_generation.workers` concurrent connections; concurrency adds timing noise (labelled assumption).
+- 2026-10-03: deduplication deviates from the doc's wording, flagged for a human: the doc says "plan-structure hash, keeping a few copies of each shape". A pure structure hash would collapse every parameter set of a template into a few plans and fall far short of 10,000, so the shape hash also includes log2(estimated rows) in buckets of `shape_rows_log2_bucket`. Identical plans at similar cardinality still collapse; different cardinality regimes stay.
+- 2026-10-03: raw plans hold real QuickMart names and generated literals. They stay on the private side in data/plans/ (gitignored except the 200-plan sample). The GNN featurizer must strip names and literals before anything reaches `ai`.

@@ -58,6 +58,11 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make site` | build the public site into site/dist | `$DC run --rm -T tools python site/build.py` |
 | `make test-site` | exporter and site build tests | `$DC run --rm -T tools python -m pytest scripts/tests` |
 | `make test-db` | data generation checks against the seeded pg-prod | `$DC run --rm -T tools python -m pytest db/tests` |
+| `make plans-load` | build the bench image (DSB and TPC-H kits at pinned commits), start pg-bench, load dsb, tpch and a QuickMart copy | `$DC build pg-prod`, `$DC --profile bench up -d pg-bench`, `$DC --profile bench build bench`, then `$DC --profile bench run --rm -T bench python -m db.plangen load` |
+| `make plans-sample` | the early sample of 200 plans into `data/plans/sample_200.jsonl` | `$DC --profile bench run --rm -T bench python -m db.plangen sample` |
+| `make plans` | every template x parameter set x index setup into `data/plans/`, then dedupe; rerun to resume | `$DC --profile bench run --rm -T bench python -m db.plangen run` |
+| `make plans-dedupe` | rebuild `plans.jsonl` and `summary.json` from `plans_raw.jsonl` | `$DC --profile bench run --rm -T bench python -m db.plangen dedupe` |
+| `make test-plangen` | plan generation unit and component tests | `$DC --profile bench run --rm -T bench python -m pytest -p no:cacheprovider db/plangen/tests` |
 
 Targets still to come:
 

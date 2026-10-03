@@ -69,6 +69,31 @@ services:
       retries: 40
     restart: unless-stopped
 
+  # Plan generation database (step 18): DSB, TPC-H and a smaller QuickMart copy for GNN
+  # training plans. Separate from pg-prod so thousands of EXPLAIN ANALYZE runs and the
+  # benchmark index setups never reach pg-prod's pg_stat_statements, its auto_explain log or
+  # its "primary key indexes only" invariant. Started only with the `bench` profile.
+  pg-bench:
+    image: blind-tuner-postgres:local
+    pull_policy: never
+    profiles: ["bench"]
+    # Same preload as pg-twin (no auto_explain, so log_analyze adds no overhead to the runs).
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf",
+              "-c", "shared_preload_libraries=pg_stat_statements"]
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: bench
+    volumes:
+      - pgbench-data:/var/lib/postgresql/data
+    networks: [private]
+    shm_size: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bench"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
   gateway:
     <<: *python
     command: ["uvicorn", "gateway.api:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -150,6 +175,26 @@ services:
       - gateway-ledger:/var/lib/blind-tuner
     networks: [private, boundary]
 
+  # Plan generation runner: the tools image plus the DSB and TPC-H generators. Private side
+  # only. Started on demand: docker compose ... --profile bench run --rm bench <command>
+  bench:
+    build:
+      context: infra
+      dockerfile: bench/Dockerfile
+    image: blind-tuner-bench:local
+    restart: "no"
+    profiles: ["bench"]
+    command: ["python", "-c", "print('bench: pass a command')"]
+    environment:
+      BENCH_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-bench:5432/bench
+      BENCH_RAW_DIR: /data
+    volumes:
+      - ./:/app
+      - bench-raw:/data
+    networks: [private]
+    depends_on:
+      pg-bench: {condition: service_healthy}
+
 networks:
   private:
     internal: true
@@ -163,3 +208,5 @@ volumes:
   pgprod-log:
   pgtwin-data:
   gateway-ledger:
+  pgbench-data:
+  bench-raw:

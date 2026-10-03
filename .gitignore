@@ -17,3 +17,7 @@ runs/
 site/node_modules/
 site/dist/
 .vercel/
+
+# Plan generation output (step 18): raw plans stay local; only the committed sample is tracked
+data/plans/*
+!data/plans/sample_200.jsonl
