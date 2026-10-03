@@ -149,6 +149,17 @@ gnn:
   max_epochs: 150
   patience: 15
   template_split: [0.70, 0.15, 0.15]
+  # Doc ("Configuration values"): Adam weight decay.
+  weight_decay: 0.00001
+  # Not in the doc's table: weight of the plan-total term next to the per-node term in the
+  # training loss (models/gnn/train.py). The total is what evaluate.py and serving score.
+  graph_loss_weight: 0.5
+  # Not in the doc's table: "auto" trains on CUDA when available, else CPU. Weights are saved
+  # on CPU either way, so the CPU-only image loads them.
+  device: auto
+  # Not in the doc's table: the validation number early stopping watches. median_q_error,
+  # p95_q_error or mean_log_q_error (mean of log q, which also weighs the bad tail).
+  early_stop_metric: mean_log_q_error
   # Doc, Component 3 Use B: a 100x or larger gap between Postgres's row estimate and the actual
   # rows makes gnn_explain recommend ANALYZE.
   misestimate_ratio_alert: 100
