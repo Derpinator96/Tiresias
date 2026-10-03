@@ -50,6 +50,16 @@ workload:
   q2_runs: 5
   # Not in the doc's table: the two-region query added for the rewrite demo (db/workload.py).
   qor_regions: [3, 7]
+  # Q4's parameters (doc: "customer segment plus date"; the doc gives no SQL or values).
+  # Not in the doc's table. Two recent days: sales rows are not stored in date order, so a
+  # longer range touches most pages and no plain index helps much (HypoPG at 10,000,000 rows,
+  # index on transaction_date: 7 days 13% cheaper, 2 days 53% cheaper).
+  q4_segment: business
+  q4_dates: ["2026-09-29", "2026-09-30"]
+  # Not in the doc's table: the mixes `make drift-demo` switches between (db/drift_demo.py).
+  # Each list is one round of queries; before matches the seeded workload's mix.
+  drift_before: [q1, q2, qor]
+  drift_after: [q4, q4, q4, q1]
   # Not in the doc's table: the database role the application workload runs as. The gateway
   # ingests only this role's queries, so test and catalog queries never become templates.
   app_role: quickmart_app
@@ -109,8 +119,15 @@ miner:
   min_leading_distinct: 3
   drift_window_production_s: 3600
   drift_window_demo_s: 120
-  drift_js_threshold: 0.2
+  # Not in the doc's table: which of the two windows above is used (demo or production).
+  drift_window_mode: demo
+  drift_js_threshold: 0.2         # Jensen-Shannon distance (base 2), not the divergence
   drift_windows_required: 2
+  # Not in the doc's table: how often the gateway samples pg_stat_statements for the windows.
+  # A window boundary is late by up to this much.
+  drift_sample_s: 2
+  # Not in the doc's table: closed windows kept (and returned) per request.
+  drift_windows_kept: 12
 
 gnn:
   layers: 3

@@ -26,6 +26,7 @@ LABELS = {
     "approve_demo": (f"post-deploy check demo: runs on the twin with a shortened replay of {cfg('approve.demo_check_minutes')} "
                      f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
     "fidelity": "fidelity: configurations from config.yaml (the doc's expected picks), not from a live search run",
+    "miner": "miner: covered-index check knows primary keys only",
 }
 
 

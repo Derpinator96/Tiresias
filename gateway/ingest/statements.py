@@ -23,6 +23,8 @@ class Template:
     normalized_sql: str            # real names, $n placeholders
     queryids: list[int]
     hashed: dict                   # HashedQuery
+    calls: int = 0                 # raw, unrounded: drift windows difference these privately
+    total_ms: float = 0.0
 
 
 def read(conn: psycopg.Connection, hasher: Hasher, schema: dict[str, set[str]]) -> tuple[list[Template], int]:
@@ -54,6 +56,7 @@ def read(conn: psycopg.Connection, hasher: Hasher, schema: dict[str, set[str]]) 
     out = []
     for tid, t in by_id.items():
         calls, total_ms = totals[tid]
+        t.calls, t.total_ms = calls, total_ms
         t.hashed.update({
             "calls": round_count(calls),
             "mean_ms": round(total_ms / calls, 1) if calls else 0.0,

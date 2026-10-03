@@ -6,7 +6,7 @@ from fastapi import Body, FastAPI, HTTPException
 
 from agent import gateway_client as gw
 from contracts.validate import validate
-from miner import fpgrowth
+from miner import drift, fpgrowth
 from models.gnn import predictor as pred
 
 app = FastAPI(title="Blind Tuner ai", docs_url=None, redoc_url=None, openapi_url=None)
@@ -17,22 +17,27 @@ def healthz() -> dict:
     return {"ok": True}
 
 
+COVERED_LABEL = "miner: covered-index check knows primary keys only"
+
+
 def existing_indexes(column_meta: list[dict]) -> list[tuple[str, list[str]]]:
     """SIMPLIFIED: ColumnMeta says only whether a column is indexed, not which composite index
     it belongs to, so each primary key column is treated as a one-column index."""
     return [(c["table"], [c["col"]]) for c in column_meta if c["bits"]["pk"]]
 
 
-def mine() -> dict:
+def mine(window_s: int | None = None) -> dict:
+    """Candidates plus the drift state. window_s overrides the configured drift window (tests)."""
     templates = fpgrowth.with_rewritten_shapes(gw.get("/v1/templates/slow"), gw.get("/v1/rewrite/candidates"))
     meta = gw.get("/v1/meta/columns")
+    win = gw.get("/v1/workload/windows" + (f"?window_s={int(window_s)}" if window_s else ""))
     return {"candidates": fpgrowth.candidates(templates, meta, existing_indexes(meta)),
-            "drift": {"state": "MISSING", "note": "drift detection is not built yet"}}
+            "label": COVERED_LABEL, "drift": drift.state(win["windows"], win["window_s"])}
 
 
 @app.post("/ai/mine")
-def ai_mine() -> dict:
-    return mine()
+def ai_mine(body: dict | None = Body(None)) -> dict:
+    return mine((body or {}).get("window_s"))
 
 
 def calibrated_predictor(plans: list[dict]):
@@ -102,7 +107,8 @@ def ai_rl_run(body: dict | None = Body(None)) -> dict:
             "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
             "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits,
             "episodes": trace.episodes, "top_configs": trace.top_configs, "greedy": trace.greedy,
-            "rewrites": trace.rewrites, "final_choice": trace.final_choice}
+            "rewrites": trace.rewrites, "final_choice": trace.final_choice,
+            "q_entries": len(search._Q)}   # the Q-table persists in this process across runs
 
 
 @app.get("/ai/gnn/estimator")

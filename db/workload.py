@@ -1,7 +1,8 @@
 """The real workload run against pg-prod (private side only).
 
-Q1 is the hero query and Q2 the join query from the doc's "Demo queries". The four canary queries plant canaries
-in query comments and filter values, so the gateway's stripping is exercised on real logs.
+Q1 is the hero query, Q2 the join query and Q4 the drift query from the doc's "Demo queries".
+The four canary queries plant canaries in query comments and filter values, so the gateway's
+stripping is exercised on real logs.
 """
 from __future__ import annotations
 
@@ -39,6 +40,23 @@ QOR_TEMPLATE = ("SELECT SUM(amount) FROM sales WHERE (region_id = {a} OR region_
 def qor_sql() -> str:
     a, b = cfg("workload.qor_regions")
     return QOR_TEMPLATE.format(a=int(a), b=int(b), since=cfg("workload.q1_since"))
+
+
+# Q4 (doc): "a new report on customer segment plus date, introduced mid-demo so the RL agent must
+# adapt". The doc gives no SQL; same shape as plan generation's qm/q4_segment_date. It runs only
+# in `make drift-demo` (db/drift_demo.py), never in the default `make seed` workload.
+Q4_TEMPLATE = ("SELECT c.segment, s.transaction_date, SUM(s.amount) FROM sales s "
+               "JOIN customers c ON c.customer_id = s.customer_id "
+               "WHERE c.segment = '{segment}' AND s.transaction_date BETWEEN '{start}' AND '{end}' "
+               "GROUP BY c.segment, s.transaction_date")
+
+
+def q4_sql() -> str:
+    start, end = cfg("workload.q4_dates")
+    return Q4_TEMPLATE.format(segment=cfg("workload.q4_segment"), start=start, end=end)
+
+
+QUERIES = {"q1": q1_sql, "q2": q2_sql, "qor": qor_sql, "q4": q4_sql}
 
 
 def canary_queries() -> list[str]:
