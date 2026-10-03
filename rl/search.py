@@ -29,8 +29,20 @@ write and storage penalties (storage as measured on the twin), minus rl.lambda_d
 estimator is HypoPG cost times one ratio, so the disagreement is zero by construction; it bites
 once the GNN serves.
 
-SIMPLIFIED, label LABEL below: partition and drop-index actions MISSING; write cost is an
-assumed per-index penalty (pgbench MISSING).
+Partition (doc, Component 4 item 6: "scored on the twin only, for at most two candidate keys,
+after the index search"; HypoPG cannot hypothesise a partition): after the re-check, up to
+rl.partition_max_keys monthly range keys (partition_keys: a date column a slow template filters
+on, largest table first) are each added to the chosen configuration and measured on the twin
+(the gateway builds a partitioned copy there). A key is kept only if its measured score, the
+same formula with storage as measured (the partitioned copy minus the table, plus the indexes),
+beats the chosen configuration's; at most one is kept. A partition builds no new index, so the
+assumed per-index write penalty does not grow; the twin's measured write_ms_delta is reported
+next to it. The estimator's predicted numbers never include the partition. Greedy does not
+search partitions, so the greedy comparison is made before this step.
+
+SIMPLIFIED, label LABEL below: drop-index actions MISSING. During the search, write cost is an
+assumed per-index penalty (the doc allows it); pgbench measures write cost on the twin
+(db/sandbox/write_cost.py) and the measured numbers are reported, not scored.
 
 Scoring per configuration, all from hashed data:
 - workload time W(config) = sum over slow templates of weight x predicted total ms of the
@@ -60,7 +72,10 @@ from miner import fpgrowth
 from models.gnn import predictor as pred
 
 LABEL = (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
-         "re-checked on the twin (partition and drop-index actions pending)")
+         f"re-checked on the twin; then up to {cfg('rl.partition_max_keys')} monthly partition keys measured on the "
+         "twin only (drop-index actions pending)")
+PARTITION_LABEL = ("partition: monthly range keys measured on the twin only (HypoPG cannot simulate them), "
+                   "tried after the index and rewrite search; predictions do not include them")
 STOP = "stop"
 _Q: dict[tuple[frozenset, str], float] = {}   # persists across run() calls (drift keeps learning)
 # Gateway results per set of actions: (monotonic time, response). Shared by every search in
@@ -73,6 +88,8 @@ _WORKLOAD: frozenset = frozenset()
 
 
 def _akey(a: dict) -> str:
+    if a["type"] == "partition":
+        return f"part:{a['table']}:{a['column']}"
     return f"{a['template_id']}:{a['rule_id']}" if a["type"] == "rewrite" else f"{a['table']}:{','.join(a['columns'])}"
 
 
@@ -100,7 +117,10 @@ def _simulate(path: str, config: dict, store: dict) -> tuple[dict, bool]:
     hit = store.get(key)
     if hit and time.monotonic() - hit[0] < float(cfg("rl.sim_cache_s")):
         return hit[1], True
-    out = gw.post(path, config)
+    if any(a["type"] == "partition" for a in config["actions"]):   # builds a table copy on the twin
+        out = gw.post(path, config, timeout=float(cfg("rl.partition_twin_timeout_s")))
+    else:
+        out = gw.post(path, config)
     store[key] = (time.monotonic(), out)
     return out, False
 
@@ -133,6 +153,20 @@ def rewrite_options(rewrites: list[dict]) -> tuple[list[dict], list[dict]]:
     return options, checks
 
 
+def partition_keys(templates: list[dict], column_meta: list[dict], table_meta: list[dict]) -> list[dict]:
+    """Partition actions to try: date columns a slow template filters on (EQ or RANGE), largest
+    table first, then most template time; at most rl.partition_max_keys."""
+    dates = {c["col"]: c["table"] for c in column_meta if c["type_class"] == "date"}
+    size = {t["table"]: t["size_mb"] for t in table_meta}
+    used: dict[str, float] = {}
+    for t in templates:
+        for col in {c["col"] for c in t["columns"] if c["role"] in ("EQ", "RANGE") and c["col"] in dates}:
+            used[col] = used.get(col, 0.0) + float(t["total_ms"])
+    ranked = sorted(used, key=lambda col: (-size.get(dates[col], 0.0), -used[col], col))
+    return [{"type": "partition", "table": dates[col], "column": col, "scheme": "range_month"}
+            for col in ranked[:int(cfg("rl.partition_max_keys"))]]
+
+
 @dataclass
 class Trace:
     """Everything the search measured or predicted, for the dashboard and the LLM."""
@@ -146,6 +180,7 @@ class Trace:
     greedy: dict = field(default_factory=dict)
     rewrites: list[dict] = field(default_factory=list)
     final_choice: str = "best predicted"
+    partition: dict = field(default_factory=dict)
 
 
 class GreedySearch:
@@ -154,6 +189,10 @@ class GreedySearch:
         self.templates = templates
         calls = {t["template_id"]: t["calls"] for t in templates}
         total = sum(calls.values()) or 1
+        # Weights of templates that are no longer slow cannot steer the search; with none left
+        # (a drift window of a template since reset), the workload time would be 0, so fall back
+        # to call shares.
+        weights = {tid: w for tid, w in (weights or {}).items() if tid in calls}
         self.weights = weights or {tid: c / total for tid, c in calls.items()}
         self.table_mb = {t["table"]: t["size_mb"] for t in table_meta}
         self.meta = column_meta
@@ -282,6 +321,73 @@ class QLearningSearch(GreedySearch):
         self.best_predicted = ranked[0][1][2]
         return self._finish(self.best_predicted, "q_learning")
 
+    def _measured(self, sim: dict, cached: bool, n_indexes: int, tables: set[str], disagreement: float) -> dict:
+        """Score of a twin measurement: measured drop in weighted workload time, minus the
+        assumed per-index write penalty, minus measured storage against the budget of `tables`,
+        minus lambda_disagreement x the estimator/HypoPG disagreement."""
+        before = sum(self.weights.get(t["template_id"], 0.0) * t["before_ms"] for t in sim["templates"])
+        after = sum(self.weights.get(t["template_id"], 0.0) * t["after_ms"] for t in sim["templates"])
+        # ponytail: one storage budget for the whole config (share x the touched tables' size),
+        # since the twin reports total MB, not per action.
+        budget = float(cfg("rl.storage_budget_table_share")) * sum(self.table_mb.get(t, 0.0) for t in tables)
+        storage = float(cfg("rl.lambda_storage")) * sim["storage_mb_delta"] / budget if budget > 0 else 0.0
+        drop = 1 - after / before if before else 0.0
+        reward = drop - float(cfg("rl.lambda_write")) * float(cfg("rl.write_penalty_ms_per_index")) * n_indexes - storage
+        return {"twin": {"templates": sim["templates"], "storage_mb": sim["storage_mb_delta"], "runs": sim["runs"],
+                         "cached": cached},
+                "measured_drop": round(drop, 4), "measured_reward": round(reward, 4),
+                "score": round(reward - float(cfg("rl.lambda_disagreement")) * disagreement, 4)}
+
+    def add_partition(self, config: dict, keys: list[dict]) -> dict:
+        """The doc's partition step, after recheck(): `config` plus each partition action in
+        `keys`, measured on the twin; the best one is kept if its score beats the chosen
+        configuration's (0 for no change). trace.partition records every measurement; a kept key
+        turns the chosen top_configs entry into the measured config with the partition, its
+        earlier numbers under without_partition."""
+        chosen = next((e for e in self.trace.top_configs if e.get("chosen")), None)
+        base = chosen["score"] if chosen else 0.0
+        out = {"label": PARTITION_LABEL, "base_score": base, "keys": [], "kept": None}
+        self.trace.partition = out
+        if not keys:
+            out["skipped"] = "no date column of a slow template to partition on"
+            return config
+        if self.trace.final_choice != "best measured on the twin":
+            out["skipped"] = "the re-check measured nothing on the twin"
+            return config
+        if len(config["actions"]) >= int(cfg("rl.actions_per_episode")):
+            out["skipped"] = "the configuration already holds the maximum number of actions"
+            return config
+        indexes = [a for a in config["actions"] if a["type"] == "add_index"]
+        best = None
+        for p in keys:
+            trial = _config(config["actions"] + [p], config["search"])
+            k = {"table": p["table"], "column": p["column"], "scheme": p["scheme"], "config_id": trial["config_id"]}
+            try:
+                sim, cached = twin(trial)
+            except httpx.HTTPStatusError as err:
+                out["keys"].append({**k, "twin_error": err.response.status_code})
+                continue
+            m = self._measured(sim, cached, len(indexes), {a["table"] for a in indexes} | {p["table"]},
+                               chosen["disagreement"] if chosen else 0.0)
+            k.update(m, write_ms_delta=sim["write_ms_delta"])
+            out["keys"].append(k)
+            if m["score"] > (best[1]["score"] if best else base):
+                best = (trial, k)
+        if best is None:
+            return config
+        trial, k = best
+        out["kept"] = {"table": k["table"], "column": k["column"]}
+        entry = {"config_id": trial["config_id"], "actions": trial["actions"], "partition": out["kept"],
+                 **{f: k[f] for f in ("twin", "measured_drop", "measured_reward", "score")}}
+        if chosen:
+            keep = ("config_id", "actions", "twin", "measured_drop", "measured_reward", "score")
+            chosen.update(entry, without_partition={f: chosen[f] for f in keep})
+        else:   # no index or rewrite paid for itself: the partition alone
+            self.trace.top_configs.append({"cand_ids": [], "return": 0.0, "predicted_ms": round(self.trace.baseline_ms, 3),
+                                           "predicted_drop": 0.0, "hypopg_cost_drop": 0.0, "disagreement": 0.0,
+                                           **entry, "chosen": True})
+        return trial
+
     def recheck(self) -> dict:
         """The doc's final choice over self.top (set by run()): raw HypoPG cost next to the
         estimator, a twin measurement each, and the best measured score wins. Every entry, with
@@ -290,8 +396,6 @@ class QLearningSearch(GreedySearch):
         disagreement, 409) is reported and not chosen; if none can be measured, the best
         predicted configuration stays."""
         w0, r0 = self.cost([])[0], self._raw[frozenset()]
-        lam_w, lam_s = float(cfg("rl.lambda_write")), float(cfg("rl.lambda_storage"))
-        pen, share = float(cfg("rl.write_penalty_ms_per_index")), float(cfg("rl.storage_budget_table_share"))
         entries = []
         for opts, summary in zip(self.top, self.trace.top_configs):
             ms, _ = self.cost(opts)
@@ -307,19 +411,8 @@ class QLearningSearch(GreedySearch):
             except httpx.HTTPStatusError as err:
                 entries.append({**e, "twin_error": err.response.status_code})
                 continue
-            before = sum(self.weights.get(t["template_id"], 0.0) * t["before_ms"] for t in sim["templates"])
-            after = sum(self.weights.get(t["template_id"], 0.0) * t["after_ms"] for t in sim["templates"])
             indexes = [o for o in opts if not _is_rewrite(o)]
-            # ponytail: one storage budget for the whole config (share x the indexed tables'
-            # size), since the twin reports total index MB, not per index.
-            budget = share * sum(self.table_mb.get(t, 0.0) for t in {o["table"] for o in indexes})
-            storage = lam_s * sim["storage_mb_delta"] / budget if budget > 0 else 0.0
-            drop = 1 - after / before if before else 0.0
-            reward = drop - lam_w * pen * len(indexes) - storage
-            entries.append({**e, "twin": {"templates": sim["templates"], "storage_mb": sim["storage_mb_delta"],
-                                          "runs": sim["runs"], "cached": cached},
-                            "measured_drop": round(drop, 4), "measured_reward": round(reward, 4),
-                            "score": round(reward - float(cfg("rl.lambda_disagreement")) * e["disagreement"], 4)})
+            entries.append({**e, **self._measured(sim, cached, len(indexes), {o["table"] for o in indexes}, e["disagreement"])})
         measured = [e for e in entries if "score" in e]
         best = max(measured, key=lambda e: e["score"], default=None)
         if best is not None and best["score"] <= 0:
@@ -343,7 +436,8 @@ def run(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
     table_meta = gw.get("/v1/meta/tables")
     rewrites = gw.get("/v1/rewrite/candidates")
     existing = [(c["table"], [c["col"]]) for c in column_meta if c["bits"]["pk"]]
-    candidates = fpgrowth.candidates(fpgrowth.with_rewritten_shapes(templates, rewrites), column_meta, existing)
+    shapes = fpgrowth.with_rewritten_shapes(templates, rewrites)
+    candidates = fpgrowth.candidates(shapes, column_meta, existing)
     rw_options, rw_checks = rewrite_options(rewrites)
     options = candidates + rw_options
     measured = [p for t in templates for p in gw.get(f"/v1/templates/{t['template_id']}/plans")]
@@ -360,4 +454,5 @@ def run(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
     rl.trace.greedy = {"config_id": g["config_id"], "cand_ids": [s["cand_id"] for s in greedy.trace.steps],
                        "predicted_ms": round(greedy.trace.final_ms, 3), "same_as_rl": g["config_id"] == config["config_id"],
                        "same_as_rl_before_twin": g["config_id"] == predicted["config_id"]}
-    return config, rl.trace
+    # After both searches and the re-check (doc): partition keys, measured on the twin only.
+    return rl.add_partition(config, partition_keys(shapes, column_meta, table_meta)), rl.trace

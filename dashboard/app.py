@@ -170,7 +170,12 @@ if rl:
                 head = f"Add index on **{view(a['table'])} ({', '.join(view(c) for c in a['columns'])})**"
             else:
                 head = f"**{view(data.describe(a))}**"
-            st.markdown(head + saving(a, rl))
+            if a.get("type") == "partition":
+                k = next((x for x in rl.get("partition", {}).get("keys", []) if "score" in x and x["column"] == a.get("column")), None)
+                st.markdown(head + ", measured on the twin only, not predicted"
+                            + (f": score {k['score']:.3f} against {rl['partition']['base_score']:.3f} without it" if k else ""))
+            else:
+                st.markdown(head + saving(a, rl))
             show_evidence(a, rl)
     st.caption(f"Predicted workload time {rl['baseline_predicted_ms']:.1f} ms before, {rl['final_predicted_ms']:.1f} ms after. "
                "Predictions rank candidates; the twin measurement below is the reported result.")
@@ -195,7 +200,7 @@ if rl:
             c1.metric("Before (measured)", f"{t['before_ms']:.1f} ms")
             c2.metric("After (measured)", f"{t['after_ms']:.1f} ms")
             c3.metric("Faster by", f"{speedup:.0f}%")
-            c4.metric("Index storage", f"{sim['storage_mb_delta']} MB")
+            c4.metric("Storage added (index, or partitioned copy)", f"{sim['storage_mb_delta']} MB")
             w = sim["write_ms_delta"]
             c5.metric("Insert latency added (measured)", "not measured" if w is None else f"{w:+.3f} ms per insert")
         if (sim["write_ms_delta"] or 0) < 0:
@@ -264,7 +269,7 @@ else:
         st.caption(f"Predicted drop {100 * e['predicted_drop']:.1f}%, raw HypoPG cost drop {100 * e['hypopg_cost_drop']:.1f}%, "
                    f"measured drop {100 * e['measured_drop']:.1f}% (median of {tw['runs']} runs per query"
                    + (", reused from an earlier measurement of the same actions" if tw["cached"] else "")
-                   + f"), index storage {tw['storage_mb']} MB measured, score {e['score']:.3f}.")
+                   + f"), storage {tw['storage_mb']} MB measured (indexes, or a partitioned copy minus the table), score {e['score']:.3f}.")
         st.dataframe([{"template": view(t["template_id"]), "before ms (measured)": t["before_ms"],
                        "after ms (measured)": t["after_ms"]} for t in tw["templates"]], hide_index=True)
 

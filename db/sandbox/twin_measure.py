@@ -12,6 +12,13 @@ SIMPLIFIED twin. Private side: works on real names; runs in the gateway.
 5. Write cost (twin only): pgbench insert latency without and with the indexes
    (db/sandbox/write_cost.py), each run after that phase's read timings so inserted rows never
    touch them.
+6. Partition (doc: "Partitioning cannot be hypothesised ... test partitioning on the twin
+   only"): a monthly range-partitioned copy of the table (partitioned_copy) is built next to
+   it, the configuration's indexes on that table are built on the copy, and the after queries
+   are pointed at the copy (retarget). The original table is never renamed, locked for writes
+   or changed, so restoring is dropping the copy (in a finally block, and again before a build
+   in case a crash left one). Storage delta = the copy's total size minus the original's, plus
+   any index on another table. With `writes`, pgbench inserts into the copy for the after phase.
 """
 from __future__ import annotations
 
@@ -19,6 +26,7 @@ import json
 import statistics
 import time
 from dataclasses import dataclass
+from datetime import date
 
 import psycopg
 import sqlglot
@@ -103,35 +111,112 @@ class TwinResult:
     after_ops: dict[str, list[str]]  # operator sequence of each after query, with the indexes
 
 
+def _months(lo: date, hi: date) -> list[date]:
+    """First day of every month from lo's month to hi's month, plus the first day after it."""
+    out = [date(lo.year, lo.month, 1)]
+    while out[-1] <= hi:
+        y, m = divmod(out[-1].year * 12 + out[-1].month, 12)   # month index of the next month
+        out.append(date(y, m + 1, 1))
+    return out
+
+
+def partitioned_copy(conn, table: str, col: str, name: str) -> None:
+    """Build `name`: `table`'s columns, PARTITION BY RANGE (col), one partition per month of
+    the data plus a default, rows copied, primary key extended by `col` (Postgres requires the
+    partition key in it), the table's own foreign keys (so inserts pay the same reference
+    checks), VACUUM ANALYZE. Foreign keys that reference `table` stay on `table`. Drops a
+    leftover `name` first."""
+    n, t, c = sql.Identifier(name), sql.Identifier(table), sql.Identifier(col)
+    conn.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(n))
+    conn.execute(sql.SQL("CREATE TABLE {} (LIKE {} INCLUDING DEFAULTS INCLUDING CONSTRAINTS) PARTITION BY RANGE ({})").format(n, t, c))
+    lo, hi = conn.execute(sql.SQL("SELECT min({c})::date, max({c})::date FROM {t}").format(c=c, t=t)).fetchone()
+    bounds = _months(lo, hi) if lo else []
+    for a, b in zip(bounds, bounds[1:]):
+        conn.execute(sql.SQL("CREATE TABLE {} PARTITION OF {} FOR VALUES FROM ({}) TO ({})").format(
+            sql.Identifier(f"{name}_{a:%Y%m}"), n, sql.Literal(a), sql.Literal(b)))
+    conn.execute(sql.SQL("CREATE TABLE {} PARTITION OF {} DEFAULT").format(sql.Identifier(f"{name}_default"), n))
+    conn.execute(sql.SQL("INSERT INTO {} SELECT * FROM {}").format(n, t))
+    # ponytail: copies the primary key only; QuickMart has no other index. Copy every index
+    # definition here if the schema ever gets one.
+    pk = [r[0] for r in conn.execute("""SELECT a.attname FROM pg_index i
+        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+        WHERE i.indrelid = %s::regclass AND i.indisprimary ORDER BY array_position(i.indkey, a.attnum)""", (table,))]
+    if pk:
+        cols = pk + ([col] if col not in pk else [])
+        conn.execute(sql.SQL("ALTER TABLE {} ADD PRIMARY KEY ({})").format(n, sql.SQL(", ").join(map(sql.Identifier, cols))))
+    fks = conn.execute("SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = %s::regclass AND contype = 'f'",
+                       (table,)).fetchall()
+    for (definition,) in fks:          # from the catalog, e.g. FOREIGN KEY (a) REFERENCES t(b)
+        conn.execute(sql.SQL("ALTER TABLE {} ADD ").format(n) + sql.SQL(definition))
+    conn.execute(sql.SQL("VACUUM ANALYZE {}").format(n))
+
+
+def retarget(query: str, table: str, new: str) -> str:
+    """`query` reading `new` wherever it reads `table`, under the old name as its alias, so
+    qualified column references keep working."""
+    tree = sqlglot.parse_one(query, dialect="postgres")
+    for t in tree.find_all(exp.Table):
+        if t.name == table:
+            if not t.alias:
+                t.set("alias", exp.TableAlias(this=exp.to_identifier(table)))
+            t.set("this", exp.to_identifier(new))
+    return tree.sql(dialect="postgres")
+
+
+def total_bytes(conn, table: str) -> int:
+    """Heap plus indexes plus TOAST, summed over partitions for a partitioned table
+    (pg_partition_tree lists nothing for a plain table or index, hence the fallback)."""
+    return int(conn.execute("SELECT COALESCE(sum(pg_total_relation_size(relid)), pg_total_relation_size(%s::regclass)) "
+                            "FROM pg_partition_tree(%s::regclass)", (table, table)).fetchone()[0])   # sum() is numeric
+
+
 def before_after(conn, indexes: list[tuple[str, list[str]]], queries: dict[str, str],
-                 after_queries: dict[str, str], prefix: str, writes: bool = False):
+                 after_queries: dict[str, str], prefix: str, writes: bool = False,
+                 partition: tuple[str, str] | None = None):
     """On one connection: median ms of each query, then build the indexes for real, record
     their size, each after query's operator sequence and median ms, and drop the indexes
-    whatever happens. With `writes` (twin only), also the pgbench insert latency without and
-    with the indexes. Returns (before, after, index bytes, after operator sequences,
-    write ms delta; 0.0 without `writes` or without indexes, since writes are then unchanged)."""
+    whatever happens. With `partition` (table, column), the after phase runs on a monthly
+    partitioned copy of that table (step 6 above), dropped whatever happens. With `writes`
+    (twin only), also the pgbench insert latency without and with the indexes. Returns (before,
+    after, storage bytes added, after operator sequences, write ms delta; 0.0 without `writes`
+    or without indexes or partition, since writes are then unchanged)."""
     before = {tid: _median_ms(conn, q) for tid, q in queries.items()}
-    measure_writes = writes and bool(indexes)
+    measure_writes = writes and bool(indexes or partition)
     write_before = write_cost.insert_ms(conn) if measure_writes else 0.0
+    copy = f"{prefix}part"
+    if partition:
+        after_queries = {tid: retarget(q, partition[0], copy) for tid, q in after_queries.items()}
+        indexes = [(copy if t == partition[0] else t, cols) for t, cols in indexes]
     names = [f"{prefix}{i}" for i in range(len(indexes))]
     try:
+        if partition:
+            partitioned_copy(conn, partition[0], partition[1], copy)
         for name, (table, cols) in zip(names, indexes):
             conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
                 sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
-        size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
+        if partition:
+            size = total_bytes(conn, copy) - total_bytes(conn, partition[0]) + sum(
+                total_bytes(conn, n) for n, (t, _) in zip(names, indexes) if t != copy)
+        else:
+            size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
         ops = {tid: op_sequence(_explain(conn, q)) for tid, q in after_queries.items()}
         after = {tid: _median_ms(conn, q) for tid, q in after_queries.items()}
-        write_after = write_cost.insert_ms(conn) if measure_writes else 0.0
+        write_table = copy if partition and partition[0] == "sales" else "sales"
+        write_after = write_cost.insert_ms(conn, write_table) if measure_writes else 0.0
     finally:
         for name in names:
             conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
+        if partition:
+            conn.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(copy)))
     return before, after, size, ops, write_after - write_before
 
 
 def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
-            queries: dict[str, str], after_queries: dict[str, str] | None = None) -> TwinResult:
+            queries: dict[str, str], after_queries: dict[str, str] | None = None,
+            partition: tuple[str, str] | None = None) -> TwinResult:
     """before = `queries` without the indexes; after = `after_queries` (rewritten SQL, where a
-    template has a rewrite; otherwise the same query) with the indexes."""
+    template has a rewrite; otherwise the same query) with the indexes and, with `partition`,
+    on a monthly partitioned copy of that table."""
     mapping = load_map()
     twin_q = {tid: map_query(q, mapping) for tid, q in queries.items()}
     twin_after = {tid: map_query((after_queries or {}).get(tid, q), mapping) for tid, q in queries.items()}
@@ -139,5 +224,6 @@ def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
         prod_ops = {tid: op_sequence(_explain(prod, q)) for tid, q in queries.items()}
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
         agree = {tid: op_sequence(_explain(conn, q)) == prod_ops[tid] for tid, q in twin_q.items()}
-        before, after, size, ops, write_delta = before_after(conn, indexes, twin_q, twin_after, "bt_sim_", writes=True)
+        before, after, size, ops, write_delta = before_after(conn, indexes, twin_q, twin_after, "bt_sim_", writes=True,
+                                                         partition=partition)
     return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q, write_delta, ops)

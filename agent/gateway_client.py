@@ -18,7 +18,7 @@ def get(path: str):
     return r.json()
 
 
-def post(path: str, body):
-    r = httpx.post(_url(path), json=body, timeout=TIMEOUT_S)
+def post(path: str, body, timeout: float = TIMEOUT_S):
+    r = httpx.post(_url(path), json=body, timeout=timeout)
     r.raise_for_status()
     return r.json()

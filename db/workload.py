@@ -1,6 +1,7 @@
 """The real workload run against pg-prod (private side only).
 
-Q1 is the hero query, Q2 the join query and Q4 the drift query from the doc's "Demo queries".
+Q1 is the hero query, Q2 the join query, Q3 the partition query and Q4 the drift query from the
+doc's "Demo queries".
 The four canary queries plant canaries in query comments and filter values, so the gateway's
 stripping is exercised on real logs.
 """
@@ -42,6 +43,20 @@ def qor_sql() -> str:
     return QOR_TEMPLATE.format(a=int(a), b=int(b), since=cfg("workload.q1_since"))
 
 
+# Q3 (doc): "a monthly report that reads one month of sales, which monthly partitioning speeds
+# up". The doc gives no SQL; one month as a half-open range on the bare date column, totals per
+# region. Sales rows are stored in random date order, so an index on the date still reads most
+# heap pages (db/NOTES.md, Q4); one monthly partition holds only that month's rows.
+# make seed runs it only if workload.q3_in_seed (false for now, see config.yaml).
+Q3_TEMPLATE = ("SELECT region_id, SUM(amount), COUNT(*) FROM sales "
+               "WHERE transaction_date >= '{start}' AND transaction_date < '{end}' GROUP BY region_id")
+
+
+def q3_sql() -> str:
+    start, end = cfg("workload.q3_dates")
+    return Q3_TEMPLATE.format(start=start, end=end)
+
+
 # Q4 (doc): "a new report on customer segment plus date, introduced mid-demo so the RL agent must
 # adapt". The doc gives no SQL; same shape as plan generation's qm/q4_segment_date. It runs only
 # in `make drift-demo` (db/drift_demo.py), never in the default `make seed` workload.
@@ -56,7 +71,7 @@ def q4_sql() -> str:
     return Q4_TEMPLATE.format(segment=cfg("workload.q4_segment"), start=start, end=end)
 
 
-QUERIES = {"q1": q1_sql, "q2": q2_sql, "qor": qor_sql, "q4": q4_sql}
+QUERIES = {"q1": q1_sql, "q2": q2_sql, "qor": qor_sql, "q3": q3_sql, "q4": q4_sql}
 
 
 def canary_queries() -> list[str]:

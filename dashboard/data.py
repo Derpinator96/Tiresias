@@ -15,7 +15,8 @@ TIMEOUT_S = 300.0
 LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
     "search": (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
-               "re-checked on the twin (partition and drop-index actions pending)"),
+               f"re-checked on the twin; then up to {cfg('rl.partition_max_keys')} monthly partition keys measured on the "
+               "twin only (drop-index actions pending)"),
     "twin": "twin: synthetic from pg_stats, correlations kept only for column pairs the miner flags",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
@@ -191,6 +192,10 @@ def fidelity_rows(doc: dict, names: bool) -> list[dict]:
             setup = f"{q['indexes']} index(es), names hidden"
         if q["rewrite"]:
             setup = f"rewrite {q['rewrite']}; {setup}"
+        if q.get("partition"):
+            part = cases.get(q["query"], {}).get("partition") if names else None
+            setup = (f"monthly partitions of {part[0]} on {part[1]}" if part else "monthly partitions, names hidden") \
+                + " (a partitioned copy, dropped after the measurement); " + setup
         tw, pr = q["twin"], q["production"]
         rows.append({"query": q["query"], "configuration": setup,
                      "twin before ms": tw["before_ms"], "twin after ms": tw["after_ms"], "twin speedup": tw["speedup"],

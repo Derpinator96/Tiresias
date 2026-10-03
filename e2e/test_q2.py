@@ -80,7 +80,7 @@ def test_q2_end_to_end():
     t = next(x for x in sim["templates"] if x["template_id"] == q2["template_id"])
     speedup = 1 - t["after_ms"] / t["before_ms"]
     print(f"\nQ2 twin {t['before_ms']} ms -> {t['after_ms']} ms, {100 * speedup:.1f}% faster; "
-          f"chosen: {[dehash(' '.join([a['table']] + a['columns'])) if a['type'] == 'add_index' else a['rule_id'] for a in actions]}")
+          f"chosen: {[dehash(' '.join([a['table']] + a['columns'])) if a['type'] == 'add_index' else a.get('rule_id', a['type']) for a in actions]}")
     assert speedup > cfg("tests.q2_min_twin_speedup"), (t, speedup)
     checksum = gw("/v1/twin/checksum", {"template_id": q2["template_id"], "config": rl["config"]})
     assert checksum["match"]
