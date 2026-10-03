@@ -44,3 +44,30 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 
 | What | Where | Status | Tested |
 | --- | --- | --- | --- |
+| Repo layout and NOTES.md per folder | all folders | REAL | untested: no code yet; `ls` output in PR for step 1 |
+| Interface contracts (JSON Schemas) | contracts/ | MISSING | untested: step 2 |
+| config.yaml and loader | config.yaml, common/ | MISSING | untested: step 3 |
+| Docker Compose services and networks | infra/ | MISSING | untested: step 4 |
+| Egress for ai | infra/ | MISSING (planned SIMPLIFIED: unrestricted internet, no allowlist) | untested: step 4 |
+| QuickMart schema, generator, canaries, Q1 runner | db/ | MISSING | untested: step 5 |
+| Gateway: hashing, stripping, ingestion, ledger, canary scan, resolver, API | gateway/ | MISSING | untested: step 6 |
+| FP-Growth miner | miner/ | MISSING | untested: step 7 |
+| Runtime predictor | models/gnn/ | MISSING (planned SIMPLIFIED: Postgres estimates, GNN pending) | untested: step 8 |
+| Configuration search | rl/ | MISSING (planned SIMPLIFIED: greedy, RL pending) | untested: step 9 |
+| HypoPG what-if | db/sandbox/ | MISSING | untested: step 10 |
+| Statistical twin | db/twin/ | MISSING (planned SIMPLIFIED: no correlations) | untested: step 10 |
+| LLM agent and number checker | agent/ | MISSING | untested: step 11 |
+| Checksum verification | verify/ | MISSING | untested: step 12 |
+| Operator dashboard | dashboard/ | MISSING | untested: step 13 |
+| Q1 end-to-end test | e2e/ | MISSING | untested: step 14 |
+| results.json export and public site | scripts/, site/ | MISSING | untested: step 15 |
+| Makefile | Makefile | MISSING | untested: step 16 |
+| GNN training, XGBoost baseline | models/gnn/ | MISSING (out of scope this session) | untested |
+| Q-learning | rl/ | MISSING (out of scope this session) | untested |
+| DSB and TPC-H loading, plan generation | db/ | MISSING (out of scope this session) | untested |
+| Q2 to Q4, partitioning, drift | db/, miner/, rl/ | MISSING (out of scope this session) | untested |
+| Adversarial leak test | privacy_tests/ | MISSING (out of scope this session) | untested |
+| Air-gapped mode | infra/, agent/ | MISSING (out of scope this session) | untested |
+| VeriEQL | verify/ | MISSING (out of scope this session) | untested |
+| Approve, migration and rollback scripts | gateway/, dashboard/ | MISSING (out of scope this session) | untested |
+| Twin correlations | db/twin/ | MISSING (out of scope this session) | untested |
