@@ -103,3 +103,12 @@ def test_search_lists_rewrites_and_every_configuration_rechecked_on_the_twin(app
     hashed = text_of(app)
     assert not REAL.search(hashed), REAL.search(hashed)
     assert re.search(r"Rewrite \*\*q_[0-9a-f]{8}\*\* with rule", hashed)
+
+
+def test_twin_panel_shows_measured_write_cost(app):
+    next(b for b in app.button if b.label == "Run search").click().run()
+    next(b for b in app.button if b.label == "Measure on twin").click().run()
+    assert not app.exception, app.exception
+    added = {m.label: m.value for m in app.metric}["Insert latency added (measured)"]
+    assert re.fullmatch(r"[+-]\d+\.\d{3} ms per insert", added), added
+    assert any(data.LABELS["write_cost"] in m.value for m in app.markdown)

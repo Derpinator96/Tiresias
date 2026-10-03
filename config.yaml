@@ -140,7 +140,12 @@ rl:
   actions_per_episode: 5
   # The doc's reward subtracts lambda_write x write ms (ms) from a fractional time drop
   # (unitless). Kept as is, approved 2026-10-03: with the per-index penalty below it acts as
-  # a flat 0.1 per index, labelled as an assumption. Fix the units once pgbench measures writes.
+  # a flat 0.1 per index, labelled as an assumption. pgbench now measures writes on the twin
+  # (db/sandbox/write_cost.py): the Q1 index added a median 0.032 ms per insert over 6 runs on
+  # 2026-10-03 (range -0.118 to 0.196 ms, load average 17 to 32 on 16 cores). At 1.0 per ms that
+  # is a penalty near 0.03 against a predicted drop near 0.6 for Q1, so write cost does not
+  # change the pick at this scale. The units still mix ms with a unitless drop; scaling ms by a
+  # reference insert latency is a human decision, not made here.
   lambda_write: 1.0               # per added ms of insert latency
   # Changed from the doc's 1.0, approved by a human 2026-10-03. At 1.0 the 28 MB Q1 index
   # (budget 23.8 MB) scored storage 1.179 against a 0.641 predicted drop, so the search
@@ -159,6 +164,8 @@ rl:
   sim_cache_s: 1800
   # Not in the doc's table: assumed insert cost of one new index during search
   # (doc: "use a simple per-index penalty in search"). An assumption, not a measurement.
+  # The twin measured about 0.03 ms for the Q1 index (see lambda_write); 0.1 kept until a
+  # human approves a change.
   write_penalty_ms_per_index: 0.1
 
 sandbox:
@@ -171,6 +178,9 @@ sandbox:
   # most-common values -> twin values). Lives in the gateway's volume; never sent.
   twin_map_path: /var/lib/blind-tuner/twin_map.json
   pgbench_insert_rate_per_s: 200
+  # Not in the doc's table: how long each pgbench insert run lasts (db/sandbox/write_cost.py),
+  # once without and once with the configuration's indexes.
+  pgbench_duration_s: 10
 
 verify:
   verieql_rows_per_table: 5

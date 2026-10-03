@@ -148,11 +148,16 @@ if rl:
         hero = next((a["table"] for a in rl["config"]["actions"] if a["type"] == "add_index"), None)
         for t in sim["templates"]:
             speedup = 100 * (1 - t["after_ms"] / t["before_ms"]) if t["before_ms"] else 0.0
-            c1, c2, c3, c4 = st.columns(4)
+            c1, c2, c3, c4, c5 = st.columns(5)
             c1.metric("Before (measured)", f"{t['before_ms']:.1f} ms")
             c2.metric("After (measured)", f"{t['after_ms']:.1f} ms")
             c3.metric("Faster by", f"{speedup:.0f}%")
             c4.metric("Index storage", f"{sim['storage_mb_delta']} MB")
+            w = sim["write_ms_delta"]
+            c5.metric("Insert latency added (measured)", "not measured" if w is None else f"{w:+.3f} ms per insert")
+        if (sim["write_ms_delta"] or 0) < 0:
+            st.caption("The insert latency difference is below zero: the index's write cost is smaller than this "
+                       "run's timing noise, not a speed-up.")
         if hero:
             st.markdown(f"Assumptions: {view(hero)}: {tables.get(hero, 0):,} rows, demo scale, not production size. "
                         f"Median of {sim['runs']} warm runs on the twin, same machine before and after. "

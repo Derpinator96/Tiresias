@@ -226,7 +226,7 @@ class Gateway:
             "source": "twin",
             "templates": [{"template_id": tid, "before_ms": round_ms(r.before_ms[tid]), "after_ms": round_ms(r.after_ms[tid])}
                           for tid in runnable],
-            "write_ms_delta": None,          # pgbench write measurement is not built yet
+            "write_ms_delta": round_ms(r.write_ms_delta),
             "storage_mb_delta": round_sig(r.storage_mb),
             "runs": r.runs,
         }

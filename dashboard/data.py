@@ -19,7 +19,10 @@ LABELS = {
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
-    "write_cost": "write cost: not measured (pgbench pending)",
+    # Same text as db/sandbox/write_cost.LABEL (db/sandbox/tests/test_write_cost.py checks it).
+    "write_cost": (f"write cost: pgbench on the twin, {cfg('sandbox.pgbench_insert_rate_per_s')} inserts/s for "
+                   f"{cfg('sandbox.pgbench_duration_s')} s, median INSERT latency with minus without the indexes "
+                   "(WAL flush wait excluded)"),
 }
 
 

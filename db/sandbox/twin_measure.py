@@ -8,6 +8,8 @@ SIMPLIFIED twin. Private side: works on real names; runs in the gateway.
 3. Before: median of N warm runs (sandbox.timing_runs after sandbox.warmup_runs).
 4. Build the configuration's indexes for real on the twin, measure again, record their size
    from pg_relation_size, then drop them so the twin returns to its baseline.
+5. Write cost: pgbench insert latency without and with the indexes (db/sandbox/write_cost.py),
+   each run after that phase's read timings so inserted rows never touch them.
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ from psycopg import sql
 from sqlglot import exp
 
 from common.config import cfg
+from db.sandbox import write_cost
 
 
 def load_map() -> dict[str, dict[str, object]]:
@@ -94,6 +97,7 @@ class TwinResult:
     runs: int
     plan_agreement: dict[str, bool]
     twin_queries: dict[str, str]     # private: twin literals, never sent
+    write_ms_delta: float            # average INSERT ms with the indexes minus without
 
 
 def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
@@ -108,6 +112,7 @@ def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
         agree = {tid: op_sequence(_explain(conn, q)) == prod_ops[tid] for tid, q in twin_q.items()}
         before = {tid: _median_ms(conn, q) for tid, q in twin_q.items()}
+        write_before = write_cost.insert_ms(conn) if indexes else 0.0   # no index: writes unchanged
         names = [f"bt_sim_{i}" for i in range(len(indexes))]
         try:
             for name, (table, cols) in zip(names, indexes):
@@ -115,7 +120,9 @@ def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
                     sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
             size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
             after = {tid: _median_ms(conn, q) for tid, q in twin_after.items()}
+            write_after = write_cost.insert_ms(conn) if indexes else 0.0
         finally:
             for name in names:
                 conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
-    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q)
+    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q,
+                      write_after - write_before)
