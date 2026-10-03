@@ -94,6 +94,19 @@ services:
       retries: 40
     restart: unless-stopped
 
+  # SQL equivalence verifier (doc, Component 7). VeriEQL is CC BY-NC-SA 4.0 and lives only in
+  # its own image (infra/verieql/); our wrapper verify/verieql_server.py is mounted. It sees
+  # real SQL, so it is on the private network only, with no internet.
+  verieql:
+    build:
+      context: infra/verieql
+    image: blind-tuner-verieql:local
+    command: ["python", "/app/verify/verieql_server.py"]
+    volumes:
+      - ./verify:/app/verify:ro
+    networks: [private]
+    restart: unless-stopped
+
   gateway:
     <<: *python
     command: ["uvicorn", "gateway.api:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -102,6 +115,7 @@ services:
       TWIN_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-twin:5432/quickmart_twin
       BT_HMAC_KEY: ${BT_HMAC_KEY:?run make keygen first}
       PGLOG_DIR: /var/log/pglog
+      VERIEQL_URL: http://verieql:8300
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./contracts:/app/contracts:ro
@@ -168,6 +182,7 @@ services:
       AI_URL: http://ai:8100
       PGLOG_DIR: /var/log/pglog
       GEMINI_API_KEY_PRESENT: ${GEMINI_API_KEY:+yes}
+      VERIEQL_URL: http://verieql:8300
     volumes:
       - ./:/app
       - pgprod-log:/var/log/pglog:ro

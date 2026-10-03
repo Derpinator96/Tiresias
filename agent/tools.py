@@ -1,6 +1,6 @@
-"""The LLM's tools: six of the doc's eight. Each is a thin wrapper over one endpoint and
-returns hashed data only. rewrite_candidates and verify are MISSING (TODO: add them here
-when /ai/rewrite/candidates and /ai/verify/equivalence exist).
+"""The LLM's tools: all eight of the doc's. Each is a thin wrapper over one endpoint and
+returns hashed data only. Rewrites: the AI picks a rule; the gateway applies it to the real
+SQL and verifies it privately (VeriEQL plus a twin checksum).
 
 Each call gets an ID tc_ plus 8 hex; the result is kept under that ID so the number checker
 can trace every number in the answer back to it.
@@ -26,6 +26,13 @@ DECLARATIONS = [
      "predicted share of time (from the serving runtime estimator), and nodes where Postgres's row estimate was off "
      "by the alert ratio or more, with an ANALYZE recommendation.",
      "parameters": {"type": "object", "properties": {"template_id": {"type": "string"}}, "required": ["template_id"]}},
+    {"name": "rewrite_candidates", "description": "Rewrite rules that fit each slow template's shape, with the "
+     "rewritten hashed SQL (values shown as ?). Not yet checked.",
+     "parameters": {"type": "object", "properties": {}}},
+    {"name": "verify", "description": "Check one rewrite: the gateway applies the rule to the real query and runs an "
+     "equivalence verifier and a result checksum on the twin. Returns status Verified, TestedOnly or Rejected.",
+     "parameters": {"type": "object", "properties": {"template_id": {"type": "string"}, "rule_id": {"type": "string"}},
+                    "required": ["template_id", "rule_id"]}},
     {"name": "simulate", "description": "Measure a configuration on the statistical twin: before and after ms, storage MB.",
      "parameters": {"type": "object", "properties": {"config_id": {"type": "string"}}, "required": ["config_id"]}},
 ]
@@ -80,6 +87,12 @@ class Toolbox:
                                "predicted_share_pct": round(100 * n["share"], 1),
                                "predicted_self_ms": n["self_ms"]} for n in top],
                 "misestimate_alert_ratio": alert, "misestimates": mis}
+
+    def rewrite_candidates(self) -> object:
+        return gw.get("/v1/rewrite/candidates")
+
+    def verify(self, template_id: str, rule_id: str) -> object:
+        return gw.post("/v1/rewrite/verify", {"template_id": template_id, "rule_id": rule_id})
 
     def simulate(self, config_id: str) -> object:
         config = self.configs.get(config_id)

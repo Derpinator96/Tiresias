@@ -106,14 +106,34 @@ def simulate_twin(config: dict = Body(...)):
     return _to_ai("SimResult", sim)
 
 
+@app.get("/v1/rewrite/candidates")
+def rewrite_candidates():
+    """Rules whose shape matches each slow template, with the rewritten hashed SQL."""
+    g = gw()
+    return _to_ai(None, g.rewrite_candidates(g.snapshot()))
+
+
+@app.post("/v1/rewrite/verify")
+def rewrite_verify(body: dict = Body(...)):
+    """{template_id, rule_id} -> Rewrite: VeriEQL on the real SQL plus a twin checksum. The AI
+    names a rule; the rewrite itself is applied here, on the private side."""
+    g = gw()
+    snap = g.snapshot()
+    try:
+        rw = g.check_rewrite(snap, body["template_id"], body["rule_id"], os.environ["TWIN_DSN"])
+    except KeyError:
+        raise HTTPException(400, "body needs template_id and rule_id") from None
+    except ValueError as e:
+        raise HTTPException(409, f"rule does not apply: {e}") from None
+    return _to_ai("Rewrite", rw)
+
+
 @app.post("/v1/twin/checksum")
 def twin_checksum(body: dict = Body(...)):
     """{template_id, config} -> {template_id, config_id, match, rows}: does building the
-    config's indexes on the twin leave the template's result rows unchanged?
-    Original-vs-rewritten SQL is not supported yet (rewrites are out of scope)."""
+    config's indexes on the twin leave the template's result rows unchanged? Rewrites are
+    checked by /v1/rewrite/verify."""
     from db.sandbox import checksum, twin_measure
-    if "rewritten_sql" in body:
-        raise HTTPException(501, "rewrite equivalence: not built yet (rewrites are out of scope this session)")
     config = body.get("config")
     if not isinstance(config, dict):
         raise HTTPException(400, "body needs template_id and config")

@@ -153,7 +153,7 @@ if rl:
                         f"Median of {sim['runs']} warm runs on the twin, same machine before and after. "
                         f"{data.LABELS['twin']}. {data.LABELS['write_cost']}.")
         st.markdown(f"Verification: **{'TestedOnly' if chk['match'] else 'Rejected'}**: result checksum on the twin "
-                    f"{'matches' if chk['match'] else 'differs'} with the index ({data.LABELS['verify']}).")
+                    f"{'matches' if chk['match'] else 'differs'} with the index (VeriEQL checks rewrites, not indexes).")
 
 # ---- Privacy -------------------------------------------------------------------------------
 st.header("Privacy")
@@ -172,3 +172,21 @@ if "control" in st.session_state:
              f"{len(e['canary_hits'])} canary hits. Scanned locally only, never sent.")
 st.download_button("Export payload ledger (JSON)", json.dumps(led["entries"], indent=1),
                    file_name="payload_ledger.json", mime="application/json")
+
+# ---- Rewrites ------------------------------------------------------------------------------
+st.header("Rewrites")
+st.caption(f"{data.LABELS['rewrite_rules']}. The AI picks a rule by the query's shape; the gateway applies it to the "
+           f"real query and checks it privately ({data.LABELS['verify']}).")
+cands = data.gateway("/v1/rewrite/candidates")
+if not cands:
+    st.info("No slow template has a shape any rewrite rule fits.")
+if cands and st.button("Verify rewrites"):
+    st.session_state["rewrites"] = {(c["template_id"], c["rule_id"]): data.gateway(
+        "/v1/rewrite/verify", {"template_id": c["template_id"], "rule_id": c["rule_id"]}) for c in cands}
+done = st.session_state.get("rewrites", {})
+for c in cands:
+    rw = done.get((c["template_id"], c["rule_id"]))
+    status = rw["status"] if rw else "not checked yet"
+    st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
+                + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
+    st.code(view(c["sql"]), language="sql")

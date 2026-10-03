@@ -76,3 +76,14 @@ def test_plan_dot_points_child_to_parent_and_avoids_purple():
     for colour in re.findall(r'fillcolor="#([0-9a-f]{6})"', dot):
         r, g, b = (int(colour[i:i + 2], 16) for i in (0, 2, 4))
         assert r >= g == b       # grey to red only
+
+
+def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(app):
+    next(b for b in app.button if b.label == "Verify rewrites").click().run()
+    text = text_of(app)
+    assert "date_trunc_eq_to_range" in text and "or_same_column_to_in" in text
+    assert re.search(r"(Verified|TestedOnly|Rejected)\*\* \(VeriEQL: (pass|fail|unsupported|not_run), "
+                     r"twin checksum: (match|mismatch|not_run)\)", text)
+    assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
+    app.toggle[0].set_value(True).run()
+    assert not any(REAL.search(c.value) for c in app.code)

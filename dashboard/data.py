@@ -6,6 +6,8 @@ import os
 
 import httpx
 
+from common.config import cfg
+
 TIMEOUT_S = 300.0
 
 # On-screen labels for simplified or missing parts. The text matches the modules that own them.
@@ -13,7 +15,8 @@ LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
     "search": "search: Q-learning, index actions only (rewrite, partition and top-3 twin re-check pending)",
     "twin": "twin: synthetic from pg_stats, no column correlations yet",
-    "verify": "verification: result checksum on the twin only (VeriEQL pending)",
+    "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
+    "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
     "write_cost": "write cost: not measured (pgbench pending)",
 }

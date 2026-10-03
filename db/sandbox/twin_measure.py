@@ -97,9 +97,12 @@ class TwinResult:
 
 
 def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
-            queries: dict[str, str]) -> TwinResult:
+            queries: dict[str, str], after_queries: dict[str, str] | None = None) -> TwinResult:
+    """before = `queries` without the indexes; after = `after_queries` (rewritten SQL, where a
+    template has a rewrite; otherwise the same query) with the indexes."""
     mapping = load_map()
     twin_q = {tid: map_query(q, mapping) for tid, q in queries.items()}
+    twin_after = {tid: map_query((after_queries or {}).get(tid, q), mapping) for tid, q in queries.items()}
     with psycopg.connect(prod_dsn, autocommit=True) as prod:
         prod_ops = {tid: op_sequence(_explain(prod, q)) for tid, q in queries.items()}
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
@@ -111,7 +114,7 @@ def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
                 conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
                     sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
             size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
-            after = {tid: _median_ms(conn, q) for tid, q in twin_q.items()}
+            after = {tid: _median_ms(conn, q) for tid, q in twin_after.items()}
         finally:
             for name in names:
                 conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))

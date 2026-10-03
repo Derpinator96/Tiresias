@@ -1,5 +1,5 @@
-"""Run Q1 repeatedly on pg-prod so it appears in pg_stat_statements and, when slower than
-workload.slow_query_ms, in the auto_explain log. Also runs the four canary queries once.
+"""Run Q1 and Q2 repeatedly on pg-prod so they appear in pg_stat_statements and, when slower
+than workload.slow_query_ms, in the auto_explain log. Also runs the four canary queries once.
 
     python -m db.run_q1        # prints each Q1 duration in ms
 """
@@ -30,6 +30,9 @@ def run(dsn: str, runs: int | None = None) -> list[float]:
             t0 = time.perf_counter()
             conn.execute(workload.q1_sql()).fetchall()
             durations.append((time.perf_counter() - t0) * 1000)
+        for _ in range(int(cfg("workload.q2_runs"))):
+            conn.execute(workload.q2_sql()).fetchall()
+            conn.execute(workload.qor_sql()).fetchall()
     return durations
 
 

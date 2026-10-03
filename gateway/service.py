@@ -93,9 +93,11 @@ class Gateway:
     # ---- what-if ----------------------------------------------------------------------
     def decode_config(self, config: dict) -> list[tuple[str, list[str]]]:
         """Real (table, [columns]) for each add_index action. Unknown codes raise KeyError.
-        Other action types are not simulated yet (partition and rewrite are out of scope)."""
+        Rewrite actions are read by decode_rewrites; partition is not simulated yet."""
         out = []
         for a in config["actions"]:
+            if a["type"] == "rewrite":
+                continue
             if a["type"] != "add_index":
                 raise ValueError(f"action {a['type']} is not simulated yet")
             table = self.hasher.vault[a["table"]]["name"]
@@ -107,6 +109,62 @@ class Gateway:
                 cols.append(col)
             out.append((table, cols))
         return out
+
+    @staticmethod
+    def decode_rewrites(config: dict) -> dict[str, str]:
+        """{template_id: rule_id} for each rewrite action."""
+        return {a["template_id"]: a["rule_id"] for a in config["actions"] if a["type"] == "rewrite"}
+
+    def rewritten_queries(self, snap: Snapshot, config: dict) -> dict[str, str]:
+        """Real rewritten SQL for each template the config rewrites. Raises ValueError when a
+        rule does not apply to the template's logged query (its shape or values)."""
+        from gateway import rewrite_rules as rr
+        out = {}
+        for tid, rule in self.decode_rewrites(config).items():
+            if snap.template(tid) is None or rule not in rr.RULES:
+                raise ValueError("unknown template or rule")
+            query, generic = self.sample_queries(snap, [tid])[tid]
+            if generic:
+                raise ValueError("template has no logged query to rewrite")
+            try:
+                out[tid] = rr.rewrite(query, rule)
+            except rr.NotApplicable as e:
+                raise ValueError(str(e)) from None
+        return out
+
+    def rewrite_candidates(self, snap: Snapshot) -> list[dict]:
+        """Rules whose shape matches each slow template's hashed SQL, with the rewritten hashed
+        SQL (values as `?`). Shape only: values are checked when the rewrite is verified."""
+        from gateway import rewrite_rules as rr
+        out = []
+        for t in self.slow_templates(snap):
+            for rule in rr.matching(t["sql"]):
+                out.append({"template_id": t["template_id"], "rule_id": rule, "description": rr.RULES[rule].description,
+                            "sql": rr.rewrite_shape(t["sql"], rule), "label": rr.LABEL})
+        return out
+
+    def check_rewrite(self, snap: Snapshot, template_id: str, rule_id: str, twin_dsn: str) -> dict:
+        """Rewrite contract object: VeriEQL on the real SQL plus a result checksum on the twin.
+        Verified = VeriEQL pass and checksums match; TestedOnly = VeriEQL could not decide
+        (unsupported or not run) and checksums match; Rejected = either check failed."""
+        from db.sandbox import checksum, twin_measure, verieql
+        from gateway import rewrite_rules as rr
+        config = {"actions": [{"type": "rewrite", "template_id": template_id, "rule_id": rule_id}]}
+        rewritten = self.rewritten_queries(snap, config)[template_id]
+        original = self.sample_queries(snap, [template_id])[template_id][0]
+        v = verieql.check(original, rewritten, snap.catalog)
+        mapping = twin_measure.load_map()
+        c = checksum.queries_match(twin_dsn, twin_measure.map_query(original, mapping), twin_measure.map_query(rewritten, mapping))
+        checks = {"verieql": v["result"], "checksum": "match" if c["match"] else "mismatch"}
+        if v["result"] == "fail" or not c["match"]:
+            status = "Rejected"
+        elif v["result"] == "pass":
+            status = "Verified"
+        else:
+            status = "TestedOnly"
+        hashed = next(t["sql"] for t in self.slow_templates(snap) if t["template_id"] == template_id)
+        return {"rewrite_id": self.hasher.opaque("rw", f"{template_id}:{rule_id}"), "template_id": template_id,
+                "rule_id": rule_id, "sql": rr.rewrite_shape(hashed, rule_id), "status": status, "checks": checks}
 
     def sample_queries(self, snap: Snapshot, template_ids: list[str]) -> dict[str, tuple[str, bool]]:
         """A runnable query per template: the latest logged query with its real literals, or
@@ -125,7 +183,10 @@ class Gateway:
         from gateway.rounding import round_sig
         indexes = self.decode_config(config)
         tids = [t["template_id"] for t in self.slow_templates(snap)]
-        result = hypopg.explain_with_indexes(self.prod_dsn, indexes, self.sample_queries(snap, tids))
+        queries = self.sample_queries(snap, tids)
+        for tid, q in self.rewritten_queries(snap, config).items():
+            queries[tid] = (q, False)
+        result = hypopg.explain_with_indexes(self.prod_dsn, indexes, queries)
         schema = snap.catalog.schema()
         setup = "s_" + config["config_id"]
         plans = [plans_mod.hash_plan(p, plan_id=self.hasher.opaque("p", f"hypopg:{config['config_id']}:{tid}"),
@@ -144,7 +205,7 @@ class Gateway:
         runnable = {tid: q for tid, (q, generic) in self.sample_queries(snap, tids).items() if not generic}
         if not runnable:
             raise ValueError("no slow template has a logged query to replay")
-        r = twin_measure.measure(self.prod_dsn, twin_dsn, indexes, runnable)
+        r = twin_measure.measure(self.prod_dsn, twin_dsn, indexes, runnable, self.rewritten_queries(snap, config))
         sim = {
             "config_id": config["config_id"],
             "source": "twin",

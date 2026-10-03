@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from common.config import cfg
 from contracts.validate import errors
+from contracts.validate import errors
 from db import canaries, run_q1
 from gateway.canary_scan import Scanner
 
@@ -170,9 +171,40 @@ def test_ledger_counts_outbound_separately(client):
 def test_pending_endpoints_say_which_step(client, codes):
     cfg_obj = {"config_id": "cfg_00000001", "search": "greedy",
                "actions": [{"type": "add_index", "table": codes["t"], "columns": [codes["rg"], codes["td"]]}]}
-    # Twin simulation (step 10) and checksum (step 12) are built. Still not built: rewrite
-    # equivalence and approve, both out of scope this session.
-    r = client.post("/v1/twin/checksum", json={"config": cfg_obj, "rewritten_sql": "SELECT ?"})
-    assert r.status_code == 501 and "out of scope" in r.json()["detail"]
+    # Twin simulation (step 10), checksum (step 12) and rewrite verification (step 22) are
+    # built. Still not built: approve.
     r = client.post("/v1/approve")
     assert r.status_code == 501 and "out of scope" in r.json()["detail"]
+
+
+# ---- rewrites (step 22) ------------------------------------------------------------------------
+def _template_with(client, rule):
+    cands = client.get("/v1/rewrite/candidates").json()
+    return [c for c in cands if c["rule_id"] == rule]
+
+
+def test_rewrite_candidates_offer_q2_and_the_or_query(client):
+    trunc = _template_with(client, "date_trunc_eq_to_range")
+    ors = _template_with(client, "or_same_column_to_in")
+    assert trunc and ors
+    for c in trunc + ors:
+        assert "'" not in c["sql"] and c["label"]          # values stay as ?, never literals
+
+
+def test_q2_rewrite_is_tested_only_because_verieql_cannot_encode_date_trunc(client):
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    rw = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": c["rule_id"]}).json()
+    assert errors("Rewrite", rw) == []
+    assert rw["checks"] == {"verieql": "unsupported", "checksum": "match"} and rw["status"] == "TestedOnly"
+
+
+def test_or_rewrite_is_verified(client):
+    c = _template_with(client, "or_same_column_to_in")[0]
+    rw = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": c["rule_id"]}).json()
+    assert rw["checks"] == {"verieql": "pass", "checksum": "match"} and rw["status"] == "Verified"
+
+
+def test_rule_that_does_not_fit_is_refused(client):
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
+    assert r.status_code == 409

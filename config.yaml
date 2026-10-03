@@ -44,6 +44,12 @@ workload:
   q1_runs: 5
   # Q1's parameters, from the doc's "Demo queries": region_id = 7 AND transaction_date >= this.
   q1_since: "2026-09-26"
+  # Q2's parameter, from the doc's "Demo queries": date_trunc('month', transaction_date) = this.
+  q2_month: "2026-09-01"
+  # Not in the doc's table: how many times the workload runs Q2 and the two-region query.
+  q2_runs: 5
+  # Not in the doc's table: the two-region query added for the rewrite demo (db/workload.py).
+  qor_regions: [3, 7]
   # Not in the doc's table: the database role the application workload runs as. The gateway
   # ingests only this role's queries, so test and catalog queries never become templates.
   app_role: quickmart_app

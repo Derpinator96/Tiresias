@@ -228,3 +228,10 @@ def test_gnn_explain_numbers_pass_the_checker():
     model = ScriptedLLM([call("gnn_explain", {"template_id": "q_00000001"}), cite])
     r = agent_mod.ask("qn_00000001", ["q_00000001"], model, ExplainTools())
     assert r.status == "ok", r
+
+
+
+def test_all_eight_doc_tools_are_declared():
+    from agent.tools import DECLARATIONS
+    assert {d["name"] for d in DECLARATIONS} == {"get_slow_templates", "get_plan", "mine_candidates", "run_rl",
+                                                 "simulate", "gnn_explain", "rewrite_candidates", "verify"}

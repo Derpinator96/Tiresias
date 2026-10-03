@@ -1,9 +1,9 @@
 """Result checksums on the twin (doc, Detailed component specs, Verification): an MD5 of the
 sorted result rows. Private side: runs real SQL on pg-twin from the gateway.
 
-For the walking skeleton this proves one thing: building the recommended indexes does not
-change a template's answer. Rewrite equivalence (original vs rewritten SQL) plugs in here
-when rewrites exist.
+Two checks: building the recommended indexes does not change a template's answer
+(index_preserves_results), and a rewritten query returns the same rows as the original
+(queries_match).
 """
 from __future__ import annotations
 
@@ -18,6 +18,13 @@ def result_md5(conn: psycopg.Connection, query: str) -> tuple[str, int]:
         f"SELECT md5(COALESCE(string_agg(r::text, E'\\n' ORDER BY r::text), '')), COUNT(*) FROM ({query}) AS r"
     ).fetchone()
     return md5, n
+
+
+def queries_match(twin_dsn: str, original: str, rewritten: str) -> dict:
+    with psycopg.connect(twin_dsn, autocommit=True) as conn:
+        a, na = result_md5(conn, original)
+        b, nb = result_md5(conn, rewritten)
+    return {"match": a == b and na == nb, "rows": na}
 
 
 def index_preserves_results(twin_dsn: str, indexes: list[tuple[str, list[str]]], query: str) -> dict:
