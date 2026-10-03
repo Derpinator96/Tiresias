@@ -110,7 +110,7 @@ GOVERNED: dict[str, list[str]] = {
                           "postgres.statement_timeout_plan_generation_s"],
     "db/plangen/quickmart_templates.py": ["dataset.regions_rows",
                                           "dataset.stores_rows"],
-    "models/gnn/train.py": ["gnn.learning_rate", "gnn.batch_size", "gnn.max_epochs", "gnn.patience",
+    "models/gnn/train.py": ["gnn.learning_rate", "gnn.batch_size", "gnn.max_epochs", "gnn.patience", "gnn.weight_decay",
                             "gnn.hidden_size", "gnn.layers", "gnn.dropout"],
     # drift_windows_required (2) is not listed for miner/drift.py: its literal 2 is the log base of
     # the Jensen-Shannon distance (the doc's 0-to-1 scale), not a window count.

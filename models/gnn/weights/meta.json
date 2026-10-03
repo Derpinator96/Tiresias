@@ -1,0 +1,20 @@
+{
+ "feature_version": 1,
+ "n_features": 49,
+ "hidden_size": 128,
+ "layers": 3,
+ "dropout": 0.1,
+ "trained_on_plans": 10523,
+ "early_stop_metric": "mean_log_q_error",
+ "val_median_q_error": 1.3877,
+ "val_p95_q_error": 4.1546,
+ "val_mean_log_q_error": 0.4343,
+ "best_epoch": 42,
+ "epochs": 58,
+ "device": "cpu",
+ "train_seconds": 716.4,
+ "trained_by": "models/gnn/train.py (node + plan-total loss)",
+ "seed": 20261003,
+ "graph_loss_weight": 0.5,
+ "selected_by": "lowest validation mean log q-error among 10 runs (graph_loss_weight 0, 0.25, 0.5, 1, 2; 6 seeds); test set not used for selection"
+}

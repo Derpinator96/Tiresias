@@ -6,6 +6,7 @@ import json
 
 import streamlit as st
 
+from common.config import cfg
 from dashboard import data
 
 
@@ -111,7 +112,9 @@ def result() -> None:
         st.metric(label,
                   f"{saved:.1f} ms", f"{pct:.0f}% faster ({t['before_ms']:.1f} to {t['after_ms']:.1f} ms)")
     rows = f"{job['rows'][table]:,}-row " if table in job.get("rows", {}) else ""
-    st.caption(f"Measured on a synthetic {rows}copy of the data, median of {sim['runs']} runs; not production.")
+    replay = (" Recorded twin measurement, replayed (sandbox.twin_mode: recorded); not re-measured for"
+              " this question." if cfg("sandbox.twin_mode") == "recorded" else "")
+    st.caption(f"Measured on a synthetic {rows}copy of the data, median of {sim['runs']} runs; not production.{replay}")
 
     if st.session_state.get("ai_view"):
         st.info("SQL hidden in the AI view: it holds real names.")

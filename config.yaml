@@ -149,6 +149,17 @@ gnn:
   max_epochs: 150
   patience: 15
   template_split: [0.70, 0.15, 0.15]
+  # Doc ("Configuration values"): Adam weight decay.
+  weight_decay: 0.00001
+  # Not in the doc's table: weight of the plan-total term next to the per-node term in the
+  # training loss (models/gnn/train.py). The total is what evaluate.py and serving score.
+  graph_loss_weight: 0.5
+  # Not in the doc's table: "auto" trains on CUDA when available, else CPU. Weights are saved
+  # on CPU either way, so the CPU-only image loads them.
+  device: auto
+  # Not in the doc's table: the validation number early stopping watches. median_q_error,
+  # p95_q_error or mean_log_q_error (mean of log q, which also weighs the bad tail).
+  early_stop_metric: mean_log_q_error
   # Doc, Component 3 Use B: a 100x or larger gap between Postgres's row estimate and the actual
   # rows makes gnn_explain recommend ANALYZE.
   misestimate_ratio_alert: 100
@@ -161,7 +172,15 @@ rl:
   gamma: 0.9
   epsilon_start: 0.1
   epsilon_min: 0.02
-  episodes: 300
+  # Changed from the doc's 300 to 100, approved by a human 2026-10-04: a cold search took about
+  # 2.7 min at 300 and 27 to 36 s at 100 on the demo laptop. 50 was tried and found a weaker
+  # config ((transaction_date), Q1 23% faster on the twin vs 70% for (region_id, transaction_date)).
+  episodes: 100
+  # Human decision 2026-10-04: "recorded" reuses the last search result saved for the same slow
+  # templates and weights (search_record_path) instead of searching again; a workload never
+  # searched before is searched live and saved. "live" searches every time.
+  search_mode: recorded
+  search_record_path: /var/lib/blind-tuner-ai/rl_recorded.json
   # Not in the doc's table: initial Q for unseen (state, action) pairs. Optimistic (above any
   # single-step reward, which is at most 1) so every option is explored; see rl/NOTES.md.
   q_init: 1.0
@@ -197,7 +216,9 @@ rl:
   write_penalty_ms_per_index: 0.1
   # Doc, Component 4 item 6: partition keys scored on the twin only, at most two, after the
   # index search (rl/search.py partition_keys and add_partition).
-  partition_max_keys: 2
+  # Changed from 2 to 0, approved by a human 2026-10-04: each key adds about 80 s of twin work
+  # to every Ask. Set back to 2 to show partitioning (Q3) live.
+  partition_max_keys: 0
   # Not in the doc's table: HTTP timeout in seconds for a twin measurement with a partition
   # action. The gateway copies the whole table into a partitioned copy on the twin first: the
   # full 4-template workload with the Q1 index took 77 s at 10,000,000 sales rows on
@@ -205,6 +226,11 @@ rl:
   partition_twin_timeout_s: 600
 
 sandbox:
+  # Human decision 2026-10-04: "recorded" answers /v1/simulate/twin only from earlier real twin
+  # measurements of the same actions and slow templates (twin_record_path, filled by "live"
+  # runs) and never runs the twin; any other config gets 409. "live" measures every time.
+  twin_mode: recorded
+  twin_record_path: /var/lib/blind-tuner/twin_recorded.json
   twin_hero_table_scale: 1.0
   twin_other_tables_scale: 0.2
   timing_runs: 5                  # median of 5 warm runs
@@ -247,7 +273,7 @@ llm:
   # model list by agent/tests/test_live_llm.py.
   # Which LLM answers: gemini, openai, nim or ollama. Switching provider is this one value; each
   # provider's own settings are below (Gemini's are model and api_key_env, kept at this level).
-  provider: gemini
+  provider: nim
   # Human decision 2026-10-03: when the provider fails (rate limited after all retries, host
   # unreachable, timeout, HTTP error such as a revoked key, malformed reply, key or model not
   # set), the whole answer is asked again of the next provider in this list, in order. A canary
