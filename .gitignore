@@ -1,0 +1,19 @@
+# Secrets: the HMAC key and API keys live only here
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Local run output
+runs/
+*.log
+
+# Site build
+site/node_modules/
+site/dist/
+.vercel/
