@@ -1,5 +1,6 @@
 """Tests for the results exporter and the public site build (tools container; no services needed)."""
 import importlib.util
+import os
 import json
 import re
 
@@ -7,7 +8,7 @@ import pytest
 
 from common.config import REPO_ROOT
 from db import canaries
-from scripts import export_results
+from scripts import export_results, public_names
 
 spec = importlib.util.spec_from_file_location("site_build", REPO_ROOT / "site" / "build.py")
 site_build = importlib.util.module_from_spec(spec)
@@ -23,10 +24,8 @@ RUN = {
     "privacy": {"payloads": 30, "llm_payloads": 6, "canary_hits": 0, "canaries_planted": 20},
     "llm": {"provider": "gemini", "model": "gemini-3.8-flash", "tool_calls": 5, "numbers_checked": 4},
 }
-# QuickMart's real identifiers: none may appear on the public site.
-REAL = ["regions", "stores", "customers", "products", "sales", "returns", "region_id", "store_id", "customer_id",
-        "product_id", "order_id", "return_id", "transaction_date", "amount", "full_name", "unit_price",
-        "payment_method", "signup_date", "opened_on", "quickmart", "quickmart_app"]
+# QuickMart's real identifiers: none may appear on the public site (list in scripts/public_names.py).
+REAL = public_names.REAL
 
 
 @pytest.fixture
@@ -107,3 +106,76 @@ def test_no_builder_badge_or_external_scripts(built):
         if name.endswith(".html"):
             assert "<script" not in body
             assert not re.search(r"made with|built with|powered by", body, re.I), name
+
+
+# ---- site/web (Next.js), the public deploy since 2026-10-04 ------------------------------------
+# Scans `npm run build` output of a public build (NEXT_PUBLIC_BT_LOCAL unset). make test-web builds
+# it in a node container first and sets BT_REQUIRE_WEB_BUILD=1 so a missing build fails.
+WEB = REPO_ROOT / "site" / "web"
+NEXT = WEB / ".next"
+web = pytest.mark.skipif(not (NEXT / "BUILD_ID").exists() and os.environ.get("BT_REQUIRE_WEB_BUILD") != "1",
+                         reason="site/web is not built (npm run build)")
+STAGES = ["source", "gateway", "miner", "gnn", "rl", "llm", "twin", "dba"]   # src/lib/store.ts STAGES
+PUBLIC_ROUTES = {"/", "/playground", "/ask", "/hashing", "/privacy", "/terms", *(f"/stages/{s}" for s in STAGES)}
+SNAKE = [r for r in REAL if "_" in r] + ["quickmart"]   # plain English words also occur in minified libraries
+
+
+def _server_files():
+    app = NEXT / "server" / "app"
+    return [p for p in app.rglob("*") if p.is_file() and (p.suffix in (".html", ".rsc", ".body") or ".segments" in str(p))]
+
+
+def _own_source():
+    src = WEB / "src"
+    return [p for p in src.rglob("*") if p.is_file() and "components/ui" not in p.as_posix()
+            and p.suffix in (".ts", ".tsx", ".css", ".json", ".svg")]
+
+
+def _scan(path, words):
+    body = path.read_text(encoding="utf-8", errors="replace")
+    text = re.sub(r"<[^>]+>", " ", body).lower() if path.suffix == ".html" else body.lower()
+    for real in words:
+        assert not re.search(rf"\b{real}\b", text), (str(path.relative_to(WEB)), real)
+    for c in canaries.ALL:
+        assert c.value.lower() not in text, (str(path.relative_to(WEB)), c.kind)
+    assert chr(0x2014) not in body and chr(0x2013) not in body, str(path.relative_to(WEB))
+    assert not re.search(r"made with|built with|powered by", text), str(path.relative_to(WEB))
+
+
+@web
+def test_web_pages_and_own_source_have_no_real_names_canaries_dashes_or_badges():
+    files = _server_files() + _own_source()
+    assert files
+    for p in files:
+        _scan(p, REAL)
+
+
+@web
+def test_web_client_chunks_have_no_names_canaries_or_live_ask_path():
+    chunks = [p for p in (NEXT / "static").rglob("*") if p.suffix in (".js", ".css")]
+    assert chunks
+    for p in chunks:
+        body = p.read_text(encoding="utf-8", errors="replace")
+        for real in SNAKE:
+            assert not re.search(rf"\b{real}\b", body.lower()), (p.name, real)
+        for c in canaries.ALL:
+            assert c.value.lower() not in body.lower(), (p.name, c.kind)
+        assert "/api/ask" not in body, (p.name, "live Ask code in a public build")
+
+
+@web
+def test_web_pages_link_icon_privacy_and_terms():
+    pages = [p for p in (NEXT / "server" / "app").rglob("*.html") if not p.name.startswith("_global-error")]
+    assert pages
+    for p in pages:
+        body = p.read_text(encoding="utf-8")
+        assert 'rel="icon"' in body and 'href="/privacy"' in body and 'href="/terms"' in body, p.name
+        for src in re.findall(r'<script[^>]*\ssrc="([^"]+)"', body):
+            assert src.startswith("/_next/"), (p.name, src)
+
+
+@web
+def test_web_prerenders_every_public_route_and_no_api():
+    routes = set(json.loads((NEXT / "prerender-manifest.json").read_text(encoding="utf-8"))["routes"])
+    assert PUBLIC_ROUTES <= routes, PUBLIC_ROUTES - routes
+    assert not [r for r in routes if r.startswith("/api")]

@@ -1,0 +1,40 @@
+{
+ "run_id": "run_d1b30d38",
+ "finished_at": "2026-10-03T09:18:33Z",
+ "elapsed_s": 92.0,
+ "dataset": {
+  "hero_table_rows": 10000000,
+  "hero_table_size_mb": 940.0
+ },
+ "q1": {
+  "mean_ms_before": 183.9,
+  "slow_threshold_ms": 100
+ },
+ "twin": {
+  "before_ms": 303.552,
+  "after_ms": 98.29,
+  "speedup_pct": 67.6,
+  "storage_mb": 68.0,
+  "runs": 5,
+  "checksum_match": true
+ },
+ "search": {
+  "label": "search: Q-learning, index actions only (rewrite, partition and top-3 twin re-check pending)",
+  "predicted_before_ms": 120.044,
+  "predicted_after_ms": 39.277,
+  "estimator_label": "estimator: Postgres cost x calibration (GNN pending)",
+  "recommended_columns": 2
+ },
+ "privacy": {
+  "payloads": 43,
+  "llm_payloads": 5,
+  "canary_hits": 0,
+  "canaries_planted": 20
+ },
+ "llm": {
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "tool_calls": 5,
+  "numbers_checked": 4
+ }
+}
