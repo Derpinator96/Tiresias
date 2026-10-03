@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down seed twin demo e2e test test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e export site test test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -42,6 +42,14 @@ demo:
 ## End-to-end Q1 test (needs make up, make seed and GEMINI_API_KEY in .env). Writes runs/latest.json.
 e2e:
 	$(TOOLS) python -m pytest -p no:cacheprovider -v e2e
+
+## Write site/results.json from the latest passing e2e run (refuses if there is none).
+export:
+	$(TOOLS) python -m scripts.export_results
+
+## Build the public static site into site/dist (deploy that folder to Vercel).
+site:
+	$(TOOLS) python site/build.py
 
 ## Fast unit and contract tests, run in the tools container.
 test:
@@ -82,6 +90,10 @@ test-verify:
 ## Dashboard tests (AppTest), run in the dashboard container (needs make up and make seed).
 test-dashboard:
 	$(DC) exec -T dashboard python -m pytest -p no:cacheprovider /app/dashboard/tests
+
+## Exporter and site build tests (no services needed).
+test-site:
+	$(TOOLS) python -m pytest scripts/tests
 
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:

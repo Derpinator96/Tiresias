@@ -61,7 +61,8 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | Checksum verification | verify/checksum.py, db/sandbox/checksum.py, gateway /v1/twin/checksum | REAL for "index does not change Q1's answer" on the twin; status TestedOnly because VeriEQL is MISSING; rewrite equivalence MISSING | verify/tests/test_checksum.py (4) |
 | Operator dashboard | dashboard/app.py, dashboard/data.py, make demo | REAL; every simplified component labelled on screen; ledger counter includes the dashboard's own reads (labelled) | dashboard/tests/test_app.py (5, AppTest); "rate limited" warning display untested |
 | Q1 end-to-end test | e2e/test_q1.py, make e2e | REAL test; currently FAILS by design: GEMINI_API_KEY not set | assertions 1 to 3 passed in a diagnostic run (key flag forced, stopped at /ai/ask with 503); 4 and 5 never run live |
-| results.json export and public site | scripts/, site/ | MISSING | untested: step 15 |
+| results.json export | scripts/export_results.py, make export | REAL; no results.json yet because no e2e run has passed | scripts/tests/test_export_and_site.py |
+| Public site (5 pages, favicon) | site/, make site | REAL static site; results page is a labelled PLACEHOLDER until an e2e run passes; NOT DEPLOYED (needs the human's Vercel login); privacy and terms pending human review | scripts/tests/test_export_and_site.py (8 tests in the file) |
 | Makefile | Makefile | MISSING | untested: step 16 |
 | GNN training, XGBoost baseline | models/gnn/ | MISSING (out of scope this session) | untested |
 | Q-learning | rl/ | MISSING (out of scope this session) | untested |

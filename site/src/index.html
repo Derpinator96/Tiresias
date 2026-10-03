@@ -1,0 +1,31 @@
+<h1>Blind Tuner recommends PostgreSQL indexes while its AI sees only hashed metadata</h1>
+<p class="lead">A gateway inside the database owner's network replaces every table and column name with a keyed hash and strips every value before anything reaches the AI. The AI proposes an index from that metadata. The proposal is measured on a synthetic copy of the database before a DBA sees it.</p>
+
+<h2>The fix depends on the shape of a query, not on its rows</h2>
+<p>A typical slow dashboard query filters one column with <code>=</code> and a date column with <code>&gt;=</code>. With no index on those columns, PostgreSQL reads every row of the table to keep a small fraction. A composite index on the two columns, equality column first, lets it read only the rows it keeps.</p>
+<p>Which column is compared with <code>=</code>, which with <code>&gt;=</code>, how many rows exist and how many were read: all of that survives hashing, and it is what the index decision needs. The names and the values do not survive.</p>
+
+<h2>What crosses the boundary and what does not</h2>
+<div class="table-wrap"><table>
+<thead><tr><th scope="col">Category</th><th scope="col">Example</th><th scope="col">Sent to the AI?</th></tr></thead>
+<tbody>
+<tr><th scope="row">Values</th><td>customer emails, amounts, dates, filter values</td><td>No. Replaced by <code>?</code>; every payload is scanned for planted canary values before it leaves.</td></tr>
+<tr><th scope="row">Names</th><td>table and column names</td><td>No. HMAC-SHA256 codes such as <code>t_7a3f91c2</code> (illustrative), computed with a key that stays in the gateway.</td></tr>
+<tr><th scope="row">Statistics value lists</th><td>most common values, histogram bounds from <code>pg_stats</code></td><td>No. Replaced by one skew score from 0 to 1.</td></tr>
+<tr><th scope="row">The DBA's question</th><td>"why is this dashboard slow?"</td><td>No. Mapped to query template codes inside the gateway.</td></tr>
+<tr><th scope="row">Query shape</th><td>which column uses <code>=</code>, joins, grouping</td><td>Yes. The fix depends on it.</td></tr>
+<tr><th scope="row">Sizes</th><td>row counts, table and index sizes</td><td>Yes, rounded to 2 significant figures.</td></tr>
+<tr><th scope="row">Column roles</th><td>date, number, identifier</td><td>Yes, as role tags.</td></tr>
+</tbody></table></div>
+<p>The shape of the schema (how many tables, how they link) still reaches the AI and can hint at the kind of business. Blind Tuner claims that no raw value or real name crosses the boundary, not that nothing does.</p>
+
+<h2>How the privacy claim is checked</h2>
+<ul>
+<li>Twenty canary placements (fake emails, names, phone numbers, amounts, product names, query comments, filter values and one question) are planted in the demo database and workload. Every payload bound for the AI is scanned for them, exactly and by 6-character fragment, and blocked on a hit.</li>
+<li>A negative control scans the same logs with hashing and stripping switched off. It finds the canaries, which shows that the scanner works and that a zero means something.</li>
+<li>A ledger records the size and SHA-256 of every payload that left.</li>
+<li>The AI's container is on a Docker network with no route to either database; a test proves that a connection attempt fails.</li>
+</ul>
+
+<h2>This is a walking skeleton for one query</h2>
+<p>This build runs the whole pipeline end to end for one hero query on a 1,000,000-row demo table. Several components are simplified stand-ins, each labelled on the <a href="/architecture.html">architecture page</a>. The <a href="/results.html">results page</a> shows only numbers from a passing end-to-end run.</p>
