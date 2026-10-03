@@ -57,7 +57,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | HypoPG what-if | db/sandbox/hypopg.py, gateway /v1/simulate/hypopg | REAL | db/sandbox/tests/test_hypopg.py |
 | Twin measurement (before/after, storage, plan agreement) | db/sandbox/twin_measure.py, gateway /v1/simulate/twin | REAL measurement on the SIMPLIFIED twin; write cost not measured (write_ms_delta null, pgbench MISSING) | db/sandbox/tests/test_hypopg.py::test_gateway_twin_endpoint_measures_q1_speedup, db/twin/tests/test_twin.py::test_q1_plan_agrees_and_index_speeds_it_up |
 | Statistical twin | db/twin/build.py, make twin | SIMPLIFIED: columns generated independently from pg_stats, no correlations; label "twin: synthetic from pg_stats, no column correlations yet". sales at full size (1,000,000), others 20% or the FK distinct floor | db/twin/tests/test_twin.py (8) |
-| LLM agent and number checker | agent/ | MISSING | untested: step 11 |
+| LLM agent and number checker | agent/llm.py, agent/agent.py, agent/tools.py, agent/number_checker.py, /ai/ask | REAL code; 5 of 8 tools (gnn_explain, rewrite_candidates, verify MISSING) | agent/tests/test_agent.py (16, scripted model and mock transport). Live Gemini path UNTESTED: GEMINI_API_KEY not set, so agent/tests/test_live_llm.py skips |
 | Checksum verification | verify/ | MISSING | untested: step 12 |
 | Operator dashboard | dashboard/ | MISSING | untested: step 13 |
 | Q1 end-to-end test | e2e/ | MISSING | untested: step 14 |
@@ -72,4 +72,4 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | VeriEQL | verify/ | MISSING (out of scope this session) | untested |
 | Approve, migration and rollback scripts | gateway/, dashboard/ | MISSING (out of scope this session) | untested |
 | Twin correlations | db/twin/ | MISSING (out of scope this session) | untested |
-| ai and dashboard apps | agent/api.py, dashboard/app.py | PLACEHOLDER: /healthz only and a dashboard page saying so | test_isolation.py::test_gateway_is_reachable |
+| Operator dashboard app | dashboard/app.py | PLACEHOLDER: a page saying so, until step 13 | untested |

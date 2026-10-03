@@ -1,0 +1,184 @@
+"""LLM agent tests that need no API key: the number checker, the Gemini adapter against a
+mock transport (outbound scan, 429 backoff), and the tool loop with a scripted model.
+The live Gemini run is in test_live_llm.py."""
+import json
+
+import httpx
+import pytest
+
+from agent import agent as agent_mod
+from agent import llm, number_checker
+from agent.tools import Toolbox
+from contracts.validate import errors
+
+RESULTS = {
+    "tc_0000000a": {"templates": [{"before_ms": 24.297, "after_ms": 2.662, "speedup_pct": 89.0}], "storage_mb_delta": 6.8},
+    "tc_0000000b": {"nodes": [{"self_ms": 27.019}], "est_rows": 2400},
+}
+
+
+# ---- number checker -----------------------------------------------------------------------
+def test_checker_passes_tagged_numbers_with_rounding():
+    text = ("The scan on t_54083dac takes 27.0 ms [tc_0000000b]. An index on (c_59811941, c_4da6361d) "
+            "measured 24.3 ms [tc_0000000a] before and 2.66 ms [tc_0000000a] after, 89 % [tc_0000000a] faster, "
+            "using 6.8 MB [tc_0000000a].")
+    ok, unmatched, numbers = number_checker.check(text, RESULTS)
+    assert ok, unmatched
+    assert {"value": 2.66, "tool_call_id": "tc_0000000a"} in numbers
+
+
+def test_checker_blocks_a_planted_fake_number():
+    ok, unmatched, _ = number_checker.check("It will be 85% faster [tc_0000000a].", RESULTS)
+    assert not ok and unmatched == ["85"]
+
+
+def test_checker_blocks_untagged_numbers():
+    ok, unmatched, _ = number_checker.check("It saves 21 ms.", RESULTS)
+    assert not ok and unmatched == ["21"]
+
+
+def test_checker_blocks_number_cited_to_wrong_call():
+    ok, unmatched, _ = number_checker.check("Before: 24.3 ms [tc_0000000b].", RESULTS)
+    assert not ok
+
+
+def test_checker_ignores_code_digits():
+    ok, unmatched, numbers = number_checker.check("Index on c_59811941 of t_54083dac for q_23387862 via cfg_751d8617.", RESULTS)
+    assert ok and numbers == []
+
+
+def test_strip_tags():
+    assert number_checker.strip_tags("2.66 ms [tc_0000000a] after") == "2.66 ms after"
+
+
+# ---- Gemini adapter -----------------------------------------------------------------------
+def gemini_ok(text="done"):
+    return {"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}}]}
+
+
+@pytest.fixture
+def outbound(monkeypatch):
+    sent = []
+
+    def post(path, body):
+        assert path == "/v1/ledger/outbound"
+        sent.append(body)
+        verdict = "block" if "CANARY" in body["body"] else "allow"
+        return {"payload_id": "pay_00000001", "verdict": verdict, "canary_hits": []}
+    monkeypatch.setattr(llm.gw, "post", post)
+    return sent
+
+
+def test_adapter_scans_the_exact_bytes_it_sends(outbound):
+    seen = []
+
+    def handler(req):
+        seen.append(req.content.decode())
+        return httpx.Response(200, json=gemini_ok())
+    g = llm.GeminiREST("gemini-3.8-flash", "k", httpx.MockTransport(handler), sleep=lambda s: None)
+    g.generate("sys", [{"role": "user", "parts": [{"text": "q_00000001"}]}], [])
+    assert seen == [outbound[0]["body"]]
+    assert json.loads(seen[0])["generationConfig"]["temperature"] == 0
+
+
+def test_adapter_never_sends_a_blocked_body(outbound):
+    calls = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: calls.append(r) or httpx.Response(200, json=gemini_ok())), sleep=lambda s: None)
+    with pytest.raises(llm.OutboundBlocked):
+        g.generate("sys", [{"role": "user", "parts": [{"text": "CANARY_ASK_7731"}]}], [])
+    assert calls == []
+
+
+def test_adapter_backs_off_on_429_and_reports_it(outbound):
+    replies = iter([httpx.Response(429), httpx.Response(429, headers={"Retry-After": "7"}), httpx.Response(200, json=gemini_ok())])
+    waits, events = [], []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: next(replies)), sleep=waits.append)
+    g.generate("sys", [], [], on_event=events.append)
+    assert waits == [2.0, 7.0]                       # initial backoff, then Retry-After
+    assert all(e.startswith("rate limited, retrying") for e in events) and len(events) == 2
+
+
+def test_adapter_gives_up_after_max_attempts(outbound):
+    events = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: httpx.Response(429)), sleep=lambda s: None)
+    with pytest.raises(llm.RateLimited):
+        g.generate("sys", [], [], on_event=events.append)
+    assert events[-1].startswith("rate limited, gave up")
+
+
+def test_missing_key_is_an_error(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(llm.MissingKey):
+        llm.provider()
+
+
+# ---- agent loop with a scripted model -----------------------------------------------------
+class ScriptedLLM:
+    def __init__(self, turns):
+        self.turns = list(turns)
+        self.requests = []
+
+    def generate(self, system, contents, declarations, on_event=lambda _: None):
+        self.requests.append(json.loads(json.dumps(contents)))
+        turn = self.turns.pop(0)
+        return {"candidates": [{"content": turn(contents) if callable(turn) else turn}]}
+
+
+class FakeTools(Toolbox):
+    def get_slow_templates(self):
+        return [{"template_id": "q_00000001", "mean_ms": 24.297}]
+
+
+def call(name, args=None, cid="call-1"):
+    return {"role": "model", "parts": [{"functionCall": {"id": cid, "name": name, "args": args or {}}}]}
+
+
+def answer_citing_last_tool(contents):
+    tc = contents[-1]["parts"][0]["functionResponse"]["response"]["tool_call_id"]
+    return {"role": "model", "parts": [{"text": f"Template q_00000001 averages 24.3 ms [{tc}]."}]}
+
+
+def test_loop_runs_tool_then_answers_with_checked_numbers():
+    model = ScriptedLLM([call("get_slow_templates"), answer_citing_last_tool])
+    r = agent_mod.ask("qn_00000001", ["q_00000001"], model, FakeTools())
+    assert r.status == "ok" and errors("Answer", r.answer) == []
+    assert r.answer["text"] == "Template q_00000001 averages 24.3 ms."
+    fr = model.requests[1][-1]["parts"][0]["functionResponse"]
+    assert fr["id"] == "call-1" and fr["name"] == "get_slow_templates"
+
+
+def test_question_text_never_reaches_the_model():
+    model = ScriptedLLM([{"role": "model", "parts": [{"text": "No numbers here."}]}])
+    agent_mod.ask("qn_00000001", ["q_00000001"], model, FakeTools())
+    first = json.dumps(model.requests[0])
+    assert "weekly sales" not in first and "q_00000001" in first
+
+
+def test_tool_call_cap(monkeypatch):
+    from common import config
+    monkeypatch.setattr(agent_mod, "cfg", lambda k: 2 if k == "llm.max_tool_calls" else config.cfg(k))
+    model = ScriptedLLM([call("get_slow_templates")] * 3 + [{"role": "model", "parts": [{"text": "Stopping."}]}])
+    tools = FakeTools()
+    r = agent_mod.ask("qn_00000001", [], model, tools)
+    assert len(tools.calls) == 2 and r.status == "ok"
+    last = model.requests[-1][-1]["parts"][0]["functionResponse"]["response"]
+    assert "limit" in last["result"]["error"]
+
+
+def test_invented_number_retried_once_then_blocked():
+    bad = {"role": "model", "parts": [{"text": "This is 85% faster."}]}
+    model = ScriptedLLM([bad, bad])
+    r = agent_mod.ask("qn_00000001", [], model, FakeTools())
+    assert r.status == "blocked_by_checker" and r.answer is None and r.unmatched == ["85"]
+    assert "do not appear" in model.requests[1][-1]["parts"][0]["text"]
+
+
+def test_retry_can_recover():
+    model = ScriptedLLM([call("get_slow_templates"), {"role": "model", "parts": [{"text": "About 25 ms."}]}, answer_citing_last_tool_after_feedback])
+    r = agent_mod.ask("qn_00000001", [], model, FakeTools())
+    assert r.status == "ok"
+
+
+def answer_citing_last_tool_after_feedback(contents):
+    tc = next(p["functionResponse"]["response"]["tool_call_id"] for c in contents for p in c.get("parts", []) if "functionResponse" in p)
+    return {"role": "model", "parts": [{"text": f"It averages 24.297 ms [{tc}]."}]}
