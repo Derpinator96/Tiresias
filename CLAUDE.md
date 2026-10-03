@@ -52,7 +52,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | QuickMart schema, generator, canaries, Q1 runner | db/ | REAL at 1,000,000 sales rows (not the doc's 50M; Q1 median 24.9 ms, so slow_query_ms is a PROPOSED 10 ms pending approval) | db/tests/test_quickmart.py (33 passed) |
 | Gateway: hashing, stripping, ingestion, ledger, canary scan, resolver, API | gateway/ | REAL for the Q1 flow (simulate and checksum endpoints return 501 until steps 9, 10, 12; approve out of scope) | gateway/tests/test_units.py, gateway/tests/test_api.py (47 passed) |
 | FP-Growth miner | miner/, agent/api.py /ai/mine | REAL (covered-index check SIMPLIFIED: only primary keys are known as existing indexes; drift MISSING) | miner/tests/test_fpgrowth.py (8), miner/tests/test_q1_candidate.py (1) |
-| Runtime predictor | models/gnn/ | MISSING (planned SIMPLIFIED: Postgres estimates, GNN pending) | untested: step 8 |
+| Runtime predictor | models/gnn/predictor.py, agent/api.py /ai/gnn/predict | SIMPLIFIED: Postgres cost x a ratio measured from the baseline plan; label "estimator: Postgres cost x calibration (GNN pending)" | models/gnn/tests/test_predictor.py (4) |
 | Configuration search | rl/ | MISSING (planned SIMPLIFIED: greedy, RL pending) | untested: step 9 |
 | HypoPG what-if | db/sandbox/ | MISSING | untested: step 10 |
 | Statistical twin | db/twin/ | MISSING (planned SIMPLIFIED: no correlations) | untested: step 10 |
