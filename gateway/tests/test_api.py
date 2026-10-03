@@ -227,3 +227,11 @@ def test_rewrite_plus_index_is_scored_on_the_rewritten_query(client, codes):
     assert r.status_code == 200, r.text
     t = next(x for x in r.json()["templates"] if x["template_id"] == tid)
     assert 1 - t["after_ms"] / t["before_ms"] > cfg("tests.q2_min_twin_speedup"), t
+def test_twin_fidelity_is_null_or_free_of_names_and_canaries(client):
+    # Private read for the dashboard, but reachable on the boundary network, so it must hold
+    # no real name: the fidelity file stores query IDs, rule IDs and timings only.
+    r = client.get("/v1/twin/fidelity")
+    assert r.status_code == 200
+    if r.json() is not None:
+        assert_clean(r.json())
+        assert {q["query"] for q in r.json()["queries"]} >= {"q1", "q2"}

@@ -15,7 +15,7 @@ LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
     "search": (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
                "re-checked on the twin (partition and drop-index actions pending)"),
-    "twin": "twin: synthetic from pg_stats, no column correlations yet",
+    "twin": "twin: synthetic from pg_stats, correlations kept only for column pairs the miner flags",
     "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
@@ -25,6 +25,7 @@ LABELS = {
                    "(WAL flush wait excluded)"),
     "approve_demo": (f"post-deploy check demo: runs on the twin with a shortened replay of {cfg('approve.demo_check_minutes')} "
                      f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
+    "fidelity": "fidelity: configurations from config.yaml (the doc's expected picks), not from a live search run",
 }
 
 
@@ -60,6 +61,28 @@ def ai(path: str, body=None, method: str | None = None) -> httpx.Response:
 def dehash(text: str) -> str:
     """Real names for codes, via the gateway's private vault."""
     return gateway("/v1/answers/dehash", {"question_id": "qn_00000000", "text": text, "numbers": []})["text"]
+
+
+def fidelity_rows(doc: dict, names: bool) -> list[dict]:
+    """Table rows for the fidelity panel from the make fidelity result. The file holds no names;
+    with names on, each query's configuration is read from config.yaml (sandbox.fidelity_queries)."""
+    cases = cfg("sandbox.fidelity_queries")
+    rows = []
+    for q in doc["queries"]:
+        if names and q["query"] in cases:
+            setup = "; ".join(f"index on {t} ({', '.join(c)})" for t, c in cases[q["query"]]["indexes"])
+        else:
+            setup = f"{q['indexes']} index(es), names hidden"
+        if q["rewrite"]:
+            setup = f"rewrite {q['rewrite']}; {setup}"
+        tw, pr = q["twin"], q["production"]
+        rows.append({"query": q["query"], "configuration": setup,
+                     "twin before ms": tw["before_ms"], "twin after ms": tw["after_ms"], "twin speedup": tw["speedup"],
+                     "pg-prod before ms": pr["before_ms"], "pg-prod after ms": pr["after_ms"], "pg-prod speedup": pr["speedup"],
+                     "fidelity": q["fidelity"],
+                     "plans agree before / after": f"{'yes' if q['plan_agrees']['before'] else 'no'} / "
+                                                   f"{'yes' if q['plan_agrees']['after'] else 'no'}"})
+    return rows
 
 
 def heat(share: float) -> str:

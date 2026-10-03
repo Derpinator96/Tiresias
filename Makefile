@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin fidelity demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -33,6 +33,13 @@ seed:
 twin:
 	$(DC) exec -T pg-twin sh -c 'PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h pg-prod -U postgres --schema-only --clean --if-exists --no-owner --no-privileges quickmart | psql -q -v ON_ERROR_STOP=1 -U postgres -d quickmart_twin >/dev/null'
 	$(TOOLS) python -m db.twin.build
+
+## Twin fidelity per query (twin speedup / production speedup). Builds each configuration's
+## indexes on pg-prod only while it measures and drops them, then proves pg-prod is back to
+## primary key indexes only. Needs make seed. Writes sandbox.fidelity_path.
+fidelity:
+	$(TOOLS) python -m db.sandbox.fidelity
+	$(TOOLS) python -m pytest -p no:cacheprovider -q db/tests/test_quickmart.py::test_only_primary_key_indexes
 
 ## Open the operator dashboard (bound to 127.0.0.1 only; never host it publicly).
 demo:

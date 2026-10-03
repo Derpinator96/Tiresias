@@ -43,7 +43,8 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make test-all` | every suite in the tools container | `$DC run --rm -T tools python -m pytest -p no:cacheprovider contracts/tests common/tests db/tests gateway/tests miner/tests models/gnn/tests rl/tests db/sandbox/tests db/twin/tests agent/tests verify/tests scripts/tests` |
 | `make test-infra` | network isolation and Postgres image tests | `bash infra/tests/run.sh` |
 | `make seed` | load QuickMart into pg-prod, run the Q1 workload, build the twin (about 1 minute) | `$DC run --rm -T tools python -m db.seed`, then the `twin` lines |
-| `make twin` | rebuild only the twin from pg-prod's schema and pg_stats | see the Makefile `twin` target (pg_dump inside pg-twin, then `$DC run --rm -T tools python -m db.twin.build`) |
+| `make twin` | rebuild only the twin from pg-prod's schema and pg_stats; needs gateway and ai up (it asks the miner which column pairs to keep correlated) | see the Makefile `twin` target (pg_dump inside pg-twin, then `$DC run --rm -T tools python -m db.twin.build`) |
+| `make fidelity` | twin fidelity per query (twin speedup / pg-prod speedup); builds each configuration's indexes on pg-prod only while measuring, drops them, then checks pg-prod has primary key indexes only | `$DC run --rm -T tools python -m db.sandbox.fidelity`, then `$DC run --rm -T tools python -m pytest db/tests/test_quickmart.py::test_only_primary_key_indexes` |
 | `make test-gateway` | gateway unit and component tests | `$DC run --rm -T tools python -m pytest gateway/tests` |
 | `make test-miner` | miner unit tests and the Q1 candidate check | `$DC run --rm -T tools python -m pytest miner/tests` |
 | `make test-predictor` | runtime predictor tests | `$DC run --rm -T tools python -m pytest models/gnn/tests` |

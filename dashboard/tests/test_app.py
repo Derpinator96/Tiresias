@@ -159,3 +159,25 @@ def test_approve_panel_shows_three_files_in_dba_view_only(app):
     assert not any(e.label.endswith((".sql", ".py")) for e in app.expander)
     assert not any(REAL.search(c.value) for c in app.code)
     assert not REAL.search(text_of(app))
+FIDELITY_DOC = {"queries": [{"query": "q2", "rewrite": "date_trunc_eq_to_range", "indexes": 1,
+                             "twin": {"before_ms": 900.0, "after_ms": 300.0, "speedup": 3.0},
+                             "production": {"before_ms": 1000.0, "after_ms": 250.0, "speedup": 4.0},
+                             "fidelity": 0.75, "plan_agrees": {"before": True, "after": False}}]}
+
+
+def test_fidelity_rows_show_config_names_only_in_the_dba_view():
+    dba, = data.fidelity_rows(FIDELITY_DOC, names=True)
+    ai, = data.fidelity_rows(FIDELITY_DOC, names=False)
+    assert REAL.search(dba["configuration"]) and not REAL.search(ai["configuration"])
+    assert dba["fidelity"] == 0.75 and dba["plans agree before / after"] == "yes / no"
+
+
+def test_fidelity_panel_labels_its_assumptions(app):
+    assert any(h.value.startswith("Twin fidelity") for h in app.header)
+    assert any(data.LABELS["fidelity"] in c.value for c in app.caption)
+    if not app.info or not any("make fidelity" in i.value for i in app.info):   # a make fidelity result exists
+        table = app.dataframe[-1].value
+        assert {"twin speedup", "pg-prod speedup", "fidelity"} <= set(table.columns)
+        assert any("speedup = before ms / after ms" in m.value for m in app.markdown)
+        app.toggle[0].set_value(True).run()
+        assert not REAL.search(app.dataframe[-1].value.to_string())
