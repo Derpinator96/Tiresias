@@ -44,6 +44,7 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make seed` | load QuickMart into pg-prod and run the Q1 workload (about 30 s) | `$DC run --rm -T tools python -m db.seed` |
 | `make test-gateway` | gateway unit and component tests | `$DC run --rm -T tools python -m pytest gateway/tests` |
 | `make test-miner` | miner unit tests and the Q1 candidate check | `$DC run --rm -T tools python -m pytest miner/tests` |
+| `make test-predictor` | runtime predictor tests | `$DC run --rm -T tools python -m pytest models/gnn/tests` |
 | `make test-db` | data generation checks against the seeded pg-prod | `$DC run --rm -T tools python -m pytest db/tests` |
 
 Targets still to come:

@@ -2,10 +2,12 @@
 /ai/mine (step 7), /ai/gnn/predict (step 8), /ai/rl/run (step 9), /ai/ask (step 11)."""
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Body, FastAPI, HTTPException
 
 from agent import gateway_client as gw
+from contracts.validate import validate
 from miner import fpgrowth
+from models.gnn import predictor as pred
 
 app = FastAPI(title="Blind Tuner ai", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -31,3 +33,31 @@ def mine() -> dict:
 @app.post("/ai/mine")
 def ai_mine() -> dict:
     return mine()
+
+
+def calibrated_predictor(plans: list[dict]) -> pred.CostPredictor:
+    """Calibrate on measured plans in the request, else on the gateway's measured
+    auto_explain plans for the same templates."""
+    measured = [p for p in plans if p["source"] == "auto_explain"]
+    if not measured:
+        for tid in sorted({p["template_id"] for p in plans}):
+            measured += gw.get(f"/v1/templates/{tid}/plans")
+    return pred.CostPredictor().fit(measured)
+
+
+def predict_plans(plans: list[dict]) -> list[dict]:
+    for p in plans:
+        validate("HashedPlan", p)
+    model = calibrated_predictor(plans)
+    out = [pred.predict(p, model) for p in plans]
+    for o in out:
+        validate("Prediction", o)
+    return out
+
+
+@app.post("/ai/gnn/predict")
+def ai_gnn_predict(plans: list[dict] = Body(...)) -> list[dict]:
+    try:
+        return predict_plans(plans)
+    except pred.NotCalibrated as e:
+        raise HTTPException(409, str(e)) from None
