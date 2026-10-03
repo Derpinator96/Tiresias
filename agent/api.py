@@ -55,6 +55,18 @@ def predict_plans(plans: list[dict]) -> list[dict]:
     return out
 
 
+@app.post("/ai/rl/run")
+def ai_rl_run(body: dict | None = Body(None)) -> dict:
+    """Template weights (optional; default share of calls) -> best Config with each action's
+    contribution, plus the search trace."""
+    from rl import search
+    config, trace = search.run((body or {}).get("weights"))
+    validate("Config", config)
+    return {"config": config, "label": search.LABEL, "estimator_label": pred.LABEL,
+            "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
+            "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits}
+
+
 @app.post("/ai/gnn/predict")
 def ai_gnn_predict(plans: list[dict] = Body(...)) -> list[dict]:
     try:

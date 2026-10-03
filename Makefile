@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down seed test test-infra test-db test-gateway test-miner test-predictor
+.PHONY: keygen up down seed test test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -44,6 +44,10 @@ test-miner:
 ## Predictor tests (component test needs make up and make seed).
 test-predictor:
 	$(TOOLS) python -m pytest models/gnn/tests
+
+## Greedy search and HypoPG tests (component tests need make up and make seed).
+test-search:
+	$(TOOLS) python -m pytest rl/tests db/sandbox/tests
 
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:

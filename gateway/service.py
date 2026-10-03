@@ -90,6 +90,50 @@ class Gateway:
                                            hasher=self.hasher, schema=schema))
         return out
 
+    # ---- what-if ----------------------------------------------------------------------
+    def decode_config(self, config: dict) -> list[tuple[str, list[str]]]:
+        """Real (table, [columns]) for each add_index action. Unknown codes raise KeyError.
+        Other action types are not simulated yet (partition and rewrite are out of scope)."""
+        out = []
+        for a in config["actions"]:
+            if a["type"] != "add_index":
+                raise ValueError(f"action {a['type']} is not simulated yet")
+            table = self.hasher.vault[a["table"]]["name"]
+            cols = []
+            for c in a["columns"]:
+                t, col = self.hasher.vault[c]["name"].split(".", 1)
+                if t != table:
+                    raise ValueError("index columns must belong to the index's table")
+                cols.append(col)
+            out.append((table, cols))
+        return out
+
+    def sample_queries(self, snap: Snapshot, template_ids: list[str]) -> dict[str, tuple[str, bool]]:
+        """A runnable query per template: the latest logged query with its real literals, or
+        the normalized $n text planned generically. Private: never sent."""
+        out = {}
+        for tid in template_ids:
+            logged = snap.plans_for(tid)
+            if logged and logged[-1].query_text:
+                out[tid] = (logged[-1].query_text, False)
+            else:
+                out[tid] = (snap.template(tid).normalized_sql, True)
+        return out
+
+    def simulate_hypopg(self, snap: Snapshot, config: dict) -> dict:
+        from db.sandbox import hypopg
+        from gateway.rounding import round_sig
+        indexes = self.decode_config(config)
+        tids = [t["template_id"] for t in self.slow_templates(snap)]
+        result = hypopg.explain_with_indexes(self.prod_dsn, indexes, self.sample_queries(snap, tids))
+        schema = snap.catalog.schema()
+        setup = "s_" + config["config_id"]
+        plans = [plans_mod.hash_plan(p, plan_id=self.hasher.opaque("p", f"hypopg:{config['config_id']}:{tid}"),
+                                     template_id=tid, setup_id=setup, source="hypopg",
+                                     hasher=self.hasher, schema=schema)
+                 for tid, p in result.plans.items()]
+        return {"plans": plans, "index_storage_mb": round_sig(result.index_bytes / 2**20)}
+
     def column_meta(self, snap: Snapshot) -> list[dict]:
         roles = {(c["col"], c["role"]) for t in snap.templates for c in t.hashed["columns"]}
         with psycopg.connect(self.prod_dsn, autocommit=True) as conn:
