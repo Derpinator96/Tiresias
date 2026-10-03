@@ -356,6 +356,21 @@ The LLM agent is the DBA's conversational interface. It calls our tools, then tu
 4. The answer is written in hashed names, then translated back to real names inside QuickMart before the DBA sees it.
 5. Model: any API model with tool calling, or a local model through Ollama for air-gapped mode.
 
+**LLM providers** (added 2026-10-03)
+
+The agent talks to its model through one provider adapter (`agent/llm.py`). Every provider has the same `generate()` contract, so the tool loop, the number checker and the payload ledger do not change with the model. Switching provider is one value, `llm.provider` in `config.yaml`. When the provider fails, `llm.fallback` names the providers tried next, in order (see Fallback below).
+
+| Provider | API | Model | Key | Notes |
+| --- | --- | --- | --- | --- |
+| `gemini` | Gemini REST `generateContent` with function declarations | `llm.model` | `GEMINI_API_KEY` | Default |
+| `nim` | NVIDIA NIM, OpenAI-compatible `POST {base_url}/chat/completions` with `tools` and `tool_choice: auto`; `base_url` is `https://integrate.api.nvidia.com/v1` | `llm.nim.model`, chosen by `make llm-bench` | `NVIDIA_API_KEY` | Tool results go back as `role: tool` messages with the call's `tool_call_id` |
+| `openai` | OpenAI chat completions, same adapter as `nim`; `base_url` is `https://api.openai.com/v1`; the token cap is sent as `max_completion_tokens` | `llm.openai.model` (PENDING) | `OPENAI_API_KEY` | Not yet run live |
+| `ollama` | Local Ollama `POST /api/chat`, JSON-constrained replies | `llm.ollama.model` | none | Air-gapped mode only |
+
+For every hosted provider, each request body is first sent to the gateway's `POST /v1/ledger/outbound`, which scans it for canaries and writes it to the ledger; the body is sent only on verdict allow (fail closed). HTTP 429, 500, 503 and 504 are retried with exponential backoff. The ai container reaches only the hosts in `egress.allowed_hosts` (the Gemini, NIM and OpenAI API hosts) through the egress allowlist proxy. `make llm-bench` chooses the NIM model: it lists `GET {base_url}/models`, probes candidates with one synthetic tool-call request each, runs the Q1 flow on the first few that return a tool call, and records each passing run as a replay fixture.
+
+Fallback (added 2026-10-03): when the provider fails (rate limited after every retry, host unreachable, timeout, an HTTP error such as a revoked key, a malformed reply, or no key or model configured), `/ai/ask` asks the whole question again of the next provider in `llm.provider` then `llm.fallback`. The tool results already computed are reused, and every new request body goes through the outbound scan again. A canary block is never failed over (fail closed). Air-gapped mode and a request that names its provider (the benchmark, the per-provider end-to-end test) are never failed over. Providers are not switched in the middle of a conversation: Gemini 3 checks thought signatures on function calls, which calls made by another model do not carry. An answer the number checker blocks is not an API failure and does not fail over. The reply names the provider that answered and lists each failover.
+
 Example answer (after translation): "The scan on `sales` takes 39.8 of 40 seconds. A composite index on `(region_id, transaction_date)` is predicted to cut it to 0.2 seconds. On the twin it measured 0.19 seconds, with inserts 1.8 ms slower."
 
 **Unique points**
@@ -749,9 +764,35 @@ Every tunable number lives in one `config.yaml` at the repo root, starting from 
 | `pgbench` insert rate | 200 rows per second | Sandbox |
 | VeriEQL bound / timeout | 5 rows per table / 60 s | Verification |
 | LLM temperature / max tool calls | 0 / 8 | LLM agent |
+| LLM provider (added 2026-10-03) | `gemini`, `openai`, `nim` or `ollama` (`llm.provider`) | LLM agent |
+| LLM fallback order (added 2026-10-03) | `openai`, then `nim` (`llm.fallback`) | LLM agent |
+| OpenAI base URL / model (added 2026-10-03) | `https://api.openai.com/v1` / PENDING (`llm.openai.model`) | LLM agent |
+| NIM base URL / model (added 2026-10-03) | `https://integrate.api.nvidia.com/v1` / chosen by `make llm-bench` (`llm.nim.model`) | LLM agent |
+| NIM reply token cap / request timeout (added 2026-10-03) | 1024 tokens / 120 s | LLM agent |
+| NIM minimum gap between requests (added 2026-10-03) | 1.5 s (free tier: about 40 requests per minute per model) | LLM agent |
+| LLM retries (added 2026-10-03) | HTTP 429, 500, 503, 504; 5 attempts, backoff 2 s doubling to at most 30 s | LLM agent |
 | Canaries planted | about 20 | Privacy |
 | Post-deploy check | 10 minutes; roll back if median latency is over 10% worse | Approve |
 | Fast test suite limit | 2 minutes per component | All agents |
+
+## Nuances register
+
+Facts learned while building that are easy to get wrong. Added 2026-10-03; append new rows.
+
+| Nuance | Where it bites | What we do |
+| --- | --- | --- |
+| NIM's `GET /v1/models` lists the whole hosted catalogue, not what the account can call; most listed models answer 404 "Function not found for account" | Choosing a model from the list alone | `make llm-bench` probes each candidate with one synthetic tool-call request before any real run |
+| A hosted NIM model returns tool calls only if its deployment has a tool-call parser; otherwise `tool_choice: auto` returns HTTP 400 ("requires --enable-auto-tool-choice and --tool-call-parser") | Tool use fails on models that chat fine | The probe keeps only models that return a real tool call |
+| NIM (OpenAI format) sends tool arguments as a JSON string, Gemini as an object | Parsing arguments | The adapter parses the string; malformed arguments count as a tool-call error and reach the tool as empty arguments |
+| Some NIM chat models wrap reasoning in `<think>...</think>` | Numbers inside the reasoning would fail the number checker | The adapter drops `<think>` blocks; only the rest is the answer |
+| NIM's free tier allows about 40 requests per minute per model | Benchmarks and parallel tests hit 429 | At least 1.5 s between requests per provider, retries with backoff, live tests run one after another. Measured 2026-10-03: 50 requests at 49 per minute drew 4 429s, each cleared by one backoff; 30 requests to nemotron-3-ultra at 12 per minute drew no 429 but 6 5xx replies, all recovered |
+| The egress proxy answers 502 when it cannot reach the LLM host; seen as bursts against `integrate.api.nvidia.com` on 2026-10-03 | One blip ended a whole answer | Connection and proxy errors are retried with the same backoff; a read timeout is not (the request may still run upstream) |
+| Only two of about 80 listed NIM models returned a tool call for this key, and neither tags numbers reliably: on Q1, `google/diffusiongemma-26b-a4b-it` passed the number checker 1 run in 4 and `nvidia/nemotron-3-ultra-550b-a55b` 0 in 2, both with 0 tool-call errors | NIM as the main provider | NIM is last in `llm.fallback`; a blocked answer is never shown |
+| OpenAI marks `max_tokens` deprecated for chat completions in favour of `max_completion_tokens`, and reasoning models accept only the default temperature | A request that NIM accepts can fail on OpenAI | The token field name and whether to send a temperature are per provider (`llm.<provider>.max_tokens_field`, `send_temperature`) |
+| Gemini 3 checks thought signatures on function calls in the conversation (Gemini API thought-signature docs; UNVERIFIED here, no live cross-provider run) | A conversation started on another model cannot continue on Gemini | Fallback reruns the whole question on the next provider |
+| `GET /v1/models` has no request body | The outbound ledger records request bodies | Nothing to scan; the response holds model IDs only |
+| Gemini's free tier has a daily request quota per model (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`) | Retrying cannot help once it is used up | The dashboard shows the quota error in one line and still shows the twin result and the SQL from its own search |
+| The canary scanner matches any 6-character fragment, case-insensitively | A canary built from English words blocks normal text (`commen` in "recommended") | Canary values avoid English words; `db/tests/test_canaries.py` checks every fragment |
 
 ## Acceptance criteria
 

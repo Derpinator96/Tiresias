@@ -26,7 +26,7 @@ def test_ai_is_in_airgap_mode():
     assert llm.provider_name() == "ollama", "ai is not in air-gapped mode: run make airgap"
 
 
-@pytest.mark.parametrize("host,port", [(llm.GEMINI_HOST, 443), ("1.1.1.1", 443), ("8.8.8.8", 53)])
+@pytest.mark.parametrize("host,port", [(llm.GEMINI_HOST, 443), (llm.nim_host(), 443), (llm.openai_host(), 443), ("1.1.1.1", 443), ("8.8.8.8", 53)])
 def test_no_internet(host, port):
     with pytest.raises(OSError):
         _connect(host, port)

@@ -10,8 +10,11 @@ asserts the five outcomes from the session brief:
 4. zero canary hits across every payload this run sent to the AI side or the LLM;
 5. every number in the LLM's answer traces to a tool result.
 
-It fails, never skips, when GEMINI_API_KEY is missing (PLAN.md requirement 1).
-A passing run writes runs/latest.json, which scripts/export_results.py turns into results.json.
+It runs once per hosted LLM provider (one live e2e test per provider): gemini and nim, each
+asking through /ai/ask with that provider. Each fails, never skips, when its API key is missing
+(PLAN.md requirement 1). A passing run writes runs/latest_<provider>.json; the configured
+provider's run (llm.provider) also writes runs/latest.json, which scripts/export_results.py
+turns into results.json. Run the providers one after another, never in parallel.
 """
 import json
 import os
@@ -20,6 +23,7 @@ import time
 from datetime import datetime, timezone
 
 import httpx
+import pytest
 
 from common.config import REPO_ROOT, cfg
 from db import canaries
@@ -39,11 +43,16 @@ def dehash(text: str) -> str:
     return gw("/v1/answers/dehash", {"question_id": "qn_00000000", "text": text, "numbers": []})["text"]
 
 
-def test_q1_end_to_end():
+KEYS = {"gemini": "GEMINI_API_KEY", "nim": "NVIDIA_API_KEY", "openai": "OPENAI_API_KEY"}
+
+
+@pytest.mark.parametrize("provider", ["gemini", "nim", "openai"])
+def test_q1_end_to_end(provider):
     started = time.time()
     run_started = datetime.now(timezone.utc)
-    assert os.environ.get("GEMINI_API_KEY_PRESENT") == "yes", \
-        "GEMINI_API_KEY is not set in .env: the LLM step cannot run, so the end-to-end test fails"
+    key = KEYS[provider]
+    assert os.environ.get(f"{key}_PRESENT") == "yes", \
+        f"{key} is not set in .env: the {provider} LLM step cannot run, so the end-to-end test fails"
 
     # 1. Q1 is slow before the fix (pg_stat_statements mean, through the gateway).
     slow = gw("/v1/templates/slow")
@@ -72,8 +81,8 @@ def test_q1_end_to_end():
     assert checksum["match"]
 
     # 5. The LLM answers, and every number in its answer traces to a tool result.
-    ask = httpx.post(AI + "/ai/ask", json={"question_id": resolved["question_id"], "template_ids": resolved["template_ids"]},
-                     timeout=TIMEOUT)
+    ask = httpx.post(AI + "/ai/ask", json={"question_id": resolved["question_id"], "template_ids": resolved["template_ids"],
+                                           "llm": {"provider": provider}}, timeout=TIMEOUT)
     assert ask.status_code == 200, ask.text
     body = ask.json()
     assert body["status"] == "ok", f"number checker blocked the answer: {body['unmatched']}"
@@ -109,8 +118,10 @@ def test_q1_end_to_end():
                    "estimator_label": rl["estimator_label"], "recommended_columns": len(first["columns"])},
         "privacy": {"payloads": len(this_run), "llm_payloads": sum(e["destination"] == "llm" for e in this_run),
                     "canary_hits": 0, "canaries_planted": cfg("canaries.planted_target")},
-        "llm": {"provider": cfg("llm.provider"), "model": cfg("llm.model"), "tool_calls": len(body["tool_calls"]),
+        "llm": {"provider": provider, "model": body["llm"]["model"], "tool_calls": len(body["tool_calls"]),
                 "numbers_checked": len(answer["numbers"])},
     }
     os.makedirs(REPO_ROOT / "runs", exist_ok=True)
-    (REPO_ROOT / "runs" / "latest.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
+    (REPO_ROOT / "runs" / f"latest_{provider}.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
+    if provider == cfg("llm.provider"):
+        (REPO_ROOT / "runs" / "latest.json").write_text(json.dumps(record, indent=1), encoding="utf-8")
