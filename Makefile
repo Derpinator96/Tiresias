@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down seed twin demo test test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e test test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -38,6 +38,10 @@ demo:
 	$(DC) up -d dashboard
 	@echo "Operator dashboard: http://127.0.0.1:8501"
 	-python -m webbrowser -t http://127.0.0.1:8501
+
+## End-to-end Q1 test (needs make up, make seed and GEMINI_API_KEY in .env). Writes runs/latest.json.
+e2e:
+	$(TOOLS) python -m pytest -p no:cacheprovider -v e2e
 
 ## Fast unit and contract tests, run in the tools container.
 test:
