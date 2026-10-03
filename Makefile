@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down seed test test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin test test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -21,9 +21,17 @@ up:
 down:
 	$(DC) down
 
-## Load QuickMart into pg-prod, apply settings from config.yaml, run the Q1 workload.
+## Load QuickMart into pg-prod, apply settings from config.yaml, run the Q1 workload,
+## then build the twin.
 seed:
 	$(TOOLS) python -m db.seed
+	$(MAKE) twin
+
+## Copy pg-prod's schema to pg-twin with pg_dump --schema-only (run inside pg-twin, which has
+## pg_dump 16), then fill it with synthetic rows from pg_stats.
+twin:
+	$(DC) exec -T pg-twin sh -c 'PGPASSWORD="$$POSTGRES_PASSWORD" pg_dump -h pg-prod -U postgres --schema-only --clean --if-exists --no-owner --no-privileges quickmart | psql -q -v ON_ERROR_STOP=1 -U postgres -d quickmart_twin >/dev/null'
+	$(TOOLS) python -m db.twin.build
 
 ## Fast unit and contract tests, run in the tools container.
 test:
@@ -45,9 +53,9 @@ test-miner:
 test-predictor:
 	$(TOOLS) python -m pytest models/gnn/tests
 
-## Greedy search and HypoPG tests (component tests need make up and make seed).
+## Greedy search, HypoPG and twin tests (component tests need make up and make seed).
 test-search:
-	$(TOOLS) python -m pytest rl/tests db/sandbox/tests
+	$(TOOLS) python -m pytest rl/tests db/sandbox/tests db/twin/tests
 
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:

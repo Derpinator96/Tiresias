@@ -90,8 +90,20 @@ def simulate_hypopg(config: dict = Body(...)):
 
 @app.post("/v1/simulate/twin")
 def simulate_twin(config: dict = Body(...)):
+    """Config -> SimResult measured on pg-twin. If the twin's plan shape for any template
+    differs from production's, no number is returned (doc: plan agreement before trust)."""
     validate("Config", config)
-    _pending(10, "twin simulation")
+    g = gw()
+    snap = g.snapshot()
+    try:
+        sim, agreement = g.simulate_twin(snap, config, os.environ["TWIN_DSN"])
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, f"cannot simulate this config: {type(e).__name__}") from None
+    disagree = sorted(tid for tid, ok in agreement.items() if not ok)
+    if disagree:
+        raise HTTPException(409, {"plan_disagreement": disagree})
+    validate("SimResult", sim)
+    return _to_ai("SimResult", sim)
 
 
 @app.post("/v1/twin/checksum")

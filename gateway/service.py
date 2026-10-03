@@ -134,6 +134,28 @@ class Gateway:
                  for tid, p in result.plans.items()]
         return {"plans": plans, "index_storage_mb": round_sig(result.index_bytes / 2**20)}
 
+    def simulate_twin(self, snap: Snapshot, config: dict, twin_dsn: str) -> tuple[dict, dict]:
+        """Measure a Config on the twin. Returns (SimResult, plan agreement per template).
+        Only templates with a logged literal query can be replayed; generic plans cannot run."""
+        from db.sandbox import twin_measure
+        from gateway.rounding import round_ms, round_sig
+        indexes = self.decode_config(config)
+        tids = [t["template_id"] for t in self.slow_templates(snap)]
+        runnable = {tid: q for tid, (q, generic) in self.sample_queries(snap, tids).items() if not generic}
+        if not runnable:
+            raise ValueError("no slow template has a logged query to replay")
+        r = twin_measure.measure(self.prod_dsn, twin_dsn, indexes, runnable)
+        sim = {
+            "config_id": config["config_id"],
+            "source": "twin",
+            "templates": [{"template_id": tid, "before_ms": round_ms(r.before_ms[tid]), "after_ms": round_ms(r.after_ms[tid])}
+                          for tid in runnable],
+            "write_ms_delta": None,          # pgbench write measurement is not built yet
+            "storage_mb_delta": round_sig(r.storage_mb),
+            "runs": r.runs,
+        }
+        return sim, r.plan_agreement
+
     def column_meta(self, snap: Snapshot) -> list[dict]:
         roles = {(c["col"], c["role"]) for t in snap.templates for c in t.hashed["columns"]}
         with psycopg.connect(self.prod_dsn, autocommit=True) as conn:

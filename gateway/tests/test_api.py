@@ -170,5 +170,6 @@ def test_ledger_counts_outbound_separately(client):
 def test_pending_endpoints_say_which_step(client, codes):
     cfg_obj = {"config_id": "cfg_00000001", "search": "greedy",
                "actions": [{"type": "add_index", "table": codes["t"], "columns": [codes["rg"], codes["td"]]}]}
-    r = client.post("/v1/simulate/twin", json=cfg_obj)
-    assert r.status_code == 501 and "step 10" in r.json()["detail"]
+    # /v1/simulate/twin was pending until step 10; the checksum endpoint is pending until step 12.
+    r = client.post("/v1/twin/checksum", json={"config": cfg_obj})
+    assert r.status_code == 501 and "step 12" in r.json()["detail"]

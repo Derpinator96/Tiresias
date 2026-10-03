@@ -56,3 +56,17 @@ def test_gateway_rejects_unknown_codes():
               "actions": [{"type": "add_index", "table": "t_00000000", "columns": ["c_00000000"]}]}
     r = httpx.post(os.environ["GATEWAY_URL"] + "/v1/simulate/hypopg", json=config, timeout=30)
     assert r.status_code == 400
+
+
+def test_gateway_twin_endpoint_measures_q1_speedup():
+    """POST /v1/simulate/twin with the search's Config: a measured SimResult."""
+    from contracts.validate import errors as contract_errors
+    from rl import search
+    config, _ = search.run()
+    r = httpx.post(os.environ["GATEWAY_URL"] + "/v1/simulate/twin", json=config, timeout=300)
+    assert r.status_code == 200, r.text
+    sim = r.json()
+    assert contract_errors("SimResult", sim) == []
+    assert sim["source"] == "twin" and sim["write_ms_delta"] is None and sim["storage_mb_delta"] > 0
+    t = sim["templates"][0]
+    assert t["after_ms"] < t["before_ms"]
