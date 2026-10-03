@@ -2,21 +2,65 @@
 which is why the dashboard is bound to 127.0.0.1 and never hosted publicly."""
 from __future__ import annotations
 
+import json
 import os
 
 import httpx
+
+from common.config import REPO_ROOT, cfg
 
 TIMEOUT_S = 300.0
 
 # On-screen labels for simplified or missing parts. The text matches the modules that own them.
 LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
-    "search": "search: greedy (RL pending)",
-    "twin": "twin: synthetic from pg_stats, no column correlations yet",
-    "verify": "verification: result checksum on the twin only (VeriEQL pending)",
-    "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
-    "write_cost": "write cost: not measured (pgbench pending)",
+    "search": (f"search: Q-learning over index and rewrite actions, top {cfg('rl.configs_verified_on_twin')} "
+               "re-checked on the twin (partition and drop-index actions pending)"),
+    "twin": "twin: synthetic from pg_stats, correlations kept only for column pairs the miner flags",
+    "verify": f"verification: VeriEQL up to {cfg('verify.verieql_rows_per_table')} rows per table plus a result checksum on the twin",
+    "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
+    "egress": "AI egress: allowlist proxy, CONNECT to the LLM API host only (checks the host name, not the traffic inside TLS)",
+    # Same text as db/sandbox/write_cost.LABEL (db/sandbox/tests/test_write_cost.py checks it).
+    "write_cost": (f"write cost: pgbench on the twin, {cfg('sandbox.pgbench_insert_rate_per_s')} inserts/s for "
+                   f"{cfg('sandbox.pgbench_duration_s')} s, median INSERT latency with minus without the indexes "
+                   "(WAL flush wait excluded)"),
+    "approve_demo": (f"post-deploy check demo: runs on the twin with a shortened replay of {cfg('approve.demo_check_minutes')} "
+                     f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
+    "fidelity": "fidelity: configurations from config.yaml (the doc's expected picks), not from a live search run",
+    "miner": "miner: covered-index check knows primary keys only",
+    "adversarial": "adversarial leak test: a fresh LLM session guesses table and column names from one run's payloads "
+                   "(values not scored; plaintext LLM control pending air-gapped mode)",
 }
+
+
+def estimator_label() -> str:
+    """The label of the estimator the ai service is serving right now (GNN or the calibrated
+    Postgres baseline). Falls back to the baseline's label if ai cannot say."""
+    try:
+        r = ai("/ai/gnn/estimator")
+        return r.json()["label"] if r.status_code == 200 else LABELS["estimator"]
+    except httpx.HTTPError:
+        return LABELS["estimator"]
+
+
+def describe(action: dict, name=lambda code: code) -> str:
+    """One Config action in words, names through `name` (dehash or identity)."""
+    if action["type"] == "rewrite":
+        return f"Rewrite {name(action['template_id'])} with rule {action['rule_id']}"
+    return f"Add index on {name(action['table'])} ({', '.join(name(c) for c in action['columns'])})"
+
+
+LLM_UNKNOWN = "LLM: unknown (the ai service did not say which model answers)"
+
+
+def llm_info() -> dict:
+    """Which LLM the ai service uses now: its label (agent/llm.py) and whether ai checked that
+    it cannot reach the LLM API host (air-gapped mode)."""
+    try:
+        r = ai("/ai/llm")
+        return r.json() if r.status_code == 200 else {"label": LLM_UNKNOWN}
+    except httpx.HTTPError:
+        return {"label": LLM_UNKNOWN}
 
 
 def gateway(path: str, body=None, method: str | None = None):
@@ -34,6 +78,37 @@ def ai(path: str, body=None, method: str | None = None) -> httpx.Response:
 def dehash(text: str) -> str:
     """Real names for codes, via the gateway's private vault."""
     return gateway("/v1/answers/dehash", {"question_id": "qn_00000000", "text": text, "numbers": []})["text"]
+
+
+def fidelity_rows(doc: dict, names: bool) -> list[dict]:
+    """Table rows for the fidelity panel from the make fidelity result. The file holds no names;
+    with names on, each query's configuration is read from config.yaml (sandbox.fidelity_queries)."""
+    cases = cfg("sandbox.fidelity_queries")
+    rows = []
+    for q in doc["queries"]:
+        if names and q["query"] in cases:
+            setup = "; ".join(f"index on {t} ({', '.join(c)})" for t, c in cases[q["query"]]["indexes"])
+        else:
+            setup = f"{q['indexes']} index(es), names hidden"
+        if q["rewrite"]:
+            setup = f"rewrite {q['rewrite']}; {setup}"
+        tw, pr = q["twin"], q["production"]
+        rows.append({"query": q["query"], "configuration": setup,
+                     "twin before ms": tw["before_ms"], "twin after ms": tw["after_ms"], "twin speedup": tw["speedup"],
+                     "pg-prod before ms": pr["before_ms"], "pg-prod after ms": pr["after_ms"], "pg-prod speedup": pr["speedup"],
+                     "fidelity": q["fidelity"],
+                     "plans agree before / after": f"{'yes' if q['plan_agrees']['before'] else 'no'} / "
+                                                   f"{'yes' if q['plan_agrees']['after'] else 'no'}"})
+    return rows
+
+
+def adversarial() -> dict | None:
+    """The last adversarial leak test result: runs/adversarial.json, written by make adversarial
+    (privacy_tests/adversarial.py). Counts and match flags only, no names. None until it ran."""
+    try:
+        return json.loads((REPO_ROOT / "runs" / "adversarial.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
 
 
 def heat(share: float) -> str:

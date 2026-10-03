@@ -1,0 +1,6 @@
+# Installed in its own image layer after requirements.lock, so adding or bumping it does not
+# re-download every other package. Compiled with requirements.lock as constraints, so shared
+# dependencies keep the same pins.
+# CPU-only build: the GNN (models/gnn) is about 100k weights on tiny plan graphs, and the CUDA
+# wheel would pull several GB of NVIDIA libraries. +cpu comes from the PyTorch index.
+torch==2.11.0+cpu

@@ -4,38 +4,47 @@ AI-facing endpoints return only hashed contracts, and every one of their respons
 through Gateway.send_to_ai: validated against its contract, canary-scanned and written to
 the ledger before it leaves. A canary hit blocks the response (fail closed, HTTP 403).
 
-Endpoints that later build steps implement return 501 with the step that adds them.
+Private-side endpoints (dashboard) are not ledgered; /v1/approve refuses the ai container.
 """
 from __future__ import annotations
 
+import json
 import os
+import socket
+from contextlib import asynccontextmanager
+from datetime import datetime
 from functools import lru_cache
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from common.config import cfg
 from contracts.validate import validate
+from gateway import windows as windows_mod
 from gateway.service import Blocked, Gateway
 
-app = FastAPI(title="Blind Tuner gateway", docs_url=None, redoc_url=None, openapi_url=None)
+
+@asynccontextmanager
+async def lifespan(_app):
+    gw()                     # the real gateway starts sampling drift windows at boot
+    yield
+
+app = FastAPI(title="Blind Tuner gateway", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
 
 @lru_cache(maxsize=1)
 def gw() -> Gateway:
-    return Gateway(os.environ["PROD_DSN"], os.environ["PGLOG_DIR"])
+    g = Gateway(os.environ["PROD_DSN"], os.environ["PGLOG_DIR"])
+    g.windows.start()
+    return g
 
 
-def _to_ai(contract: str | None, payload) -> Response:
+def _to_ai(contract: str | None, payload, keep_body: bool = True) -> Response:
     try:
-        return Response(gw().send_to_ai(contract, payload), media_type="application/json")
+        return Response(gw().send_to_ai(contract, payload, keep_body), media_type="application/json")
     except Blocked as b:
         raise HTTPException(403, {"blocked": True, "payload_id": b.entry["payload_id"],
                                   "canary_hits": b.entry["canary_hits"]}) from None
-
-
-def _pending(step: int, what: str):
-    raise HTTPException(501, f"{what}: not built yet (build step {step})")
 
 
 @app.get("/healthz")
@@ -48,6 +57,17 @@ def healthz() -> dict:
 def templates_slow():
     g = gw()
     return _to_ai("HashedQuery", g.slow_templates(g.snapshot()))
+
+
+@app.get("/v1/workload/windows")
+def workload_windows(window_s: int | None = None):
+    """-> {window_s, windows: [{end, templates: {template_id: {time_share, call_share}}}]}, closed
+    windows oldest first. Shares only. window_s defaults to the configured drift window; a
+    shorter one is a test-only parameter, the configured value is what the demo uses."""
+    w = windows_mod.window_s() if window_s is None else window_s
+    if w <= 0:
+        raise HTTPException(400, "window_s must be positive")
+    return _to_ai(None, {"window_s": w, "windows": gw().windows.windows(w)})
 
 
 @app.get("/v1/templates/{template_id}/plans")
@@ -106,14 +126,34 @@ def simulate_twin(config: dict = Body(...)):
     return _to_ai("SimResult", sim)
 
 
+@app.get("/v1/rewrite/candidates")
+def rewrite_candidates():
+    """Rules whose shape matches each slow template, with the rewritten hashed SQL."""
+    g = gw()
+    return _to_ai(None, g.rewrite_candidates(g.snapshot()))
+
+
+@app.post("/v1/rewrite/verify")
+def rewrite_verify(body: dict = Body(...)):
+    """{template_id, rule_id} -> Rewrite: VeriEQL on the real SQL plus a twin checksum. The AI
+    names a rule; the rewrite itself is applied here, on the private side."""
+    g = gw()
+    snap = g.snapshot()
+    try:
+        rw = g.check_rewrite(snap, body["template_id"], body["rule_id"], os.environ["TWIN_DSN"])
+    except KeyError:
+        raise HTTPException(400, "body needs template_id and rule_id") from None
+    except ValueError as e:
+        raise HTTPException(409, f"rule does not apply: {e}") from None
+    return _to_ai("Rewrite", rw)
+
+
 @app.post("/v1/twin/checksum")
 def twin_checksum(body: dict = Body(...)):
     """{template_id, config} -> {template_id, config_id, match, rows}: does building the
-    config's indexes on the twin leave the template's result rows unchanged?
-    Original-vs-rewritten SQL is not supported yet (rewrites are out of scope)."""
+    config's indexes on the twin leave the template's result rows unchanged? Rewrites are
+    checked by /v1/rewrite/verify."""
     from db.sandbox import checksum, twin_measure
-    if "rewritten_sql" in body:
-        raise HTTPException(501, "rewrite equivalence: not built yet (rewrites are out of scope this session)")
     config = body.get("config")
     if not isinstance(config, dict):
         raise HTTPException(400, "body needs template_id and config")
@@ -142,6 +182,21 @@ def ledger_outbound(payload: dict = Body(...)):
     """ai submits each LLM request body here first and sends it only on verdict allow."""
     validate("OutboundPayload", payload)
     return gw().check_outbound(payload["body"])
+
+
+@app.get("/v1/ledger/payloads")
+def ledger_payloads(since: str, until: str):
+    """Payloads already sent to the AI side or the LLM between two ISO times with a timezone,
+    one copy each: the input of the adversarial leak test (privacy_tests/). Leaves through
+    send_to_ai like every AI-facing response; its own bytes are not kept, so a later window
+    never contains this bundle."""
+    try:
+        lo, hi = datetime.fromisoformat(since), datetime.fromisoformat(until)
+    except ValueError:
+        raise HTTPException(400, "since and until must be ISO times") from None
+    if lo.tzinfo is None or hi.tzinfo is None:
+        raise HTTPException(400, "since and until need a timezone")
+    return _to_ai(None, {"payloads": gw().ledger.payloads(lo, hi)}, keep_body=False)
 
 
 # ---- private side (dashboard) ----------------------------------------------------------
@@ -181,6 +236,66 @@ def negative_control():
     return gw().negative_control()
 
 
+def _not_ai(request: Request) -> None:
+    """Refuse the ai container on endpoints whose output holds real names and values. Its
+    addresses come from Compose's DNS (service `ai`); no answer means ai is not running."""
+    try:
+        ai_ips = socket.gethostbyname_ex("ai")[2]
+    except OSError:
+        return
+    if request.client and request.client.host in ai_ips:
+        raise HTTPException(403, "private-side endpoint: not served to the ai service")
+
+
+@app.get("/v1/twin/fidelity")
+def twin_fidelity():
+    """The last `make fidelity` result (db/sandbox/fidelity.py), or null before the first run.
+    For the dashboard; the file holds query IDs and timings, no table or column name."""
+    try:
+        with open(cfg("sandbox.fidelity_path"), encoding="utf-8") as f:
+            return JSONResponse(json.load(f))
+    except FileNotFoundError:
+        return None
+
+
 @app.post("/v1/approve")
-def approve():
-    raise HTTPException(501, "approve and migration scripts: out of scope this session")
+def approve(request: Request, config: dict = Body(...)):
+    """Config -> {config_id, files: {migration.sql, rollback.sql, post_deploy_check.py}} in real
+    names, for the operator dashboard. Not ledgered and never sent to ai: the files hold real
+    names and logged values. Runs nothing on pg-prod; the DBA runs the files. The doc's table
+    says `config_id` in; the gateway keeps no config store, so the dashboard sends the Config."""
+    from gateway import approve as approve_mod
+    _not_ai(request)
+    validate("Config", config)
+    g = gw()
+    try:
+        files = approve_mod.build(g, g.snapshot(), config)
+    except KeyError as e:
+        raise HTTPException(400, f"cannot approve this config: unknown code {e}") from None
+    except ValueError as e:
+        raise HTTPException(400, f"cannot approve this config: {e}") from None
+    return JSONResponse({"config_id": config["config_id"], "files": files})
+
+
+@app.post("/v1/approve/twin-check")
+def approve_twin_check(request: Request, config: dict = Body(...)):
+    """Demo: run the approve files on pg-twin (never pg-prod) with a shortened replay; the twin
+    is returned to its baseline afterwards. See gateway.approve.twin_check."""
+    import subprocess
+
+    import psycopg
+
+    from gateway import approve as approve_mod
+    _not_ai(request)
+    validate("Config", config)
+    g = gw()
+    try:
+        return JSONResponse(approve_mod.twin_check(g, g.snapshot(), config, os.environ["TWIN_DSN"]))
+    except KeyError as e:
+        raise HTTPException(400, f"cannot check this config: unknown code {e}") from None
+    except ValueError as e:
+        raise HTTPException(400, f"cannot check this config: {e}") from None
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(409, f"post-deploy check failed on the twin: {e.stderr.strip().splitlines()[-1:]}") from None
+    except psycopg.Error as e:
+        raise HTTPException(409, f"migration or rollback failed on the twin: {e}") from None

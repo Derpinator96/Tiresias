@@ -3,8 +3,9 @@
 # They are starting points to tune, not results.
 
 dataset:
-  # Added by the session brief: sales table size for the walking skeleton.
-  sales_rows: 1000000
+  # Sales table size. 1,000,000 for the walking skeleton. 10,000,000 (the doc's fallback) set
+  # by a human on 2026-10-03: the free Gemini tier timed out on the 50,000,000 flow.
+  sales_rows: 10000000
   # Decision B: fixed sizes for small tables.
   regions_rows: 12
   stores_rows: 500
@@ -34,16 +35,31 @@ canaries:
   planted_target: 20
 
 workload:
-  # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e
-  # "Q1 is slow" check both read this. The doc's 500 ms would never log Q1 at 1,000,000
-  # sales rows: measured 2026-10-03 after seeding, Q1 median 24.9 ms over 5 runs
-  # (32.6, 24.5, 24.8, 24.9, 25.7). PROPOSED value, pending human approval: 10 ms.
-  slow_query_ms: 10
+  # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e "Q1 is slow"
+  # check both read this. At 10,000,000 sales rows Q1's median is 185.0 ms (2026-10-03), below
+  # the doc's 500 ms, which would never log it. 100 ms approved by a human on 2026-10-03.
+  slow_query_ms: 100
   # Not in the doc's table: how many times run_q1 executes Q1 so it appears in
   # pg_stat_statements and auto_explain.
   q1_runs: 5
   # Q1's parameters, from the doc's "Demo queries": region_id = 7 AND transaction_date >= this.
   q1_since: "2026-09-26"
+  # Q2's parameter, from the doc's "Demo queries": date_trunc('month', transaction_date) = this.
+  q2_month: "2026-09-01"
+  # Not in the doc's table: how many times the workload runs Q2 and the two-region query.
+  q2_runs: 5
+  # Not in the doc's table: the two-region query added for the rewrite demo (db/workload.py).
+  qor_regions: [3, 7]
+  # Q4's parameters (doc: "customer segment plus date"; the doc gives no SQL or values).
+  # Not in the doc's table. Two recent days: sales rows are not stored in date order, so a
+  # longer range touches most pages and no plain index helps much (HypoPG at 10,000,000 rows,
+  # index on transaction_date: 7 days 13% cheaper, 2 days 53% cheaper).
+  q4_segment: business
+  q4_dates: ["2026-09-29", "2026-09-30"]
+  # Not in the doc's table: the mixes `make drift-demo` switches between (db/drift_demo.py).
+  # Each list is one round of queries; before matches the seeded workload's mix.
+  drift_before: [q1, q2, qor]
+  drift_after: [q4, q4, q4, q1]
   # Not in the doc's table: the database role the application workload runs as. The gateway
   # ingests only this role's queries, so test and catalog queries never become templates.
   app_role: quickmart_app
@@ -56,12 +72,30 @@ postgres:
   statement_timeout_plan_generation_s: 10
 
 plan_generation:
-  # Out of scope this session (GNN training); kept so the values have one home.
-  parameter_sets_per_query: 30
+  # Step 18. Values from the doc's "Data and training plan" unless marked otherwise.
+  # 30 in the doc; 60 approved by a human on 2026-10-03 after the first 13,200 runs kept only
+  # 4,543 plans after dedupe (target 10,000).
+  parameter_sets_per_query: 60
   index_setups_per_query_min: 4
   index_setups_per_query_max: 5
   target_plan_count: 10000
   early_sample_size: 200
+  dsb_scale_factor: 1
+  tpch_scale_factor: 1
+  # Not in the doc's table: concurrent EXPLAIN ANALYZE connections (doc text: 4 to 8 workers;
+  # the demo laptop has 16 cores). Concurrency adds noise to the timings; labelled in NOTES.
+  workers: 8
+  # Not in the doc's table: sales rows of each QuickMart copy on pg-bench, one database per
+  # scale (the first is `quickmart`, others `quickmart_<rows>`). Smaller than pg-prod so runs
+  # fit the statement timeout; a second scale adds plan shapes (human-approved 2026-10-03).
+  quickmart_scales: [5000000, 1000000]
+  # Not in the doc's table: "keep a few copies of each plan shape" (doc). Copies kept per
+  # shape hash, and the log2 bucket width of estimated rows inside the hash (see db/NOTES.md).
+  # 3 and 2 at first; 10 and 1 approved by a human on 2026-10-03 (db/NOTES.md).
+  max_copies_per_shape: 10
+  shape_rows_log2_bucket: 1
+  # Not in the doc's table: where raw plans are written (repo-relative, gitignored).
+  output_dir: data/plans
 
 gateway:
   hmac_code_hex_chars: 8
@@ -85,8 +119,15 @@ miner:
   min_leading_distinct: 3
   drift_window_production_s: 3600
   drift_window_demo_s: 120
-  drift_js_threshold: 0.2
+  # Not in the doc's table: which of the two windows above is used (demo or production).
+  drift_window_mode: demo
+  drift_js_threshold: 0.2         # Jensen-Shannon distance (base 2), not the divergence
   drift_windows_required: 2
+  # Not in the doc's table: how often the gateway samples pg_stat_statements for the windows.
+  # A window boundary is late by up to this much.
+  drift_sample_s: 2
+  # Not in the doc's table: closed windows kept (and returned) per request.
+  drift_windows_kept: 12
 
 gnn:
   layers: 3
@@ -97,6 +138,12 @@ gnn:
   max_epochs: 150
   patience: 15
   template_split: [0.70, 0.15, 0.15]
+  # Doc, Component 3 Use B: a 100x or larger gap between Postgres's row estimate and the actual
+  # rows makes gnn_explain recommend ANALYZE.
+  misestimate_ratio_alert: 100
+  # Not in the doc's table: where the training export and split are written (repo-relative,
+  # gitignored). The export holds numbers only and may be shared with the trainer.
+  dataset_dir: data/gnn
 
 rl:
   alpha: 0.1
@@ -104,10 +151,18 @@ rl:
   epsilon_start: 0.1
   epsilon_min: 0.02
   episodes: 300
+  # Not in the doc's table: initial Q for unseen (state, action) pairs. Optimistic (above any
+  # single-step reward, which is at most 1) so every option is explored; see rl/NOTES.md.
+  q_init: 1.0
   actions_per_episode: 5
   # The doc's reward subtracts lambda_write x write ms (ms) from a fractional time drop
   # (unitless). Kept as is, approved 2026-10-03: with the per-index penalty below it acts as
-  # a flat 0.1 per index, labelled as an assumption. Fix the units once pgbench measures writes.
+  # a flat 0.1 per index, labelled as an assumption. pgbench now measures writes on the twin
+  # (db/sandbox/write_cost.py): the Q1 index added a median 0.032 ms per insert over 6 runs on
+  # 2026-10-03 (range -0.118 to 0.196 ms, load average 17 to 32 on 16 cores). At 1.0 per ms that
+  # is a penalty near 0.03 against a predicted drop near 0.6 for Q1, so write cost does not
+  # change the pick at this scale. The units still mix ms with a unitless drop; scaling ms by a
+  # reference insert latency is a human decision, not made here.
   lambda_write: 1.0               # per added ms of insert latency
   # Changed from the doc's 1.0, approved by a human 2026-10-03. At 1.0 the 28 MB Q1 index
   # (budget 23.8 MB) scored storage 1.179 against a 0.641 predicted drop, so the search
@@ -115,8 +170,19 @@ rl:
   lambda_storage: 0.25
   storage_budget_table_share: 0.25
   configs_verified_on_twin: 3
+  # Not in the doc's table: weight of the disagreement penalty in the top-3 re-check (doc:
+  # "penalise disagreement" between the estimator and raw HypoPG cost, weight not given).
+  # Score = measured reward - this x |estimator's predicted drop - HypoPG cost drop|.
+  lambda_disagreement: 1.0
+  # Not in the doc's table: seconds a HypoPG result or twin measurement of the same set of
+  # actions is reused in the ai process (doc: identical configs are never re-costed), so
+  # run_rl and simulate do not re-cost or rebuild what /ai/rl/run just did. A reseed within
+  # this window serves the earlier numbers; the dashboard labels reused measurements.
+  sim_cache_s: 1800
   # Not in the doc's table: assumed insert cost of one new index during search
   # (doc: "use a simple per-index penalty in search"). An assumption, not a measurement.
+  # The twin measured about 0.03 ms for the Q1 index (see lambda_write); 0.1 kept until a
+  # human approves a change.
   write_penalty_ms_per_index: 0.1
 
 sandbox:
@@ -129,6 +195,24 @@ sandbox:
   # most-common values -> twin values). Lives in the gateway's volume; never sent.
   twin_map_path: /var/lib/blind-tuner/twin_map.json
   pgbench_insert_rate_per_s: 200
+  # Not in the doc's table: how long each pgbench insert run lasts (db/sandbox/write_cost.py),
+  # once without and once with the configuration's indexes.
+  pgbench_duration_s: 10
+  # Not in the doc's table: the configuration measured per query for twin fidelity (doc:
+  # "twin speedup / production speedup, reported per query"). The search has no rewrite
+  # actions yet, so these are the doc's expected picks: Q1 its composite index; Q2 the
+  # date_trunc rewrite plus the index HypoPG costed cheapest for the rewritten Q2 on 2026-10-03
+  # at 10,000,000 rows (store_id, transaction_date: 125,322 against 149,616 for
+  # transaction_date alone and 160,399 with no index); the two-region query its IN rewrite plus
+  # Q1's index. make fidelity builds these indexes on pg-prod only while it measures, then drops
+  # them (human-approved 2026-10-03).
+  fidelity_queries:
+    q1: {indexes: [[sales, [region_id, transaction_date]]], rewrite: null}
+    q2: {indexes: [[sales, [store_id, transaction_date]]], rewrite: date_trunc_eq_to_range}
+    qor: {indexes: [[sales, [region_id, transaction_date]]], rewrite: or_same_column_to_in}
+  # Not in the doc's table: where make fidelity writes its result (gateway volume; the
+  # dashboard reads it through the gateway, the exporter from the tools container).
+  fidelity_path: /var/lib/blind-tuner/twin_fidelity.json
 
 verify:
   verieql_rows_per_table: 5
@@ -149,12 +233,60 @@ llm:
   retry_backoff_multiplier: 2.0
   retry_max_backoff_s: 30.0
   checker_retries: 1
+  # Air-gapped mode (step 31), not in the doc's table. make airgap switches the ai service to
+  # this provider (env BT_LLM_PROVIDER=ollama) and replaces its networks with an internal one;
+  # llm.provider above stays the default. Ollama runs natively on the host (README.md).
+  ollama:
+    # The host side of the internal llm-local network in infra/docker-compose.airgap.yml
+    # (gateway 10.31.31.1). Ollama must listen there: OLLAMA_HOST=10.31.31.1:11434.
+    base_url: http://10.31.31.1:11434
+    # Human decision 2026-10-03 ("gemma 2b"): gemma2:2b, 1.6 GB, 8K context (ollama.com).
+    # One value to change for another local model; num_ctx below must match it.
+    model: gemma2:2b
+    # gemma2's context length (8K, ollama.com). Sent as options.num_ctx on every request;
+    # Ollama's own default is 4096 (docs.ollama.com/faq).
+    num_ctx: 8192
+    # Reply token cap (options.num_predict), reserved inside num_ctx by the overflow guard.
+    num_predict: 768
+    # Pre-send overflow guard (no tokenizer is installed): every digit counts as one token
+    # (gemma splits digits) and other characters at this many per token. Conservative for JSON
+    # (English prose is nearer 4). An assumption until calibrated from the "prompt tokens
+    # evaluated" events of a real run.
+    chars_per_token: 2.5
+    # Extra attempts when a reply is not one valid JSON tool call or answer.
+    malformed_retries: 1
+    # HTTP timeout per request; the first request also loads the model into memory.
+    timeout_s: 300
+
+privacy:
+  # Not in the doc's table: characters of one run's payloads the adversarial leak test sends to
+  # the LLM in its single request (LLM bodies first, then AI-side payloads), to stay inside the
+  # free Gemini tier's tokens per minute. Measured 2026-10-03 on one live Q1 ask: 223 distinct
+  # payloads, 769,666 characters, most of them ~200 HypoPG costings from the search; 300,000
+  # got HTTP 429 on all retries; 100,000 already holds the 4 LLM bodies and all 37 table and
+  # column codes. The result file and the dashboard report how much of the run was sent.
+  adversarial_max_chars: 120000
+
+egress:
+  # Not in the doc's table (the doc says "only to the LLM API"): what the egress proxy for ai
+  # (infra/egress_proxy.py) opens tunnels to. HTTP CONNECT only; every other host, port or
+  # method is denied. The host must match agent/llm.py's GEMINI_URL (a test checks it).
+  allowed_hosts: [generativelanguage.googleapis.com]
+  allowed_ports: [443]
+  # Not in the doc's table: seconds the proxy waits for a request head and for the upstream
+  # connection before giving up.
+  connect_timeout_s: 10
 
 approve:
   post_deploy_check_minutes: 10
   rollback_if_median_worse_by: 0.10
+  # Not in the doc's table: replay minutes per phase when the dashboard demo runs the
+  # post-deploy check on the twin (labelled on screen as shortened). Production uses the 10 above.
+  demo_check_minutes: 0.1
 
 tests:
   fast_suite_limit_s: 120
   # e2e acceptance threshold (doc: "Q1 measured on the twin drops by over 50%").
   q1_min_twin_speedup: 0.50
+  # e2e acceptance threshold (doc: "Q2 measured on the twin drops by over 50%").
+  q2_min_twin_speedup: 0.50

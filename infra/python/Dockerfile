@@ -12,4 +12,9 @@ COPY requirements.lock /tmp/requirements.lock
 RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock \
  && rm /tmp/requirements.lock
 
+# torch (CPU) in its own layer: see requirements-ml.in.
+COPY requirements-ml.lock /tmp/requirements-ml.lock
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-ml.lock \
+ && rm /tmp/requirements-ml.lock
+
 WORKDIR /app

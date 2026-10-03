@@ -5,8 +5,11 @@
 # Networks (architecture doc, "Services, APIs and network isolation"; decision D):
 #   private   internal: pg-prod, pg-twin, gateway, dashboard, tools. No internet.
 #   boundary  internal: gateway, ai, dashboard, tools. No internet.
-#   egress    ai only, for the LLM API. SIMPLIFIED: unrestricted internet, not an
-#             allowlist of the LLM API host (allowlist proxy pending).
+#   ai-proxy  internal: ai, egress-proxy. ai's only way out: it has no internet route of its
+#             own and reaches the LLM API through HTTPS_PROXY.
+#   egress    egress-proxy only (internet). The proxy opens HTTP CONNECT tunnels only to the
+#             hosts and ports in config.yaml egress.* (the LLM API host, 443) and denies the
+#             rest. It checks the host name, not the traffic inside TLS.
 #   operator  dashboard only, so the host browser can reach it. Port bound to 127.0.0.1.
 #             SIMPLIFIED: a non-internal Docker network also gives the dashboard an
 #             internet route; it makes no outbound calls of its own.
@@ -69,6 +72,44 @@ services:
       retries: 40
     restart: unless-stopped
 
+  # Plan generation database (step 18): DSB, TPC-H and a smaller QuickMart copy for GNN
+  # training plans. Separate from pg-prod so thousands of EXPLAIN ANALYZE runs and the
+  # benchmark index setups never reach pg-prod's pg_stat_statements, its auto_explain log or
+  # its "primary key indexes only" invariant. Started only with the `bench` profile.
+  pg-bench:
+    image: blind-tuner-postgres:local
+    pull_policy: never
+    profiles: ["bench"]
+    # Same preload as pg-twin (no auto_explain, so log_analyze adds no overhead to the runs).
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf",
+              "-c", "shared_preload_libraries=pg_stat_statements"]
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: bench
+    volumes:
+      - pgbench-data:/var/lib/postgresql/data
+    networks: [private]
+    shm_size: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bench"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  # SQL equivalence verifier (doc, Component 7). VeriEQL is CC BY-NC-SA 4.0 and lives only in
+  # its own image (infra/verieql/); our wrapper verify/verieql_server.py is mounted. It sees
+  # real SQL, so it is on the private network only, with no internet.
+  verieql:
+    build:
+      context: infra/verieql
+    image: blind-tuner-verieql:local
+    command: ["python", "/app/verify/verieql_server.py"]
+    volumes:
+      - ./verify:/app/verify:ro
+    networks: [private]
+    restart: unless-stopped
+
   gateway:
     <<: *python
     command: ["uvicorn", "gateway.api:app", "--host", "0.0.0.0", "--port", "8000"]
@@ -77,6 +118,7 @@ services:
       TWIN_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-twin:5432/quickmart_twin
       BT_HMAC_KEY: ${BT_HMAC_KEY:?run make keygen first}
       PGLOG_DIR: /var/log/pglog
+      VERIEQL_URL: http://verieql:8300
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./contracts:/app/contracts:ro
@@ -97,6 +139,8 @@ services:
     environment:
       GATEWAY_URL: http://gateway:8000
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # httpx (0.28.1) sends https:// requests through this proxy; http://gateway goes direct.
+      HTTPS_PROXY: http://egress-proxy:3128
     # Only hashed-side code is mounted. No db/, no gateway/, no .env.
     volumes:
       - ./config.yaml:/app/config.yaml:ro
@@ -108,8 +152,19 @@ services:
       - ./agent:/app/agent:ro
       - ./verify:/app/verify:ro
       - ./infra/tests:/app/infra/tests:ro
-    networks: [boundary, egress]
-    depends_on: [gateway]
+    networks: [boundary, ai-proxy]
+    depends_on: [gateway, egress-proxy]
+
+  # Egress allowlist proxy for ai (stdlib CONNECT proxy, infra/egress_proxy.py; see
+  # infra/NOTES.md for why not tinyproxy). Mounts only config, common and its own file.
+  egress-proxy:
+    <<: *python
+    command: ["python", "/app/egress_proxy.py", "3128"]
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./common:/app/common:ro
+      - ./infra/egress_proxy.py:/app/egress_proxy.py:ro
+    networks: [ai-proxy, egress]
 
   dashboard:
     <<: *python
@@ -124,6 +179,8 @@ services:
       - ./contracts:/app/contracts:ro
       - ./common:/app/common:ro
       - ./dashboard:/app/dashboard:ro
+      # Result files (adversarial leak test); counts only, no names.
+      - ./runs:/app/runs:ro
     ports:
       - "127.0.0.1:8501:8501"
     networks: [private, boundary, operator]
@@ -143,6 +200,7 @@ services:
       AI_URL: http://ai:8100
       PGLOG_DIR: /var/log/pglog
       GEMINI_API_KEY_PRESENT: ${GEMINI_API_KEY:+yes}
+      VERIEQL_URL: http://verieql:8300
     volumes:
       - ./:/app
       - pgprod-log:/var/log/pglog:ro
@@ -150,10 +208,32 @@ services:
       - gateway-ledger:/var/lib/blind-tuner
     networks: [private, boundary]
 
+  # Plan generation runner: the tools image plus the DSB and TPC-H generators. Private side
+  # only. Started on demand: docker compose ... --profile bench run --rm bench <command>
+  bench:
+    build:
+      context: infra
+      dockerfile: bench/Dockerfile
+    image: blind-tuner-bench:local
+    restart: "no"
+    profiles: ["bench"]
+    command: ["python", "-c", "print('bench: pass a command')"]
+    environment:
+      BENCH_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-bench:5432/bench
+      BENCH_RAW_DIR: /data
+    volumes:
+      - ./:/app
+      - bench-raw:/data
+    networks: [private]
+    depends_on:
+      pg-bench: {condition: service_healthy}
+
 networks:
   private:
     internal: true
   boundary:
+    internal: true
+  ai-proxy:
     internal: true
   egress: {}
   operator: {}
@@ -163,3 +243,5 @@ volumes:
   pgprod-log:
   pgtwin-data:
   gateway-ledger:
+  pgbench-data:
+  bench-raw:

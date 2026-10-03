@@ -5,3 +5,6 @@ dashboards:
   - name: weekly sales dashboard
     phrases: ["weekly sales dashboard", "weekly sales", "sales dashboard"]
     query_pattern: "SELECT SUM(amount) FROM sales WHERE region_id = $1 AND transaction_date >= $2"
+  - name: monthly category sales report
+    phrases: ["category sales report", "monthly category", "sales by category"]
+    query_pattern: "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = $1 AND date_trunc($2, s.transaction_date) = $3 GROUP BY p.category"

@@ -198,3 +198,53 @@ def test_retry_can_recover():
 def answer_citing_last_tool_after_feedback(contents):
     tc = next(p["functionResponse"]["response"]["tool_call_id"] for c in contents for p in c.get("parts", []) if "functionResponse" in p)
     return {"role": "model", "parts": [{"text": f"It averages 24.297 ms [{tc}]."}]}
+
+
+# ---- gnn_explain -------------------------------------------------------------------------------
+EXPLAIN_PLAN = {"plan_id": "p_0000beef", "template_id": "q_00000001", "setup_id": "s_baseline", "source": "auto_explain",
+                "nodes": [{"node_id": 0, "parent_id": None, "op": "Aggregate", "est_rows": 1, "est_cost": 17000,
+                           "width": 8, "actual_rows": 1, "self_ms": 1.0},
+                          {"node_id": 1, "parent_id": 0, "op": "Seq Scan", "relation": "t_0123abcd", "est_rows": 200,
+                           "est_cost": 16000, "width": 10, "actual_rows": 80000, "self_ms": 23.0}]}
+
+
+class ExplainTools(FakeTools):
+    def get_plan(self, template_id):
+        return EXPLAIN_PLAN
+
+
+def test_gnn_explain_flags_misestimate_and_top_node():
+    out = ExplainTools().gnn_explain("q_00000001")
+    assert out["top_nodes"][0]["op"] == "Seq Scan"
+    assert [m["node_id"] for m in out["misestimates"]] == [1] and out["misestimates"][0]["ratio"] == 400.0
+    assert out["estimator"] in ("postgres_cost_calibrated", "gnn") and out["label"]
+
+
+def test_gnn_explain_numbers_pass_the_checker():
+    def cite(contents):
+        resp = contents[-1]["parts"][0]["functionResponse"]["response"]
+        pct = resp["result"]["top_nodes"][0]["predicted_share_pct"]
+        return {"role": "model", "parts": [{"text": f"The scan takes {pct}% [{resp['tool_call_id']}] of predicted time."}]}
+    model = ScriptedLLM([call("gnn_explain", {"template_id": "q_00000001"}), cite])
+    r = agent_mod.ask("qn_00000001", ["q_00000001"], model, ExplainTools())
+    assert r.status == "ok", r
+
+
+
+def test_all_eight_doc_tools_are_declared():
+    from agent.tools import DECLARATIONS
+    assert {d["name"] for d in DECLARATIONS} == {"get_slow_templates", "get_plan", "mine_candidates", "run_rl",
+                                                 "simulate", "gnn_explain", "rewrite_candidates", "verify"}
+
+
+def test_adapter_waits_the_retry_delay_in_a_gemini_429_body_and_names_the_quota(outbound):
+    err = {"error": {"code": 429, "status": "RESOURCE_EXHAUSTED", "details": [
+        {"@type": "type.googleapis.com/google.rpc.QuotaFailure",
+         "violations": [{"quotaMetric": "m", "quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]},
+        {"@type": "type.googleapis.com/google.rpc.RetryInfo", "retryDelay": "21s"}]}}
+    waits = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: httpx.Response(429, json=err)), sleep=waits.append)
+    with pytest.raises(llm.RateLimited, match="quota: GenerateRequestsPerMinutePerProjectPerModel-FreeTier"):
+        g.generate("sys", [], [])
+    from common.config import cfg
+    assert waits == [min(21.0, cfg("llm.retry_max_backoff_s"))] * (cfg("llm.retry_max_attempts") - 1)

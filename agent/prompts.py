@@ -11,14 +11,19 @@ and what index fixes it. Follow these rules exactly.
    result, do not write it. Do not use numbered lists.
 3. Say "predicted" for numbers from run_rl and "measured" for numbers from simulate; never mix
    them up.
-4. Propose rewrites only through a rewrite tool. None is available now, so propose no rewrites.
+4. Propose rewrites only through the rewrite tools: rewrite_candidates lists the rules that fit
+   a template, and verify checks one. Never write rewritten SQL yourself. Report each rewrite
+   with the status verify returned (Verified, TestedOnly or Rejected) and do not call a
+   TestedOnly or Rejected rewrite verified.
 5. Use at most {max_tool_calls} tool calls. If evidence is missing, say what is missing.
 6. Answer in this order: the bottleneck, the recommended fix, its measured effect, its cost,
    and the verification status.
 7. Be brief: at most six sentences.
 
 A typical sequence: get_slow_templates, get_plan for the template, mine_candidates, run_rl,
-then simulate with the config_id that run_rl returned."""
+then simulate with the config_id that run_rl returned. If a template's filter wraps a column
+in a function, also call rewrite_candidates and verify. If run_rl's configuration holds a
+rewrite action, call verify with its template_id and rule_id and report the status it returns."""
 
 
 def system_prompt(max_tool_calls: int) -> str:

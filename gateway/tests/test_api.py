@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from common.config import cfg
 from contracts.validate import errors
+from contracts.validate import errors
 from db import canaries, run_q1
 from gateway.canary_scan import Scanner
 
@@ -167,12 +168,109 @@ def test_ledger_counts_outbound_separately(client):
     assert led["control_canary_hits"] >= 2
 
 
-def test_pending_endpoints_say_which_step(client, codes):
-    cfg_obj = {"config_id": "cfg_00000001", "search": "greedy",
-               "actions": [{"type": "add_index", "table": codes["t"], "columns": [codes["rg"], codes["td"]]}]}
-    # Twin simulation (step 10) and checksum (step 12) are built. Still not built: rewrite
-    # equivalence and approve, both out of scope this session.
-    r = client.post("/v1/twin/checksum", json={"config": cfg_obj, "rewritten_sql": "SELECT ?"})
-    assert r.status_code == 501 and "out of scope" in r.json()["detail"]
-    r = client.post("/v1/approve")
-    assert r.status_code == 501 and "out of scope" in r.json()["detail"]
+# ---- rewrites (step 22) ------------------------------------------------------------------------
+def _template_with(client, rule):
+    cands = client.get("/v1/rewrite/candidates").json()
+    return [c for c in cands if c["rule_id"] == rule]
+
+
+def test_rewrite_candidates_offer_q2_and_the_or_query(client):
+    trunc = _template_with(client, "date_trunc_eq_to_range")
+    ors = _template_with(client, "or_same_column_to_in")
+    assert trunc and ors
+    for c in trunc + ors:
+        assert "'" not in c["sql"] and c["label"]          # values stay as ?, never literals
+
+
+def test_q2_rewrite_is_tested_only_because_verieql_cannot_encode_date_trunc(client):
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    rw = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": c["rule_id"]}).json()
+    assert errors("Rewrite", rw) == []
+    assert rw["checks"] == {"verieql": "unsupported", "checksum": "match"} and rw["status"] == "TestedOnly"
+
+
+def test_or_rewrite_is_verified(client):
+    c = _template_with(client, "or_same_column_to_in")[0]
+    rw = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": c["rule_id"]}).json()
+    assert rw["checks"] == {"verieql": "pass", "checksum": "match"} and rw["status"] == "Verified"
+
+
+def test_rule_that_does_not_fit_is_refused(client):
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    r = client.post("/v1/rewrite/verify", json={"template_id": c["template_id"], "rule_id": "or_same_column_to_in"})
+    assert r.status_code == 409
+
+
+# ---- rewrite plus index (step 23) -------------------------------------------------------------
+def test_rewrite_candidate_carries_the_rewritten_column_roles(client, codes):
+    # date_trunc(transaction_date) gives the column no role in Q2; after the rewrite it is a
+    # range, so the miner (AI side) can propose an index on it. Codes and roles only.
+    c = _template_with(client, "date_trunc_eq_to_range")[0]
+    assert {"table": codes["t"], "col": codes["td"], "role": "RANGE"} in c["columns"]
+    assert_clean(c)
+
+
+def test_rewrite_plus_index_is_scored_on_the_rewritten_query(client, codes):
+    """HypoPG and the twin both run the rewritten Q2 when the config holds its rewrite."""
+    tid = _template_with(client, "date_trunc_eq_to_range")[0]["template_id"]
+    rw = {"type": "rewrite", "template_id": tid, "rule_id": "date_trunc_eq_to_range"}
+    idx = {"type": "add_index", "table": codes["t"], "columns": [client.g.hasher.column("sales", "store_id"), codes["td"]]}
+
+    def q2_cost(actions):
+        out = client.post("/v1/simulate/hypopg", json={"config_id": "cfg_0000000a", "search": "q_learning",
+                                                       "actions": actions}).json()
+        plan = next(p for p in out["plans"] if p["template_id"] == tid)
+        return next(n["est_cost"] for n in plan["nodes"] if n["parent_id"] is None)
+    both = q2_cost([rw, idx])
+    assert both < q2_cost([idx]) and both < q2_cost([rw])
+    r = client.post("/v1/simulate/twin", json={"config_id": "cfg_0000000b", "search": "q_learning", "actions": [rw, idx]})
+    assert r.status_code == 200, r.text
+    t = next(x for x in r.json()["templates"] if x["template_id"] == tid)
+    # The twin runs the rewritten Q2 and it is faster. The PS4 target (tests.q2_min_twin_speedup)
+    # is asserted end to end in e2e/test_q2.py: on the correlated twin (step 28) this config
+    # measures about 22% to 45% faster, not the 84% the uncorrelated twin showed.
+    assert t["after_ms"] < t["before_ms"], t
+
+
+def test_twin_fidelity_is_null_or_free_of_names_and_canaries(client):
+    # Private read for the dashboard, but reachable on the boundary network, so it must hold
+    # no real name: the fidelity file stores query IDs, rule IDs and timings only.
+    r = client.get("/v1/twin/fidelity")
+    assert r.status_code == 200
+    if r.json() is not None:
+        assert_clean(r.json())
+        assert {q["query"] for q in r.json()["queries"]} >= {"q1", "q2"}
+
+
+def test_drift_windows_send_only_codes_and_shares(client, q1):
+    from db import workload
+    w = client.g.windows
+    w.sample(now=100.0)
+    with psycopg.connect(run_q1.app_dsn(os.environ["PROD_DSN"]), autocommit=True) as conn:
+        conn.execute(workload.q1_sql()).fetchall()
+    w.sample(now=199.0)                                    # the window [100, 200) ends at this sample
+    w.sample(now=201.0)                                    # a sample past 200 closes it
+    before = len(client.g.ledger.entries())
+    body = client.get("/v1/workload/windows?window_s=100").json()
+    assert body["window_s"] == 100 and [x["end"] for x in body["windows"]] == [200]
+    assert body["windows"][0]["templates"] == {q1["template_id"]: {"time_share": 1.0, "call_share": 1.0}}
+    assert_clean(body)
+    assert len(client.g.ledger.entries()) == before + 1       # scanned and ledgered like every AI payload
+    assert client.get("/v1/workload/windows?window_s=0").status_code == 400
+
+
+# ---- payload bodies for the adversarial leak test (step 27) ----------------------------------
+def test_ledger_payloads_returns_the_window_hashed_and_not_itself(client):
+    from datetime import datetime, timezone
+    since = datetime.now(timezone.utc)
+    client.get("/v1/meta/tables")
+    window = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    got = client.get("/v1/ledger/payloads", params=window).json()["payloads"]
+    assert [p["destination"] for p in got] == ["ai"]
+    assert_clean(json.loads(got[0]["body"]))
+    # The bundle above was ledgered as a payload to ai, but its bytes were not kept.
+    wider = {"since": since.isoformat(), "until": datetime.now(timezone.utc).isoformat()}
+    assert client.get("/v1/ledger/payloads", params=wider).json()["payloads"] == got
+    assert client.get("/v1/ledger/payloads", params={"since": "yesterday", "until": "now"}).status_code == 400
+    naive = {"since": "2026-10-03T00:00:00", "until": "2026-10-03T01:00:00"}
+    assert client.get("/v1/ledger/payloads", params=naive).status_code == 400

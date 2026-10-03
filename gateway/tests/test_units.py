@@ -161,3 +161,39 @@ def test_ledger_entry_valid_and_verdict(tmp_path):
     assert ok["verdict"] == "allow" and bad["verdict"] == "block"
     assert errors("LedgerEntry", ok) == [] and errors("LedgerEntry", bad) == []
     assert [e["payload_id"] for e in led.entries()] == [ok["payload_id"], bad["payload_id"]]
+
+
+def test_drift_window_shares_count_a_reset_counter_whole():
+    from gateway.windows import shares
+    before = {"q_0000000a": (10, 1000.0), "q_0000000b": (5, 500.0)}
+    after = {"q_0000000a": (14, 1300.0), "q_0000000b": (2, 100.0), "q_0000000c": (0, 0.0)}   # b was reset
+    assert shares(before, after) == {"q_0000000a": {"time_share": 0.75, "call_share": 0.6667},
+                                     "q_0000000b": {"time_share": 0.25, "call_share": 0.3333}}
+
+
+def test_drift_windows_are_closed_and_aligned():
+    from gateway.windows import Windows
+    totals = {"q_0000000a": (0, 0.0)}
+    w = Windows(lambda: dict(totals))
+    for t in range(95, 330, 5):                        # one call of 100 ms per 5 s
+        totals["q_0000000a"] = (t // 5, t // 5 * 100.0)
+        w.sample(now=float(t))
+    wins = w.windows(100)
+    assert [x["end"] for x in wins] == [200, 300]      # [100, 200) and [200, 300); 300 to 325 is open
+    assert wins[0]["templates"] == {"q_0000000a": {"time_share": 1.0, "call_share": 1.0}}
+
+
+def test_ledger_keeps_allowed_bodies_for_the_window(tmp_path):
+    from datetime import datetime, timedelta, timezone
+    led = Ledger(str(tmp_path / "ledger.jsonl"))
+    first = led.record("ai", b'{"a": 1}', [])
+    led.record("ai", b'{"a": 1}', [])                                   # same bytes: one copy
+    led.record("llm", b"x", [{"canary_id": canaries.QUESTION.canary_id, "match": "exact"}])  # blocked
+    led.record("local_scanner", b"raw", [])                             # negative control
+    led.record("ai", b'{"bundle": 1}', [], keep_body=False)             # re-send of kept bodies
+    led.record("llm", b'{"c": 1}', [])
+    lo = datetime.fromisoformat(first["time"].replace("Z", "+00:00"))
+    hi = datetime.now(timezone.utc)
+    assert [(p["destination"], p["body"]) for p in led.payloads(lo, hi)] == [("ai", '{"a": 1}'), ("llm", '{"c": 1}')]
+    assert led.payloads(hi + timedelta(seconds=1), hi + timedelta(seconds=2)) == []
+    assert "raw" not in (tmp_path / "ledger_bodies.jsonl").read_text()

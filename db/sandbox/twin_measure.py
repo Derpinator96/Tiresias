@@ -7,7 +7,11 @@ SIMPLIFIED twin. Private side: works on real names; runs in the gateway.
    (EXPLAIN on both) before any twin number is used. A mismatch is reported, not hidden.
 3. Before: median of N warm runs (sandbox.timing_runs after sandbox.warmup_runs).
 4. Build the configuration's indexes for real on the twin, measure again, record their size
-   from pg_relation_size, then drop them so the twin returns to its baseline.
+   from pg_relation_size, then drop them so the twin returns to its baseline. before_after()
+   does steps 3 and 4 on any connection; db/sandbox/fidelity.py reuses it on pg-prod.
+5. Write cost (twin only): pgbench insert latency without and with the indexes
+   (db/sandbox/write_cost.py), each run after that phase's read timings so inserted rows never
+   touch them.
 """
 from __future__ import annotations
 
@@ -22,6 +26,7 @@ from psycopg import sql
 from sqlglot import exp
 
 from common.config import cfg
+from db.sandbox import write_cost
 
 
 def load_map() -> dict[str, dict[str, object]]:
@@ -94,25 +99,45 @@ class TwinResult:
     runs: int
     plan_agreement: dict[str, bool]
     twin_queries: dict[str, str]     # private: twin literals, never sent
+    write_ms_delta: float            # median INSERT ms with the indexes minus without
+    after_ops: dict[str, list[str]]  # operator sequence of each after query, with the indexes
+
+
+def before_after(conn, indexes: list[tuple[str, list[str]]], queries: dict[str, str],
+                 after_queries: dict[str, str], prefix: str, writes: bool = False):
+    """On one connection: median ms of each query, then build the indexes for real, record
+    their size, each after query's operator sequence and median ms, and drop the indexes
+    whatever happens. With `writes` (twin only), also the pgbench insert latency without and
+    with the indexes. Returns (before, after, index bytes, after operator sequences,
+    write ms delta; 0.0 without `writes` or without indexes, since writes are then unchanged)."""
+    before = {tid: _median_ms(conn, q) for tid, q in queries.items()}
+    measure_writes = writes and bool(indexes)
+    write_before = write_cost.insert_ms(conn) if measure_writes else 0.0
+    names = [f"{prefix}{i}" for i in range(len(indexes))]
+    try:
+        for name, (table, cols) in zip(names, indexes):
+            conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
+                sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
+        size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
+        ops = {tid: op_sequence(_explain(conn, q)) for tid, q in after_queries.items()}
+        after = {tid: _median_ms(conn, q) for tid, q in after_queries.items()}
+        write_after = write_cost.insert_ms(conn) if measure_writes else 0.0
+    finally:
+        for name in names:
+            conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
+    return before, after, size, ops, write_after - write_before
 
 
 def measure(prod_dsn: str, twin_dsn: str, indexes: list[tuple[str, list[str]]],
-            queries: dict[str, str]) -> TwinResult:
+            queries: dict[str, str], after_queries: dict[str, str] | None = None) -> TwinResult:
+    """before = `queries` without the indexes; after = `after_queries` (rewritten SQL, where a
+    template has a rewrite; otherwise the same query) with the indexes."""
     mapping = load_map()
     twin_q = {tid: map_query(q, mapping) for tid, q in queries.items()}
+    twin_after = {tid: map_query((after_queries or {}).get(tid, q), mapping) for tid, q in queries.items()}
     with psycopg.connect(prod_dsn, autocommit=True) as prod:
         prod_ops = {tid: op_sequence(_explain(prod, q)) for tid, q in queries.items()}
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
         agree = {tid: op_sequence(_explain(conn, q)) == prod_ops[tid] for tid, q in twin_q.items()}
-        before = {tid: _median_ms(conn, q) for tid, q in twin_q.items()}
-        names = [f"bt_sim_{i}" for i in range(len(indexes))]
-        try:
-            for name, (table, cols) in zip(names, indexes):
-                conn.execute(sql.SQL("CREATE INDEX {} ON {} ({})").format(
-                    sql.Identifier(name), sql.Identifier(table), sql.SQL(", ").join(map(sql.Identifier, cols))))
-            size = sum(conn.execute("SELECT pg_relation_size(%s::regclass)", (n,)).fetchone()[0] for n in names)
-            after = {tid: _median_ms(conn, q) for tid, q in twin_q.items()}
-        finally:
-            for name in names:
-                conn.execute(sql.SQL("DROP INDEX IF EXISTS {}").format(sql.Identifier(name)))
-    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q)
+        before, after, size, ops, write_delta = before_after(conn, indexes, twin_q, twin_after, "bt_sim_", writes=True)
+    return TwinResult(before, after, size / 2**20, int(cfg("sandbox.timing_runs")), agree, twin_q, write_delta, ops)
