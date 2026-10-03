@@ -98,6 +98,22 @@ def test_adapter_backs_off_on_429_and_reports_it(outbound):
     assert all(e.startswith("rate limited, retrying") for e in events) and len(events) == 2
 
 
+def test_adapter_retries_service_unavailable(outbound):
+    replies = iter([httpx.Response(503), httpx.Response(200, json=gemini_ok())])
+    events = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: next(replies)), sleep=lambda s: None)
+    assert g.generate("sys", [], [], on_event=events.append) == gemini_ok()
+    assert events == ["LLM service unavailable (HTTP 503), retrying in 2 s (attempt 2 of 5)"]
+
+
+def test_adapter_does_not_retry_client_errors(outbound):
+    calls = []
+    g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: calls.append(r) or httpx.Response(400)), sleep=lambda s: None)
+    with pytest.raises(httpx.HTTPStatusError):
+        g.generate("sys", [], [])
+    assert len(calls) == 1
+
+
 def test_adapter_gives_up_after_max_attempts(outbound):
     events = []
     g = llm.GeminiREST("m", "k", httpx.MockTransport(lambda r: httpx.Response(429)), sleep=lambda s: None)

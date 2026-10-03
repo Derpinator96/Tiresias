@@ -62,8 +62,8 @@ def test_pg_stat_statements_placeholders(h):
 
 
 @pytest.mark.parametrize("raw", [
-    "/* CANARY_COMMENT_QX7731 */ SELECT COUNT(*) FROM customers WHERE segment = 'retail'",
-    "SELECT COUNT(*) FROM customers WHERE segment = 'retail' -- CANARY_COMMENT_QX7732",
+    "/* CANARY_QXZ7731_VK */ SELECT COUNT(*) FROM customers WHERE segment = 'retail'",
+    "SELECT COUNT(*) FROM customers WHERE segment = 'retail' -- CANARY_QXZ7732_VK",
     "SELECT customer_id FROM customers WHERE email = 'CANARY_7731@corp.com'",
     "SELECT customer_id FROM customers WHERE email IN ('a@b.c', 'CANARY_7731@corp.com')",
 ])
