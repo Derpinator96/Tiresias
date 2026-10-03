@@ -18,7 +18,18 @@ from common.config import cfg
 from db import generate
 from db.plangen import setups
 
-DATABASES = ("dsb", "tpch", "quickmart")
+def quickmart_databases() -> dict[str, int]:
+    """{database: sales rows}, one QuickMart copy per configured scale."""
+    scales = [int(x) for x in cfg("plan_generation.quickmart_scales")]
+    return {("quickmart" if i == 0 else f"quickmart_{rows}"): rows for i, rows in enumerate(scales)}
+
+
+def family(database: str) -> str:
+    """The benchmark a database belongs to: every QuickMart copy is family `quickmart`."""
+    return "quickmart" if database.startswith("quickmart") else database
+
+
+DATABASES = ("dsb", "tpch", *quickmart_databases())
 BLOCK = 1 << 20
 
 
@@ -105,14 +116,15 @@ def load_tpch(force: bool = False, log=print) -> None:
 
 
 def load_quickmart(force: bool = False, log=print) -> None:
-    if not _ensure_database("quickmart", force):
-        log("quickmart: already loaded")
-        return
-    t0 = time.perf_counter()
-    timings = generate.load(dsn_for("quickmart"), int(cfg("plan_generation.quickmart_sales_rows")), log=log)
-    with psycopg.connect(dsn_for("quickmart"), autocommit=True) as conn:
-        _mark_loaded(conn, time.perf_counter() - t0)
-    log(f"quickmart: loaded {timings}")
+    for db, rows in quickmart_databases().items():
+        if not _ensure_database(db, force):
+            log(f"{db}: already loaded")
+            continue
+        t0 = time.perf_counter()
+        timings = generate.load(dsn_for(db), rows, log=log)
+        with psycopg.connect(dsn_for(db), autocommit=True) as conn:
+            _mark_loaded(conn, time.perf_counter() - t0)
+        log(f"{db}: loaded {timings}")
 
 
 def load_all(force: bool = False, log=print) -> None:

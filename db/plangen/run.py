@@ -67,8 +67,10 @@ def workload() -> dict[str, dict]:
     n = int(cfg("plan_generation.parameter_sets_per_query"))
     seed = int(cfg("dataset.random_seed"))
     dsb_index_sql = (Path(os.environ["DSB_HOME"]) / "scripts" / "dsb_index_pg.sql").read_text()
+    qm = {db: {"templates": quickmart_templates.instances(n, seed, rows), "setups": setups.QUICKMART}
+          for db, rows in load.quickmart_databases().items()}
     return {
-        "quickmart": {"templates": quickmart_templates.instances(n, seed), "setups": setups.QUICKMART},
+        **qm,
         "tpch": {"templates": queries.tpch_instances(n, seed, int(cfg("plan_generation.tpch_scale_factor"))),
                  "setups": setups.TPCH},
         "dsb": {"templates": queries.dsb_instances(n, seed, int(cfg("plan_generation.dsb_scale_factor"))),

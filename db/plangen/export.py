@@ -28,7 +28,9 @@ from models.gnn import features
 
 
 def group_key(database: str, template_id: str) -> str:
-    return "g_" + hashlib.sha1(f"{database}|{template_id}".encode()).hexdigest()[:12]
+    """Keyed by benchmark family, so one template at two QuickMart scales is one group and can
+    never sit in both train and test."""
+    return "g_" + hashlib.sha1(f"{load.family(database)}|{template_id}".encode()).hexdigest()[:12]
 
 
 def setup_orders() -> dict[str, list[str]]:
@@ -40,7 +42,7 @@ def setup_orders() -> dict[str, list[str]]:
 def export_record(rec: dict, hasher: Hasher, schema: dict[str, set[str]], order: list[str]) -> dict:
     hp = hash_plan(rec["plan"], plan_id="p_00000000", template_id="q_00000000", setup_id=rec["setup_id"],
                    source="explain", hasher=hasher, schema=schema)
-    return {"group": group_key(rec["database"], rec["template_id"]), "database": rec["database"],
+    return {"group": group_key(rec["database"], rec["template_id"]), "database": load.family(rec["database"]),
             "demo": rec["demo"], "setup": order.index(rec["setup_id"]), "param_set": rec["param_set"],
             "timed_out": rec["timed_out"], "total_ms": rec["runtime_ms"],
             "nodes": [features.strip(n) for n in hp["nodes"]]}
@@ -72,7 +74,7 @@ def export(raw: Path, out_dir: Path, log=print) -> dict:
             rec = json.loads(line)
             if rec["error"]:
                 continue
-            row = export_record(rec, hasher, schemas[rec["database"]], orders[rec["database"]])
+            row = export_record(rec, hasher, schemas[rec["database"]], orders[load.family(rec["database"])])
             groups[row["group"]] = row["demo"]
             out.write(json.dumps(row) + "\n")
             n += 1

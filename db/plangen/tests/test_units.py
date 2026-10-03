@@ -46,8 +46,8 @@ def test_dsb_setups_split_full_file():
 
 
 def test_quickmart_instances_deterministic_and_safe():
-    a = quickmart_templates.instances(N, 1)
-    assert a == quickmart_templates.instances(N, 1)
+    a = quickmart_templates.instances(N, 1, 1_000_000)
+    assert a == quickmart_templates.instances(N, 1, 1_000_000)
     assert {t for t, demo, _ in a if demo} >= {"qm/q1", "qm/q2"}
     values = [c.value for c in canaries.ALL]
     for tid, _, sqls in a:
@@ -57,7 +57,7 @@ def test_quickmart_instances_deterministic_and_safe():
 
 
 def test_quickmart_q1_matches_demo_shape():
-    q1 = dict((t, s) for t, _, s in quickmart_templates.instances(2, 1))["qm/q1"][0]
+    q1 = dict((t, s) for t, _, s in quickmart_templates.instances(2, 1, 1_000_000))["qm/q1"][0]
     assert re.fullmatch(r"SELECT SUM\(amount\) FROM sales WHERE region_id = \d+ AND transaction_date >= '\d{4}-\d\d-\d\d'", q1)
 
 
@@ -109,3 +109,12 @@ def test_dedupe_keeps_few_copies_and_counts(tmp_path):
     assert s["kept"] == keep
     assert s["per_database"]["dsb"]["errors"] == 1
     assert s["per_database"]["dsb"]["runs"] == keep + 5
+
+
+def test_quickmart_scales_share_a_family_and_group():
+    from db.plangen import export, load
+    dbs = load.quickmart_databases()
+    assert list(dbs)[0] == "quickmart" and len(dbs) == len(cfg("plan_generation.quickmart_scales"))
+    assert {load.family(d) for d in dbs} == {"quickmart"}
+    keys = {export.group_key(d, "qm/q1") for d in dbs}
+    assert len(keys) == 1 and export.group_key("tpch", "qm/q1") not in keys

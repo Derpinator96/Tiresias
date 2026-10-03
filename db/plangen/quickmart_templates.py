@@ -19,13 +19,13 @@ def _day(rng, lo: date, hi: date) -> date:
     return lo + timedelta(days=int(rng.integers(0, (hi - lo).days + 1)))
 
 
-def _ctx():
+def _ctx(sales_rows: int):
     return {
         "d0": date.fromisoformat(cfg("dataset.date_start")),
         "d1": date.fromisoformat(cfg("dataset.date_end")),
         "regions": int(cfg("dataset.regions_rows")),
         "stores": int(cfg("dataset.stores_rows")),
-        "customers": generate.sizes(int(cfg("plan_generation.quickmart_sales_rows")))["customers"],
+        "customers": generate.sizes(sales_rows)["customers"],
         "price": cfg("dataset.unit_price_range"),
         "qty": cfg("dataset.quantity_range"),
     }
@@ -117,8 +117,8 @@ def literal(v) -> str:
     return f"'{s}'"
 
 
-def instances(n_sets: int, seed: int) -> list[tuple[str, bool, list[str]]]:
-    c = _ctx()
+def instances(n_sets: int, seed: int, sales_rows: int) -> list[tuple[str, bool, list[str]]]:
+    c = _ctx(sales_rows)
     out = []
     for i, (tid, demo, sql, sampler) in enumerate(TEMPLATES):
         rng = np.random.default_rng([seed, i])

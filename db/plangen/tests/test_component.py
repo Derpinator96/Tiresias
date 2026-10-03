@@ -26,7 +26,7 @@ def test_apply_setup_replaces_indexes():
 
 
 def test_run_one_records_analyzed_plan():
-    tid, demo, sqls = quickmart_templates.instances(1, 1)[0]
+    tid, demo, sqls = quickmart_templates.instances(1, 1, load.quickmart_databases()["quickmart"])[0]
     rec = run.run_one(("quickmart", tid, demo, 0, "s_qm_base", sqls[0]))
     assert rec["error"] is None and not rec["timed_out"]
     assert rec["runtime_ms"] > 0 and rec["shape_hash"]

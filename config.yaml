@@ -57,7 +57,9 @@ postgres:
 
 plan_generation:
   # Step 18. Values from the doc's "Data and training plan" unless marked otherwise.
-  parameter_sets_per_query: 30
+  # 30 in the doc; 60 approved by a human on 2026-10-03 after the first 13,200 runs kept only
+  # 4,543 plans after dedupe (target 10,000).
+  parameter_sets_per_query: 60
   index_setups_per_query_min: 4
   index_setups_per_query_max: 5
   target_plan_count: 10000
@@ -67,13 +69,15 @@ plan_generation:
   # Not in the doc's table: concurrent EXPLAIN ANALYZE connections (doc text: 4 to 8 workers;
   # the demo laptop has 16 cores). Concurrency adds noise to the timings; labelled in NOTES.
   workers: 8
-  # Not in the doc's table: sales rows in pg-bench's QuickMart copy. Smaller than pg-prod so
-  # each run fits the statement timeout; the GNN sees table size as a feature.
-  quickmart_sales_rows: 5000000
+  # Not in the doc's table: sales rows of each QuickMart copy on pg-bench, one database per
+  # scale (the first is `quickmart`, others `quickmart_<rows>`). Smaller than pg-prod so runs
+  # fit the statement timeout; a second scale adds plan shapes (human-approved 2026-10-03).
+  quickmart_scales: [5000000, 1000000]
   # Not in the doc's table: "keep a few copies of each plan shape" (doc). Copies kept per
   # shape hash, and the log2 bucket width of estimated rows inside the hash (see db/NOTES.md).
-  max_copies_per_shape: 3
-  shape_rows_log2_bucket: 2
+  # 3 and 2 at first; 10 and 1 approved by a human on 2026-10-03 (db/NOTES.md).
+  max_copies_per_shape: 10
+  shape_rows_log2_bucket: 1
   # Not in the doc's table: where raw plans are written (repo-relative, gitignored).
   output_dir: data/plans
 
