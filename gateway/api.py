@@ -247,6 +247,14 @@ def _not_ai(request: Request) -> None:
         raise HTTPException(403, "private-side endpoint: not served to the ai service")
 
 
+@app.get("/v1/withheld")
+def withheld(request: Request):
+    """Statements withheld because the gateway could not parse them ("unparsed, not sent"):
+    queryid, reason and first-seen time only, never the text. Private side."""
+    _not_ai(request)
+    return JSONResponse(sorted(gw().withheld.values(), key=lambda w: w["first_seen"]))
+
+
 @app.get("/v1/twin/fidelity")
 def twin_fidelity():
     """The last `make fidelity` result (db/sandbox/fidelity.py), or null before the first run.

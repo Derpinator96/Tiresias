@@ -27,8 +27,9 @@ class Template:
     total_ms: float = 0.0
 
 
-def read(conn: psycopg.Connection, hasher: Hasher, schema: dict[str, set[str]]) -> tuple[list[Template], int]:
-    """All parseable templates of the app role, ranked by total time, plus the count withheld."""
+def read(conn: psycopg.Connection, hasher: Hasher, schema: dict[str, set[str]]) -> tuple[list[Template], list[tuple[int, str]]]:
+    """All parseable templates of the app role, ranked by total time, plus (queryid, reason) for
+    each statement withheld. The reason is Unparsed's fixed message, never the query text."""
     rows = conn.execute("""
         SELECT s.queryid, s.query, s.calls, s.total_exec_time
         FROM pg_stat_statements s
@@ -38,12 +39,12 @@ def read(conn: psycopg.Connection, hasher: Hasher, schema: dict[str, set[str]]) 
         (cfg("workload.app_role"),)).fetchall()
     by_id: dict[str, Template] = {}
     totals: dict[str, list[float]] = {}
-    withheld = 0
+    withheld = []
     for queryid, query, calls, total_ms in rows:
         try:
             sql, columns = hash_sql(query, hasher, schema)
-        except Unparsed:
-            withheld += 1          # "unparsed, not sent": the text never leaves
+        except Unparsed as e:
+            withheld.append((queryid, str(e)))     # "unparsed, not sent": the text never leaves
             continue
         tid = hasher.template(query)
         if tid in by_id:

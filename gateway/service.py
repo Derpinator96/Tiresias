@@ -9,6 +9,8 @@ import json
 import os
 import re
 import secrets
+import sys
+import time
 from dataclasses import dataclass, field
 
 import psycopg
@@ -64,6 +66,15 @@ class Gateway:
         self.scanner = Scanner()
         self.ledger = Ledger(ledger_path or cfg("gateway.ledger_path"))
         self.windows = Windows(self.template_totals)
+        self.withheld: dict[int, dict] = {}          # queryid -> {queryid, reason, first_seen}
+
+    def _log_withheld(self, items: list[tuple[int, str]]) -> None:
+        """Doc, Component 1: log each unparsable statement as "unparsed, not sent", once per
+        queryid. Only the queryid and Unparsed's fixed reason are kept; the text never is."""
+        for queryid, reason in items:
+            if queryid not in self.withheld:
+                self.withheld[queryid] = {"queryid": queryid, "reason": reason, "first_seen": time.time()}
+                print(f"unparsed, not sent: queryid {queryid} ({reason})", file=sys.stderr, flush=True)
 
     # ---- ingestion -------------------------------------------------------------------
     def snapshot(self) -> Snapshot:
@@ -75,12 +86,14 @@ class Gateway:
                 for c in cols:
                     self.hasher.column(t, c)
             templates, withheld = statements_mod.read(conn, self.hasher, schema)
-        return Snapshot(cat, templates, withheld, plans_mod.read_log(self.log_dir))
+        self._log_withheld(withheld)
+        return Snapshot(cat, templates, len(withheld), plans_mod.read_log(self.log_dir))
 
     def template_totals(self) -> dict[str, tuple[float, float]]:
         """Raw cumulative (calls, total ms) per template code, for drift windows. Private."""
         with psycopg.connect(self.prod_dsn, autocommit=True) as conn:
-            templates, _ = statements_mod.read(conn, self.hasher, catalog_mod.read(conn).schema())
+            templates, withheld = statements_mod.read(conn, self.hasher, catalog_mod.read(conn).schema())
+        self._log_withheld(withheld)
         return {t.template_id: (t.calls, t.total_ms) for t in templates}
 
     def slow_templates(self, snap: Snapshot) -> list[dict]:
