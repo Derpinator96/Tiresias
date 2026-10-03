@@ -15,6 +15,11 @@ from common.config import cfg
 from db import workload
 
 
+def app_dsn(admin_dsn: str) -> str:
+    """Same server and password, connecting as the application role from config.yaml."""
+    return psycopg.conninfo.make_conninfo(admin_dsn, user=cfg("workload.app_role"))
+
+
 def run(dsn: str, runs: int | None = None) -> list[float]:
     runs = int(cfg("workload.q1_runs")) if runs is None else runs
     durations = []
@@ -29,6 +34,6 @@ def run(dsn: str, runs: int | None = None) -> list[float]:
 
 
 if __name__ == "__main__":
-    ms = run(os.environ["PROD_DSN"])
+    ms = run(app_dsn(os.environ["PROD_DSN"]))
     print("Q1 durations (ms):", ", ".join(f"{x:.1f}" for x in ms))
     print(f"Q1 median: {statistics.median(ms):.1f} ms over {len(ms)} runs")

@@ -48,14 +48,26 @@ REQUIRED = {
     "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float,
 }
 
-# Module paths (relative to the repo root) -> config sections that govern them.
-# Each build step adds its modules here as it creates them.
+# Module path (relative to the repo root) -> the config keys that govern it. Only these
+# modules and keys are checked (additional requirement 3 in PLAN.md). Each build step
+# registers its modules here as it creates them.
 GOVERNED: dict[str, list[str]] = {
-    "db/generate.py": ["dataset", "workload"],
-    "db/apply_settings.py": ["postgres", "workload"],
-    "db/run_q1.py": ["workload"],
-    "db/workload.py": ["dataset", "workload"],
-    "db/seed.py": ["dataset", "workload", "postgres"],
+    "db/generate.py": ["dataset.sales_rows", "dataset.regions_rows", "dataset.stores_rows",
+                       "dataset.products_rows", "dataset.customers_per_sale", "dataset.returns_per_sale",
+                       "dataset.hero_region_id", "dataset.hero_region_share", "dataset.top_product_share",
+                       "dataset.top_product_revenue_share", "dataset.recent_density_ratio",
+                       "dataset.return_lag_days_min", "dataset.return_lag_days_max", "dataset.random_seed",
+                       "workload.copy_batch_rows"],
+    "db/apply_settings.py": ["workload.slow_query_ms"],
+    "db/run_q1.py": ["workload.q1_runs"],
+    "db/workload.py": ["dataset.hero_region_id"],
+    "gateway/keys.py": ["gateway.hmac_key_bytes"],
+    "gateway/hashing.py": ["gateway.hmac_code_hex_chars"],
+    "gateway/rounding.py": ["gateway.round_significant_figures"],
+    "gateway/canary_scan.py": ["gateway.canary_fragment_chars"],
+    "gateway/ingest/stats.py": ["gateway.skew_top_mcv_count"],
+    "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
+                           "gateway.dehash_query_chars", "workload.slow_query_ms"],
 }
 
 # Values too generic to flag as hardcoded config (loop starts, booleans, identity).
@@ -79,16 +91,12 @@ def test_llm_key_is_named_not_stored():
     assert not any("AIza" in str(v) for v in leaves().values())
 
 
-def hardcoded_config_values(source: str, sections: list[str]) -> list[tuple[int, object]]:
-    """Numeric constants in source that equal a value from the governing config sections."""
-    governed = {
-        v for k, v in leaves().items()
-        if k.split(".")[0] in sections and isinstance(v, (int, float)) and not isinstance(v, bool)
-    } - IGNORED_VALUES
+def hardcoded_config_values(source: str, keys: list[str]) -> list[tuple[int, object]]:
+    """Numeric constants in source that equal the value of one of the governing keys."""
+    governed = {v for k in keys if isinstance(v := cfg(k), (int, float)) and not isinstance(v, bool)} - IGNORED_VALUES
     hits = []
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) \
-                and not isinstance(node.value, bool) and node.value in governed:
+        if isinstance(node, ast.Constant) and isinstance(node.value, (int, float))                 and not isinstance(node.value, bool) and node.value in governed:
             hits.append((node.lineno, node.value))
     return hits
 
@@ -96,11 +104,12 @@ def hardcoded_config_values(source: str, sections: list[str]) -> list[tuple[int,
 def test_detector_flags_a_hardcoded_value():
     # Self-test: the check must catch a miner value typed into code.
     bad = "MAX_COLS = 3\nTHRESHOLD = 0.05\n"
-    assert {v for _, v in hardcoded_config_values(bad, ["miner"])} == {3, 0.05}
-    assert hardcoded_config_values("x = cfg('miner.max_index_columns')\n", ["miner"]) == []
+    keys = ["miner.max_index_columns", "miner.min_weighted_support"]
+    assert {v for _, v in hardcoded_config_values(bad, keys)} == {3, 0.05}
+    assert hardcoded_config_values("x = cfg('miner.max_index_columns')\n", keys) == []
 
 
-@pytest.mark.parametrize("module,sections", sorted(GOVERNED.items()) or [pytest.param(None, None, marks=pytest.mark.skip(reason="no governed modules exist yet; steps 5 to 13 register them"))])
-def test_governed_module_has_no_hardcoded_config_values(module, sections):
+@pytest.mark.parametrize("module,keys", sorted(GOVERNED.items()))
+def test_governed_module_has_no_hardcoded_config_values(module, keys):
     source = (REPO_ROOT / module).read_text(encoding="utf-8")
-    assert hardcoded_config_values(source, sections) == [], f"{module} hardcodes config values"
+    assert hardcoded_config_values(source, keys) == [], f"{module} hardcodes config values"

@@ -1,0 +1,7 @@
+# Question resolver map (doc, Detailed component specs). PRIVATE: real dashboard names and
+# real query shapes. Read only inside the gateway; never sent to the AI side.
+# query_pattern is the pg_stat_statements normalized text of the query behind the dashboard.
+dashboards:
+  - name: weekly sales dashboard
+    phrases: ["weekly sales dashboard", "weekly sales", "sales dashboard"]
+    query_pattern: "SELECT SUM(amount) FROM sales WHERE region_id = $1 AND transaction_date >= $2"
