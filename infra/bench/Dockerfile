@@ -12,13 +12,18 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
+# The base image is Debian trixie with GCC 14, which turns several old-C warnings into errors
+# (implicit function declarations, implicit int, int conversions, pointer type mismatches).
+# Both kits predate that, so those are downgraded back to warnings; -fcommon restores the
+# pre-GCC-10 handling of tentative definitions. Clones are separate layers so a failed build
+# does not re-download the repositories.
+ENV OLD_C="-fcommon -Wno-error=implicit-function-declaration -Wno-error=implicit-int -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
 RUN git clone https://github.com/microsoft/dsb.git \
- && git -C dsb checkout --quiet ec9a156ceee923db1114cbe388f6183b53d49787 \
- && make -C dsb/code/tools LINUX_YACC="bison -y"
-# Old C sources: -fcommon restores the pre-GCC-10 handling of tentative definitions.
+ && git -C dsb checkout --quiet ec9a156ceee923db1114cbe388f6183b53d49787
 RUN git clone https://github.com/gregrahn/tpch-kit.git \
- && git -C tpch-kit checkout --quiet 852ad0a5ee31ebefeed884cea4188781dd9613a3 \
- && make -C tpch-kit/dbgen MACHINE=LINUX DATABASE=POSTGRESQL CC="gcc -fcommon"
+ && git -C tpch-kit checkout --quiet 852ad0a5ee31ebefeed884cea4188781dd9613a3
+RUN make -C dsb/code/tools LINUX_YACC="bison -y" LINUX_CFLAGS="-g -Wall $OLD_C"
+RUN make -C tpch-kit/dbgen MACHINE=LINUX DATABASE=POSTGRESQL CC="gcc $OLD_C"
 
 # Reuse the shared Python image (built by `make up`) instead of reinstalling the lock: on a
 # slow network that saves the whole package download.
