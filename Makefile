@@ -6,7 +6,7 @@ export MSYS_NO_PATHCONV := 1
 DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 
-.PHONY: keygen up down seed twin demo e2e export site test test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e export site test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -90,6 +90,10 @@ test-verify:
 ## Dashboard tests (AppTest), run in the dashboard container (needs make up and make seed).
 test-dashboard:
 	$(DC) exec -T dashboard python -m pytest -p no:cacheprovider /app/dashboard/tests
+
+## Every suite that runs in the tools container (component suites need make up and make seed).
+test-all:
+	$(TOOLS) python -m pytest -p no:cacheprovider contracts/tests common/tests db/tests gateway/tests miner/tests models/gnn/tests rl/tests db/sandbox/tests db/twin/tests agent/tests verify/tests scripts/tests
 
 ## Exporter and site build tests (no services needed).
 test-site:
