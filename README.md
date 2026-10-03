@@ -40,6 +40,7 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make up` | build and start every service | `$DC up -d --build` |
 | `make down` | stop every service, keep data | `$DC down` |
 | `make test` | contract and config tests | `$DC run --rm -T tools python -m pytest contracts/tests common/tests` |
+| `make test-all` | every suite in the tools container | `$DC run --rm -T tools python -m pytest -p no:cacheprovider contracts/tests common/tests db/tests gateway/tests miner/tests models/gnn/tests rl/tests db/sandbox/tests db/twin/tests agent/tests verify/tests scripts/tests` |
 | `make test-infra` | network isolation and Postgres image tests | `bash infra/tests/run.sh` |
 | `make seed` | load QuickMart into pg-prod, run the Q1 workload, build the twin (about 1 minute) | `$DC run --rm -T tools python -m db.seed`, then the `twin` lines |
 | `make twin` | rebuild only the twin from pg-prod's schema and pg_stats | see the Makefile `twin` target (pg_dump inside pg-twin, then `$DC run --rm -T tools python -m db.twin.build`) |
