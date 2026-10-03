@@ -116,7 +116,7 @@ NEXT = WEB / ".next"
 web = pytest.mark.skipif(not (NEXT / "BUILD_ID").exists() and os.environ.get("BT_REQUIRE_WEB_BUILD") != "1",
                          reason="site/web is not built (npm run build)")
 STAGES = ["source", "gateway", "miner", "gnn", "rl", "llm", "twin", "dba"]   # src/lib/store.ts STAGES
-PUBLIC_ROUTES = {"/", "/playground", "/ask", "/hashing", "/privacy", "/terms", *(f"/stages/{s}" for s in STAGES)}
+PUBLIC_ROUTES = {"/", "/playground", "/gnn", "/ask", "/hashing", "/privacy", "/terms", *(f"/stages/{s}" for s in STAGES)}
 SNAKE = [r for r in REAL if "_" in r] + ["quickmart"]   # plain English words also occur in minified libraries
 
 

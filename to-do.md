@@ -1,4 +1,4 @@
-# Blind Tuner: what is left (2026-10-04, main e2f3709)
+# Blind Tuner: what is left (2026-10-04, after the local web app work)
 
 Status words: DONE, PARTIAL, MISSING. Each item cites the file or NOTES.md line it comes from.
 
@@ -22,6 +22,16 @@ No. `rl/search.py` is tabular Q-learning that learns online inside every `/ai/rl
 | Zero exposure, proven | PARTIAL | canaries and negative control done; adversarial test has no live score |
 | Over 50% on joins (Q2) | AT RISK | correlated twin measures Q2 at 22% to 45% (`gateway/NOTES.md`); search never picks the Q2 index (`rl/NOTES.md`) |
 | RL robust to evolving patterns | DONE | drift live test and offline e2e drift scenario; RL vs greedy shown in the drift panel |
+
+## 2b. Done on 2026-10-04 (local web app)
+
+- DONE: NIM is the default LLM (Gemini, then OpenAI as fallback); the egress proxy, ai and dashboard containers had to be recreated or restarted to read the merged config and the new key.
+- DONE: recorded twin mode no longer 409s: `gateway/service.py estimate_twin` (HypoPG cost ratio, rewrite cap, storage scale; `sandbox.estimate_*`). Human decision, not labelled.
+- DONE: site/web local mode: Ask works end to end, bundles saved per question (`BT_HISTORY_DIR`, volume `web-history`), history in the sidebar, every page renders the selected question; `/database`, `/slow-log` with `data/plans/web_sample.json` (`scripts/plans_web_sample.py`, `make`-less: run in the bench container); `/v1/private/*` gateway endpoints.
+- OPEN: the NIM model invents numbers in about half of its answers; the number checker blocks those answers (the fix, twin result and SQL still show). Options: `llm.checker_retries`, or fall back to Gemini on `blocked_by_checker` (human decision).
+- OPEN: `dashboard/tests/test_app.py::test_search_lists_rewrites_and_every_configuration_rechecked_on_the_twin` fails since recorded search mode changed the final-choice wording; the assertion needs a human.
+- OPEN: `common/tests/test_config.py::test_governed_module_has_no_hardcoded_config_values[agent/llm.py]` fails on `timeout=120.0` at agent/llm.py:161 (pre-existing, agent/ owner).
+- OPEN: `site/web/.bt-history/` (host dev) and the `web-history` volume hold real names; never copy them into the repo or the public build.
 
 ## 3. P0: before the demo
 

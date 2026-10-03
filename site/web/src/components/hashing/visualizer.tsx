@@ -29,10 +29,11 @@ function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): [T | null, string |
   return state;
 }
 
-export function HashingVisualizer() {
+/** initialSql: the starting text; remount (key) to load another one. */
+export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) {
   const [key, setKey] = useState<Uint8Array | null>(null);
   const [prevCodes, setPrevCodes] = useState<Set<string>>(new Set());
-  const [sql, setSql] = useState(EXAMPLES["one table"]);
+  const [sql, setSql] = useState(initialSql ?? EXAMPLES["one table"]);
   const [pick, setPick] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, Record<string, boolean>>>({});
   const [a, setA] = useState("branch");
@@ -88,7 +89,7 @@ export function HashingVisualizer() {
             ) : <SqlBlock text={res?.sql ?? ""} />}
           </div>
         </div>
-        <Source>SIMPLIFIED: a tokenizer in your browser. The gateway parses with sqlglot and its catalog (gateway/strip.py); without a catalog this version refuses an unqualified column when two tables are in scope.</Source>
+        <Source>SIMPLIFIED: a tokenizer, not sqlglot (gateway/strip.py); no catalog, so an unqualified column with two tables in scope is refused</Source>
       </div>
 
       {names.length > 0 && (
@@ -109,7 +110,7 @@ export function HashingVisualizer() {
                 </tbody>
               </table>
             </div>
-            <Source>Click a row to see its steps. Columns hash as table.column, so the same column name in two tables gets two codes.</Source>
+            <Source>click a row for its steps; columns hash as table.column, so one name in two tables gets two codes</Source>
           </div>
 
           {sel && (
@@ -125,7 +126,7 @@ export function HashingVisualizer() {
                 <li><span className="text-slate-500">3. keep the first {HEX_CHARS} hex characters</span> (config.yaml hashing.hmac_code_hex_chars)</li>
                 <li><span className="text-slate-500">4. prefix by kind:</span> <span className="font-mono text-slate-900">{sel.code}</span></li>
               </ol>
-              <Source>Without the key nobody can check a guess: hashing a likely name with plain SHA-256 gives a different digest.</Source>
+              <Source>without the key a guess cannot be checked; plain SHA-256 of the name gives another digest</Source>
             </div>
           )}
         </div>
@@ -158,7 +159,7 @@ export function HashingVisualizer() {
               </tbody>
             </table>
           </div>
-          <Source>pk, fk, indexed and nullable come from the database catalog, so you tick them here; join, range and eq come from how the SQL uses the column. Shown as bits for reading; the gateway sends them as named true or false values (gateway/ingest/stats.py).</Source>
+          <Source>pk, fk, indexed, nullable come from the catalog (tick them here); join, range, eq from the SQL; the gateway sends named booleans, not bits (gateway/ingest/stats.py)</Source>
         </div>
       )}
 
@@ -172,7 +173,7 @@ export function HashingVisualizer() {
             </div>
           ))}
         </div>
-        {aval && <p className="mt-2 text-xs text-slate-700">{bitsDiffer(aval[0], aval[1])} of 256 digest bits differ (about 128 is expected for any change).</p>}
+        {aval && <p className="mt-2 text-xs text-slate-700">{bitsDiffer(aval[0], aval[1])} of 256 digest bits differ (about 128 expected)</p>}
       </div>
     </div>
   );

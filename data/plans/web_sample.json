@@ -1,0 +1,1636 @@
+{
+ "generated_at": "2026-10-03T22:51:18+00:00",
+ "plans_file": "data/plans/plans.jsonl",
+ "plans_present": true,
+ "note": "plan generation workload (data/plans), not pg-prod's log; sql is parameter set 0; top_ops counts node types over every kept plan of the template, nodes is one kept plan",
+ "entries": [
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query013",
+   "demo": false,
+   "sql": "select avg(ss_quantity)\n,avg(ss_ext_sales_price)\n,avg(ss_ext_wholesale_cost)\n,sum(ss_ext_wholesale_cost)\nfrom store_sales\n   ,store\n   ,customer_demographics\n   ,household_demographics\n   ,customer_address\n   ,date_dim\nwhere s_store_sk = ss_store_sk\nand  ss_sold_date_sk = d_date_sk and d_year = 2001\nand((ss_hdemo_sk=hd_demo_sk\nand cd_demo_sk = ss_cdemo_sk\nand cd_marital_status = 'U'\nand cd_education_status = 'Unknown'\nand ss_sales_price between 100.00 and 150.00\nand hd_dep_count = 3\n   )or\n   (ss_hdemo_sk=hd_demo_sk\nand cd_demo_sk = ss_cdemo_sk\nand cd_marital_status = 'S'\nand cd_education_status = '4 yr Degree'\nand ss_sales_price between 50.00 and 100.00\nand hd_dep_count = 1\n   ) or\n   (ss_hdemo_sk=hd_demo_sk\nand cd_demo_sk = ss_cdemo_sk\nand cd_marital_status = 'U'\nand cd_education_status = 'College'\nand ss_sales_price between 150.00 and 200.00\nand hd_dep_count = 1\n   ))\nand((ss_addr_sk = ca_address_sk\nand ca_country = 'United States'\nand ca_state in ('MS', 'OK', 'WA')\nand ss_net_profit between 100 and 200\n   ) or\n   (ss_addr_sk = ca_address_sk\nand ca_country = 'United States'\nand ca_state in ('AR', 'KY', 'UT')\nand ss_net_profit between 150 and 300\n   ) or\n   (ss_addr_sk = ca_address_sk\nand ca_country = 'United States'\nand ca_state in ('MN', 'ND', 'SC')\nand ss_net_profit between 50 and 250\n   ))",
+   "plans": 17,
+   "median_runtime_ms": 283.486,
+   "max_runtime_ms": 1281.907,
+   "timed_out": 0,
+   "nodes": 17,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query018",
+   "demo": false,
+   "sql": "select  i_item_id,\n        ca_country,\n        ca_state,\n        ca_county,\n        avg( cast(cs_quantity as decimal(12,2))) agg1,\n        avg( cast(cs_list_price as decimal(12,2))) agg2,\n        avg( cast(cs_coupon_amt as decimal(12,2))) agg3,\n        avg( cast(cs_sales_price as decimal(12,2))) agg4,\n        avg( cast(cs_net_profit as decimal(12,2))) agg5,\n        avg( cast(c_birth_year as decimal(12,2))) agg6\nfrom catalog_sales, customer_demographics, customer, customer_address, date_dim, item\nwhere cs_sold_date_sk = d_date_sk and\n      cs_item_sk = i_item_sk and\n      cs_bill_cdemo_sk = cd_demo_sk and\n      cs_bill_customer_sk = c_customer_sk and\n      cd_gender = 'F' and\n      cd_education_status = 'Advanced Degree' and\n      c_current_addr_sk = ca_address_sk and\n      d_year = 2000 and\n      c_birth_month = 5 and\n      ca_state in ('AR', 'KY', 'UT')\n      and cs_wholesale_cost BETWEEN 36 AND 41\n      AND i_category = 'Jewelry'\n group by rollup (i_item_id, ca_country, ca_state, ca_county)\n order by ca_country,\n        ca_state,\n        ca_county,\n\ti_item_id\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 125.416,
+   "max_runtime_ms": 538.219,
+   "timed_out": 0,
+   "nodes": 17,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Sort"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query019",
+   "demo": false,
+   "sql": "select  i_brand_id brand_id, i_brand brand, i_manufact_id, i_manufact,\n \tsum(ss_ext_sales_price) ext_price\n  from date_dim, store_sales, item,customer,customer_address,store\n  where  d_date_sk = ss_sold_date_sk\n    and ss_item_sk = i_item_sk\n    and ss_customer_sk = c_customer_sk\n    and c_current_addr_sk = ca_address_sk\n    and ss_store_sk = s_store_sk\n    AND i_category  = 'Sports'\n    and d_year=2000\n    and d_moy = 1\n    and substring(ca_zip,1,5) <> substring(s_zip,1,5)\n    and ca_state  = 'ND'\n    and c_birth_month = 11\n    and ss_wholesale_cost BETWEEN 80 AND 100\n group by i_brand\n      ,i_brand_id\n      ,i_manufact_id\n      ,i_manufact\n order by ext_price desc\n         ,i_brand\n         ,i_brand_id\n         ,i_manufact_id\n         ,i_manufact\nlimit 100",
+   "plans": 297,
+   "median_runtime_ms": 34.78,
+   "max_runtime_ms": 873.964,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Sort"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query025",
+   "demo": false,
+   "sql": "select \n i_item_id\n ,i_item_desc\n ,s_store_id\n ,s_store_name\n ,sum(ss_net_profit) as store_sales_profit\n ,sum(sr_net_loss) as store_returns_loss\n ,sum(cs_net_profit) as catalog_sales_profit\n from\n store_sales\n ,store_returns\n ,catalog_sales\n ,date_dim d1\n ,date_dim d2\n ,date_dim d3\n ,store\n ,item\n where\n d1.d_moy = 9\n and d1.d_year = 2000\n and d1.d_date_sk = ss_sold_date_sk\n and i_item_sk = ss_item_sk\n and s_store_sk = ss_store_sk\n and ss_customer_sk = sr_customer_sk\n and ss_item_sk = sr_item_sk\n and ss_ticket_number = sr_ticket_number\n and sr_returned_date_sk = d2.d_date_sk\n and d2.d_moy               between 9 and  9 + 2\n and d2.d_year              = 2000\n and sr_customer_sk = cs_bill_customer_sk\n and sr_item_sk = cs_item_sk\n and cs_sold_date_sk = d3.d_date_sk\n and d3.d_moy               between 9 and  9 + 2\n and d3.d_year              = 2000\n group by\n i_item_id\n ,i_item_desc\n ,s_store_id\n ,s_store_name\n order by\n i_item_id\n ,i_item_desc\n ,s_store_id\n ,s_store_name\n limit 100",
+   "plans": 111,
+   "median_runtime_ms": 96.437,
+   "max_runtime_ms": 7329.035,
+   "timed_out": 0,
+   "nodes": 20,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query027",
+   "demo": false,
+   "sql": "select  i_item_id,\n        s_state, grouping(s_state) g_state,\n        avg(ss_quantity) agg1,\n        avg(ss_list_price) agg2,\n        avg(ss_coupon_amt) agg3,\n        avg(ss_sales_price) agg4\nfrom store_sales, customer_demographics, date_dim, store, item\nwhere ss_sold_date_sk = d_date_sk and\n      ss_item_sk = i_item_sk and\n      ss_store_sk = s_store_sk and\n      ss_cdemo_sk = cd_demo_sk and\n      cd_gender = 'F' and\n      cd_marital_status = 'D' and\n      cd_education_status = 'Secondary' and\n      d_year = 2000 and\n      s_state = 'SC' and\n     i_category  = 'Jewelry'\n group by rollup (i_item_id, s_state)\n order by i_item_id\n         ,s_state\n limit 100",
+   "plans": 224,
+   "median_runtime_ms": 11.485,
+   "max_runtime_ms": 557.141,
+   "timed_out": 0,
+   "nodes": 15,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query040",
+   "demo": false,
+   "sql": "select \n   w_state\n  ,i_item_id\n  ,sum(case when (cast(d_date as date) < cast ('2002-03-12' as date))\n \t\tthen cs_sales_price - coalesce(cr_refunded_cash,0) else 0 end) as sales_before\n  ,sum(case when (cast(d_date as date) >= cast ('2002-03-12' as date))\n \t\tthen cs_sales_price - coalesce(cr_refunded_cash,0) else 0 end) as sales_after\n from\n   catalog_sales left outer join catalog_returns on\n       (cs_order_number = cr_order_number\n        and cs_item_sk = cr_item_sk)\n  ,warehouse\n  ,item\n  ,date_dim\n where\n i_item_sk          = cs_item_sk\n and cs_warehouse_sk    = w_warehouse_sk\n and cs_sold_date_sk    = d_date_sk\n and d_date between  (cast ('2002-03-12' as date) - interval '30 day')\n                and (cast ('2002-03-12' as date) + interval '30 day') \n and i_category  = 'Sports'\n and i_manager_id between 59 and 98\n and cs_wholesale_cost between 33 and 52\n and cr_reason_sk = 46\n group by\n    w_state,i_item_id\n order by w_state,i_item_id\nlimit 100",
+   "plans": 171,
+   "median_runtime_ms": 37.286,
+   "max_runtime_ms": 138.915,
+   "timed_out": 0,
+   "nodes": 13,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query050",
+   "demo": false,
+   "sql": "select \n   s_store_name\n  ,s_company_id\n  ,s_street_number\n  ,s_street_name\n  ,s_street_type\n  ,s_suite_number\n  ,s_city\n  ,s_county\n  ,s_state\n  ,s_zip\n  ,sum(case when (sr_returned_date_sk - ss_sold_date_sk <= 30 ) then 1 else 0 end)  as \"30 days\"\n  ,sum(case when (sr_returned_date_sk - ss_sold_date_sk > 30) and\n                 (sr_returned_date_sk - ss_sold_date_sk <= 60) then 1 else 0 end )  as \"31-60 days\"\n  ,sum(case when (sr_returned_date_sk - ss_sold_date_sk > 60) and\n                 (sr_returned_date_sk - ss_sold_date_sk <= 90) then 1 else 0 end)  as \"61-90 days\"\n  ,sum(case when (sr_returned_date_sk - ss_sold_date_sk > 90) and\n                 (sr_returned_date_sk - ss_sold_date_sk <= 120) then 1 else 0 end)  as \"91-120 days\"\n  ,sum(case when (sr_returned_date_sk - ss_sold_date_sk  > 120) then 1 else 0 end)  as \">120 days\"\nfrom\n   store_sales\n  ,store_returns\n  ,store\n  ,date_dim d1\n  ,date_dim d2\nwhere\n    d2.d_year = 2001\nand d2.d_moy  = 4\nand ss_ticket_number = sr_ticket_number\nand ss_item_sk = sr_item_sk\nand ss_sold_date_sk   = d1.d_date_sk\nand sr_returned_date_sk   = d2.d_date_sk\nand ss_customer_sk = sr_customer_sk\nand ss_store_sk = s_store_sk\nand d1.d_date between (d2.d_date - interval '120 day')\n               and d2.d_date\ngroup by\n   s_store_name\n  ,s_company_id\n  ,s_street_number\n  ,s_street_name\n  ,s_street_type\n  ,s_suite_number\n  ,s_city\n  ,s_county\n  ,s_state\n  ,s_zip\norder by s_store_name\n        ,s_company_id\n        ,s_street_number\n        ,s_street_name\n        ,s_street_type\n        ,s_suite_number\n        ,s_city\n        ,s_county\n        ,s_state\n        ,s_zip\nlimit 100",
+   "plans": 111,
+   "median_runtime_ms": 80.194,
+   "max_runtime_ms": 349.107,
+   "timed_out": 0,
+   "nodes": 14,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query072",
+   "demo": false,
+   "sql": "select  i_item_desc\n      ,w_warehouse_name\n      ,d1.d_week_seq\n      ,sum(case when p_promo_sk is null then 1 else 0 end) no_promo\n      ,sum(case when p_promo_sk is not null then 1 else 0 end) promo\n      ,count(*) total_cnt\nfrom catalog_sales\njoin inventory on (cs_item_sk = inv_item_sk)\njoin warehouse on (w_warehouse_sk=inv_warehouse_sk)\njoin item on (i_item_sk = cs_item_sk)\njoin customer_demographics on (cs_bill_cdemo_sk = cd_demo_sk)\njoin household_demographics on (cs_bill_hdemo_sk = hd_demo_sk)\njoin date_dim d1 on (cs_sold_date_sk = d1.d_date_sk)\njoin date_dim d2 on (inv_date_sk = d2.d_date_sk)\njoin date_dim d3 on (cs_ship_date_sk = d3.d_date_sk)\nleft outer join promotion on (cs_promo_sk=p_promo_sk)\nleft outer join catalog_returns on (cr_item_sk = cs_item_sk and cr_order_number = cs_order_number)\nwhere d1.d_week_seq = d2.d_week_seq\n  and inv_quantity_on_hand < cs_quantity\n  and d3.d_date > d1.d_date + interval '3 day'\n  and hd_buy_potential = '>10000'\n  and d1.d_year = 2002\n  and cd_marital_status = 'D'\n  and cd_dep_count between 4 and 6\n  and i_category IN ('Books', 'Children', 'Sports')\n  and cs_wholesale_cost BETWEEN 80 AND 100\ngroup by i_item_desc,w_warehouse_name,d1.d_week_seq\norder by total_cnt desc, i_item_desc, w_warehouse_name, d_week_seq\nlimit 100",
+   "plans": 254,
+   "median_runtime_ms": 233.423,
+   "max_runtime_ms": 585.314,
+   "timed_out": 0,
+   "nodes": 27,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query084",
+   "demo": false,
+   "sql": "select  c_customer_id as customer_id\n       , coalesce(c_last_name,'') || ', ' || coalesce(c_first_name,'') as customername\n from customer\n     ,customer_address\n     ,customer_demographics\n     ,household_demographics\n     ,income_band\n     ,store_returns\n where ca_city\t        =  'Newport'\n   and c_current_addr_sk = ca_address_sk\n   and ib_lower_bound   >=  13706\n   and ib_upper_bound   <=  13706 + 50000\n   and ib_income_band_sk = hd_income_band_sk\n   and cd_demo_sk = c_current_cdemo_sk\n   and hd_demo_sk = c_current_hdemo_sk\n   and sr_cdemo_sk = cd_demo_sk\n order by c_customer_id\n limit 100",
+   "plans": 132,
+   "median_runtime_ms": 79.909,
+   "max_runtime_ms": 234.602,
+   "timed_out": 0,
+   "nodes": 17,
+   "top_ops": [
+    "Seq Scan",
+    "Nested Loop",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query085",
+   "demo": false,
+   "sql": "select  substring(r_reason_desc,1,20)\n       ,avg(ws_quantity)\n       ,avg(wr_refunded_cash)\n       ,avg(wr_fee)\n from web_sales, web_returns, web_page, customer_demographics cd1,\n      customer_demographics cd2, customer_address, date_dim, reason\n where ws_web_page_sk = wp_web_page_sk\n   and ws_item_sk = wr_item_sk\n   and ws_order_number = wr_order_number\n   and ws_sold_date_sk = d_date_sk and d_year = 1998\n   and cd1.cd_demo_sk = wr_refunded_cdemo_sk\n   and cd2.cd_demo_sk = wr_returning_cdemo_sk\n   and ca_address_sk = wr_refunded_addr_sk\n   and r_reason_sk = wr_reason_sk\n   and\n   (\n    (\n     cd1.cd_marital_status = 'S'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = '4 yr Degree'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 100.00 and 150.00\n    )\n   or\n    (\n     cd1.cd_marital_status = 'U'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = 'College'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 50.00 and 100.00\n    )\n   or\n    (\n     cd1.cd_marital_status = 'M'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = 'Unknown'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 150.00 and 200.00\n    )\n   )\n   and\n   (\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('MN', 'MS', 'WA')\n     and ws_net_profit between 100 and 200\n    )\n    or\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('AR', 'KY', 'OK')\n     and ws_net_profit between 150 and 300\n    )\n    or\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('ND', 'SC', 'UT')\n     and ws_net_profit between 50 and 250\n    )\n   )\ngroup by r_reason_desc\norder by substring(r_reason_desc,1,20)\n        ,avg(ws_quantity)\n        ,avg(wr_refunded_cash)\n        ,avg(wr_fee)\nlimit 100",
+   "plans": 115,
+   "median_runtime_ms": 125.365,
+   "max_runtime_ms": 409.927,
+   "timed_out": 0,
+   "nodes": 23,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Sort"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query091",
+   "demo": false,
+   "sql": "select  \n        cc_call_center_id Call_Center,\n        cc_name Call_Center_Name,\n        cc_manager Manager,\n        sum(cr_net_loss) Returns_Loss\nfrom\n        call_center,\n        catalog_returns,\n        date_dim,\n        customer,\n        customer_address,\n        customer_demographics,\n        household_demographics\nwhere\n        cr_call_center_sk       = cc_call_center_sk\nand     cr_returned_date_sk     = d_date_sk\nand     cr_returning_customer_sk= c_customer_sk\nand     cd_demo_sk              = c_current_cdemo_sk\nand     hd_demo_sk              = c_current_hdemo_sk\nand     ca_address_sk           = c_current_addr_sk\nand     d_year                  = 2000 \nand     d_moy                   = 5\nand     ( (cd_marital_status       = 'M' and cd_education_status     = 'Unknown')\n        or(cd_marital_status       = 'W' and cd_education_status     = 'Advanced Degree'))\nand     hd_buy_potential like 'Unknown%'\nand     ca_gmt_offset           = -7\ngroup by cc_call_center_id,cc_name,cc_manager,cd_marital_status,cd_education_status\norder by sum(cr_net_loss) desc",
+   "plans": 163,
+   "median_runtime_ms": 46.548,
+   "max_runtime_ms": 103.835,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Sort"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query099",
+   "demo": false,
+   "sql": "select \n   substring(w_warehouse_name,1,20)\n  ,sm_type\n  ,cc_name\n  ,sum(case when (cs_ship_date_sk - cs_sold_date_sk <= 30 ) then 1 else 0 end)  as \"30 days\"\n  ,sum(case when (cs_ship_date_sk - cs_sold_date_sk > 30) and\n                 (cs_ship_date_sk - cs_sold_date_sk <= 60) then 1 else 0 end )  as \"31-60 days\"\n  ,sum(case when (cs_ship_date_sk - cs_sold_date_sk > 60) and\n                 (cs_ship_date_sk - cs_sold_date_sk <= 90) then 1 else 0 end)  as \"61-90 days\"\n  ,sum(case when (cs_ship_date_sk - cs_sold_date_sk > 90) and\n                 (cs_ship_date_sk - cs_sold_date_sk <= 120) then 1 else 0 end)  as \"91-120 days\"\n  ,sum(case when (cs_ship_date_sk - cs_sold_date_sk  > 120) then 1 else 0 end)  as \">120 days\"\nfrom\n   catalog_sales\n  ,warehouse\n  ,ship_mode\n  ,call_center\n  ,date_dim\nwhere\nd_month_seq between 1180 and 1180 + 23\nand cs_ship_date_sk   = d_date_sk\nand cs_warehouse_sk   = w_warehouse_sk\nand cs_ship_mode_sk   = sm_ship_mode_sk\nand cs_call_center_sk = cc_call_center_sk\nand cs_list_price between 58 and 87\nand sm_type = 'TWO DAY'\nand cc_class = 'medium'\nand w_gmt_offset = -5\ngroup by\n   substring(w_warehouse_name,1,20)\n  ,sm_type\n  ,cc_name\norder by substring(w_warehouse_name,1,20)\n        ,sm_type\n        ,cc_name\nlimit 100",
+   "plans": 296,
+   "median_runtime_ms": 200.572,
+   "max_runtime_ms": 1132.709,
+   "timed_out": 0,
+   "nodes": 16,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query100",
+   "demo": false,
+   "sql": "select  item1.i_item_sk, item2.i_item_sk, count(*) as cnt\nFROM item AS item1,\nitem AS item2,\nstore_sales AS s1,\nstore_sales AS s2,\ndate_dim,\ncustomer,\ncustomer_address,\ncustomer_demographics\nWHERE\nitem1.i_item_sk < item2.i_item_sk\nAND s1.ss_ticket_number = s2.ss_ticket_number\nAND s1.ss_item_sk = item1.i_item_sk and s2.ss_item_sk = item2.i_item_sk\nAND s1.ss_customer_sk = c_customer_sk\nand c_current_addr_sk = ca_address_sk\nand c_current_cdemo_sk = cd_demo_sk\nAND d_year between 1999 and 1999 + 1\nand d_date_sk = s1.ss_sold_date_sk\nand item1.i_category in ('Children', 'Music')\nand item2.i_manager_id between 58 and 77\nand cd_marital_status = 'D'\nand cd_education_status = 'College'\nand s1.ss_list_price between 196 and 210\nand s2.ss_list_price between 196 and 210\nGROUP BY item1.i_item_sk, item2.i_item_sk\nORDER BY cnt",
+   "plans": 300,
+   "median_runtime_ms": 502.588,
+   "max_runtime_ms": 9215.502,
+   "timed_out": 7,
+   "nodes": 20,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query101",
+   "demo": false,
+   "sql": "select  c_customer_sk, c_first_name, c_last_name, count(*) as cnt\nFROM\nstore_sales,\nstore_returns,\nweb_sales,\ndate_dim d1,\ndate_dim d2,\nitem,\ncustomer,\ncustomer_address,\nhousehold_demographics\nWHERE\nss_ticket_number = sr_ticket_number\nAND ss_customer_sk = ws_bill_customer_sk\nAND ss_customer_sk = c_customer_sk\nAND c_current_addr_sk = ca_address_sk\nAND c_current_hdemo_sk = hd_demo_sk\nAND ss_item_sk = sr_item_sk\nAND sr_item_sk = ws_item_sk\nAND i_item_sk = ss_item_sk\nAND i_category IN ('Books', 'Children', 'Sports')\nAND sr_returned_date_sk = d1.d_date_sk\nAND ws_sold_date_sk = d2.d_date_sk\nAND d2.d_date between d1.d_date AND (d1.d_date + interval '90 day')\nAND ca_state in ('AR', 'KY', 'MS', 'OK', 'UT')\nAND d1.d_year = 1998\nAND hd_income_band_sk BETWEEN 1 AND 7\nAND hd_buy_potential = '>10000'\nAND ss_sales_price / ss_list_price BETWEEN 80 * 0.01 AND 100 * 0.01\nGROUP BY c_customer_sk, c_first_name, c_last_name\nORDER BY cnt",
+   "plans": 206,
+   "median_runtime_ms": 425.842,
+   "max_runtime_ms": 6627.513,
+   "timed_out": 0,
+   "nodes": 22,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Sort"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/agg/query102",
+   "demo": false,
+   "sql": "select \n    cd_gender,\n    cd_marital_status,\n    cd_education_status,\n    hd_vehicle_count,\n    count(*) as cnt\nfrom\n    store_sales,\n    web_sales,\n    date_dim d1,\n    date_dim d2,\n    customer,\n    inventory,\n    store,\n    warehouse,\n    item,\n    customer_demographics,\n    household_demographics,\n    customer_address\n    where\n      ss_item_sk = i_item_sk\n      and ws_item_sk = ss_item_sk\n      and ss_sold_date_sk = d1.d_date_sk\n      and ws_sold_date_sk = d2.d_date_sk\n\t\t\tand d2.d_date between d1.d_date and (d1.d_date + interval '30 day')\n      and ss_customer_sk = c_customer_sk\n      and ws_bill_customer_sk = c_customer_sk\n      and ws_warehouse_sk = inv_warehouse_sk\n      and ws_warehouse_sk = w_warehouse_sk\n      and inv_item_sk = ss_item_sk\n      and inv_date_sk = ss_sold_date_sk\n      and inv_quantity_on_hand >= ss_quantity\n      and s_state = w_state\n      AND i_category IN ('Books', 'Children', 'Sports')\n      and i_manager_id IN (5, 35, 45, 46, 48, 51, 54, 73, 85, 94)\n      and c_current_cdemo_sk = cd_demo_sk\n      and c_current_hdemo_sk = hd_demo_sk\n      and c_current_addr_sk = ca_address_sk\n      and ca_state in ('AL', 'GA', 'IN', 'NC', 'OH')\n      and d1.d_year = 2001\n      and ws_wholesale_cost BETWEEN 80 AND 100\n    group by cd_gender, cd_marital_status, cd_education_status, hd_vehicle_count\n    order by cnt",
+   "plans": 300,
+   "median_runtime_ms": 210.176,
+   "max_runtime_ms": 5882.469,
+   "timed_out": 5,
+   "nodes": 29,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query001",
+   "demo": false,
+   "sql": "with customer_total_return as\n(select sr_customer_sk as ctr_customer_sk\n,sr_store_sk as ctr_store_sk\n,sr_reason_sk as ctr_reason_sk\n,sum(SR_RETURN_TAX) as ctr_total_return\nfrom store_returns\n,date_dim\nwhere sr_returned_date_sk = d_date_sk\nand d_year =2001\nand sr_return_amt / sr_return_quantity between 196 and 255\ngroup by sr_customer_sk\n,sr_store_sk, sr_reason_sk)\n select  c_customer_id\nfrom customer_total_return ctr1\n,store\n,customer\n,customer_demographics\nwhere ctr1.ctr_total_return > (select avg(ctr_total_return)*1.2\nfrom customer_total_return ctr2\nwhere ctr1.ctr_store_sk = ctr2.ctr_store_sk\n)\nand ctr1.ctr_reason_sk BETWEEN 59 AND 62\nand s_store_sk = ctr1.ctr_store_sk\nand s_state IN ('AZ', 'MS', 'MT')\nand ctr1.ctr_customer_sk = c_customer_sk\nand c_current_cdemo_sk = cd_demo_sk\nand cd_marital_status IN ('U', 'D')\nand cd_education_status IN ('College', 'Advanced Degree')\nand cd_gender = 'F'\nand c_birth_month = 10\nand c_birth_year BETWEEN 1935 AND 1941\norder by c_customer_id\nlimit 100",
+   "plans": 105,
+   "median_runtime_ms": 104.341,
+   "max_runtime_ms": 1835.957,
+   "timed_out": 0,
+   "nodes": 19,
+   "top_ops": [
+    "Nested Loop",
+    "Aggregate",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query010",
+   "demo": false,
+   "sql": "select \n  cd_gender,\n  cd_marital_status,\n  cd_education_status,\n  count(*) cnt1,\n  cd_purchase_estimate,\n  count(*) cnt2,\n  cd_credit_rating,\n  count(*) cnt3,\n  cd_dep_count,\n  count(*) cnt4,\n  cd_dep_employed_count,\n  count(*) cnt5,\n  cd_dep_college_count,\n  count(*) cnt6\n from\n  customer c,customer_address ca,customer_demographics\n where\n  c.c_current_addr_sk = ca.ca_address_sk and\n  ca_county in ('Chickasaw County','Clermont County','Golden Valley County','Lancaster County','Wakulla County') and\n  c.c_birth_month in (5, 6) and\n  cd_demo_sk = c.c_current_cdemo_sk\n  and cd_marital_status in ('U', 'D', 'M')\n  and cd_education_status in ('College', 'Secondary', 'Unknown')\n  and cd_gender = 'F' and\n  exists (select *\n          from store_sales,date_dim, item\n          where c.c_customer_sk = ss_customer_sk and\n                ss_sold_date_sk = d_date_sk and\n                d_year = 2000 and\n                d_moy between 5 and 5+3 and\n                ss_item_sk = i_item_sk and\n                i_category in ('Books', 'Children', 'Shoes')\n                and ss_sales_price / ss_list_price BETWEEN 61 * 0.01 AND 71 * 0.01\n                and i_manager_id BETWEEN 75 and 84\n                ) and\n   (exists (select *\n            from web_sales,date_dim, item\n            where c.c_customer_sk = ws_bill_customer_sk and\n                  ws_sold_date_sk = d_date_sk and\n                  d_year = 2000 and\n                  d_moy between 5 ANd 5+3 and\n                  ws_item_sk = i_item_sk and\n                  i_category in ('Books', 'Children', 'Shoes')\n                  and i_manager_id BETWEEN 75 and 84\n                  and ws_sales_price / ws_list_price BETWEEN 61 * 0.01 AND 71 * 0.01\n                  ) or\n    exists (select *\n            from catalog_sales,date_dim, item\n            where c.c_customer_sk = cs_ship_customer_sk and\n                  cs_sold_date_sk = d_date_sk and\n                  d_year = 2000 and\n                  d_moy between 5 and 5+3 and\n                  cs_item_sk = i_item_sk and\n                  i_category in ('Books', 'Children', 'Shoes')\n                  and i_manager_id BETWEEN 75 and 84\n                  and cs_sales_price / cs_list_price BETWEEN 61 * 0.01 AND 71 * 0.01\n                  ))\n group by cd_gender,\n          cd_marital_status,\n          cd_education_status,\n          cd_purchase_estimate,\n          cd_credit_rating,\n          cd_dep_count,\n          cd_dep_employed_count,\n          cd_dep_college_count\n order by cd_gender,\n          cd_marital_status,\n          cd_education_status,\n          cd_purchase_estimate,\n          cd_credit_rating,\n          cd_dep_count,\n          cd_dep_employed_count,\n          cd_dep_college_count\nlimit 100",
+   "plans": 125,
+   "median_runtime_ms": 210.442,
+   "max_runtime_ms": 2597.484,
+   "timed_out": 0,
+   "nodes": 31,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Gather"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query014",
+   "demo": false,
+   "sql": "with  cross_items as\n (select i_item_sk ss_item_sk\n from item,\n (select iss.i_brand_id brand_id\n     ,iss.i_class_id class_id\n     ,iss.i_category_id category_id\n from store_sales\n     ,item iss\n     ,date_dim d1\n where ss_item_sk = iss.i_item_sk\n   and ss_sold_date_sk = d1.d_date_sk\n   and d1.d_year between 1999 AND 1999 + 2\n   and i_category IN ('Children', 'Music', 'Sports')\n   and i_manager_id BETWEEN 59 and 68\n   and ss_wholesale_cost BETWEEN 80 AND 100\nintersect\n select ics.i_brand_id\n     ,ics.i_class_id\n     ,ics.i_category_id\n from catalog_sales\n     ,item ics\n     ,date_dim d2\n where cs_item_sk = ics.i_item_sk\n   and cs_sold_date_sk = d2.d_date_sk\n   and d2.d_year between 1999 AND 1999 + 2\n   and i_category IN ('Children', 'Music', 'Sports')\n   and i_manager_id BETWEEN 59 and 68\n   and cs_wholesale_cost BETWEEN 80 AND 100\nintersect\n select iws.i_brand_id\n     ,iws.i_class_id\n     ,iws.i_category_id\n from web_sales\n     ,item iws\n     ,date_dim d3\n where ws_item_sk = iws.i_item_sk\n   and ws_sold_date_sk = d3.d_date_sk\n   and ws_wholesale_cost BETWEEN 80 AND 100\n   and d3.d_year between 1999 AND 1999 + 2) x\n where i_brand_id = brand_id\n      and i_class_id = class_id\n      and i_category_id = category_id\n      and i_category IN ('Children', 'Music', 'Sports')\n      and i_manager_id BETWEEN 59 and 68\n),\n avg_sales as\n(select avg(quantity*list_price) average_sales\n  from (select ss_quantity quantity\n             ,ss_list_price list_price\n       from store_sales\n           ,date_dim\n       where ss_sold_date_sk = d_date_sk\n         and d_year between 1999 and 1999 + 2\n         and ss_wholesale_cost BETWEEN 80 AND 100\n       union all\n       select cs_quantity quantity\n             ,cs_list_price list_price\n       from catalog_sales\n           ,date_dim\n       where cs_sold_date_sk = d_date_sk\n         and d_year between 1999 and 1999 + 2\n         and cs_wholesale_cost BETWEEN 80 AND 100\n       union all\n       select ws_quantity quantity\n             ,ws_list_price list_price\n       from web_sales\n           ,date_dim\n       where ws_sold_date_sk = d_date_sk\n        and ws_wholesale_cost BETWEEN 80 AND 100\n         and d_year between 1999 and 1999 + 2) x)\n  select  this_year.channel ty_channel\n                           ,this_year.i_brand_id ty_brand\n                           ,this_year.i_class_id ty_class\n                           ,this_year.i_category_id ty_category\n                           ,this_year.sales ty_sales\n                           ,this_year.number_sales ty_number_sales\n                           ,last_year.channel ly_channel\n                           ,last_year.i_brand_id ly_brand\n                           ,last_year.i_class_id ly_class\n                           ,last_year.i_category_id ly_category\n                           ,last_year.sales ly_sales\n                           ,last_year.number_sales ly_number_sales\n from\n (select 'store' channel, i_brand_id,i_class_id,i_category_id\n        ,sum(ss_quantity*ss_list_price) sales, count(*) number_sales\n from store_sales\n     ,item\n     ,date_dim\n where ss_item_sk in (select ss_item_sk from cross_items)\n   and ss_item_sk = i_item_sk\n   and ss_sold_date_sk = d_date_sk\n   and d_week_seq = (select d_week_seq\n                     from date_dim\n                     where d_year = 1999 + 1\n                       and d_moy = 12\n                       and d_dom = 17)\n   and i_category IN ('Children', 'Music', 'Sports')\n   and i_manager_id BETWEEN 59 and 68\n   and ss_wholesale_cost BETWEEN 80 AND 100\n group by i_brand_id,i_class_id,i_category_id\n having sum(ss_quantity*ss_list_price) > (select average_sales from avg_sales)) this_year,\n (select 'store' channel, i_brand_id,i_class_id\n        ,i_category_id, sum(ss_quantity*ss_list_price) sales, count(*) number_sales\n from store_sales\n     ,item\n     ,date_dim\n where ss_item_sk in (select ss_item_sk from cross_items)\n   and ss_item_sk = i_item_sk\n   and ss_sold_date_sk = d_date_sk\n   and d_week_seq = (select d_week_seq\n                     from date_dim\n                     where d_year = 1999\n                       and d_moy = 12\n                       and d_dom = 17)\n   and i_category IN ('Children', 'Music', 'Sports')\n   and ss_wholesale_cost BETWEEN 80 AND 100\n   and i_manager_id BETWEEN 59 and 68\ngroup by i_brand_id,i_class_id,i_category_id\n having sum(ss_quantity*ss_list_price) > (select average_sales from avg_sales)) last_year\n where this_year.i_brand_id= last_year.i_brand_id\n   and this_year.i_class_id = last_year.i_class_id\n   and this_year.i_category_id = last_year.i_category_id\n order by this_year.channel, this_year.i_brand_id, this_year.i_class_id, this_year.i_category_id\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 2678.497,
+   "max_runtime_ms": 8179.349,
+   "timed_out": 2,
+   "nodes": 80,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query023",
+   "demo": false,
+   "sql": "with frequent_ss_items as\n (select substring(i_item_desc,1,30) itemdesc,i_item_sk item_sk,d_date solddate,count(*) cnt\n  from store_sales\n      ,date_dim\n      ,item\n  where ss_sold_date_sk = d_date_sk\n    and ss_item_sk = i_item_sk\n    and d_year = 2000\n    and i_manager_id BETWEEN 58 and 77\n     AND i_category IN ('Books', 'Children', 'Jewelry')\n  group by substring(i_item_desc,1,30),i_item_sk,d_date\n  having count(*) >4),\n max_store_sales as\n (select max(csales) tpcds_cmax\n  from (select c_customer_sk,sum(ss_quantity*ss_sales_price) csales\n        from store_sales\n            ,customer\n            ,date_dim\n        where ss_customer_sk = c_customer_sk\n         and ss_sold_date_sk = d_date_sk\n         and d_year = 2000\n         and ss_wholesale_cost BETWEEN 24 AND 34\n        group by c_customer_sk) tmp1),\n best_ss_customer as\n (select c_customer_sk,sum(ss_quantity*ss_sales_price) ssales\n  from store_sales\n      ,customer\n  where ss_customer_sk = c_customer_sk\n  and c_birth_year BETWEEN 1967 AND 1973\n  group by c_customer_sk\n  having sum(ss_quantity*ss_sales_price) > (95/100.0) * (select\n  *\nfrom\n max_store_sales))\n  select  sum(sales)\n from (select cs_quantity*cs_list_price sales\n       from catalog_sales\n           ,date_dim\n       where d_year = 2000\n         and d_moy = 3\n         and cs_sold_date_sk = d_date_sk\n         and cs_item_sk in (select item_sk from frequent_ss_items)\n         and cs_bill_customer_sk in (select c_customer_sk from best_ss_customer)\n         and cs_wholesale_cost BETWEEN 24 AND 34\n      union all\n      select ws_quantity*ws_list_price sales\n       from web_sales\n           ,date_dim\n       where d_year = 2000\n         and d_moy = 3\n         and ws_sold_date_sk = d_date_sk\n         and ws_item_sk in (select item_sk from frequent_ss_items)\n         and ws_bill_customer_sk in (select c_customer_sk from best_ss_customer)\n         and ws_wholesale_cost BETWEEN 24 AND 34) tmp2\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 521.988,
+   "max_runtime_ms": 2423.582,
+   "timed_out": 0,
+   "nodes": 52,
+   "top_ops": [
+    "Aggregate",
+    "Nested Loop",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query030",
+   "demo": false,
+   "sql": "with customer_total_return as\n (select wr_returning_customer_sk as ctr_customer_sk\n ,ca_state as ctr_state\n,wr_reason_sk as ctr_reason_sk\n,sum(wr_return_amt) as ctr_total_return\n from web_returns\n     ,date_dim\n     ,customer_address\n     ,item\n where wr_returned_date_sk = d_date_sk\n   and d_year =1999\n   and wr_returning_addr_sk = ca_address_sk\n   and wr_item_sk = i_item_sk\n   and i_manager_id BETWEEN 33 and 42\n   and wr_return_amt / wr_return_quantity between 59 and 88\n group by wr_returning_customer_sk\n         ,ca_state, wr_reason_sk)\n  select  c_customer_id,c_salutation,c_first_name,c_last_name,c_preferred_cust_flag\n       ,c_birth_day,c_birth_month,c_birth_year,c_birth_country,c_login,c_email_address\n       ,c_last_review_date_sk,ctr_total_return\n from customer_total_return ctr1\n     ,customer_address\n     ,customer\n where ctr1.ctr_total_return > (select avg(ctr_total_return)*1.2\n \t\t\t  from customer_total_return ctr2\n                  \t  where ctr1.ctr_state = ctr2.ctr_state)\n       and ca_address_sk = c_current_addr_sk\n       and ca_state in ('LA', 'MI', 'TX', 'VA')\n       and ctr1.ctr_customer_sk = c_customer_sk\n       and ctr1.ctr_reason_sk in (17, 54)\n      and c_birth_year BETWEEN 1985 AND 1991\n order by c_customer_id,c_salutation,c_first_name,c_last_name,c_preferred_cust_flag\n                  ,c_birth_day,c_birth_month,c_birth_year,c_birth_country,c_login,c_email_address\n                  ,c_last_review_date_sk,ctr_total_return\nlimit 100",
+   "plans": 92,
+   "median_runtime_ms": 55.269,
+   "max_runtime_ms": 96.861,
+   "timed_out": 0,
+   "nodes": 20,
+   "top_ops": [
+    "Index Scan",
+    "Nested Loop",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query031",
+   "demo": false,
+   "sql": "with ss as\n (select ca_county,d_qoy, d_year,sum(ss_ext_sales_price) as store_sales\n from store_sales,date_dim,customer_address, item\n where ss_sold_date_sk = d_date_sk\n  and ss_addr_sk=ca_address_sk\n  and ss_item_sk = i_item_sk\n  and i_color IN ('goldenrod', 'violet')\n  and i_manager_id BETWEEN 81 and 100\n  and ss_list_price between 58 and 72\n  and ca_state in ('ND','SC')\n group by ca_county,d_qoy, d_year),\n ws as\n (select ca_county,d_qoy, d_year,sum(ws_ext_sales_price) as web_sales\n from web_sales,date_dim,customer_address, item\n where ws_sold_date_sk = d_date_sk\n  and ws_bill_addr_sk=ca_address_sk\n  and ws_item_sk = i_item_sk\n  and i_color IN ('goldenrod', 'violet')\n  and i_manager_id BETWEEN 81 and 100\n  and ws_list_price between 58 and 72\n  and ca_state in ('ND','SC')\ngroup by ca_county,d_qoy, d_year)\n select\n        ss1.ca_county\n       ,ss1.d_year\n       ,ws2.web_sales/ws1.web_sales web_q1_q2_increase\n       ,ss2.store_sales/ss1.store_sales store_q1_q2_increase\n       ,ws3.web_sales/ws2.web_sales web_q2_q3_increase\n       ,ss3.store_sales/ss2.store_sales store_q2_q3_increase\n from\n        ss ss1\n       ,ss ss2\n       ,ss ss3\n       ,ws ws1\n       ,ws ws2\n       ,ws ws3\n where\n    ss1.d_qoy = 1\n    and ss1.d_year = 2002\n    and ss1.ca_county = ss2.ca_county\n    and ss2.d_qoy = 2\n    and ss2.d_year = 2002\n and ss2.ca_county = ss3.ca_county\n    and ss3.d_qoy = 3\n    and ss3.d_year = 2002\n    and ss1.ca_county = ws1.ca_county\n    and ws1.d_qoy = 1\n    and ws1.d_year = 2002\n    and ws1.ca_county = ws2.ca_county\n    and ws2.d_qoy = 2\n    and ws2.d_year = 2002\n    and ws1.ca_county = ws3.ca_county\n    and ws3.d_qoy = 3\n    and ws3.d_year =2002\n    and case when ws1.web_sales > 0 then ws2.web_sales/ws1.web_sales else null end\n       > case when ss1.store_sales > 0 then ss2.store_sales/ss1.store_sales else null end\n    and case when ws2.web_sales > 0 then ws3.web_sales/ws2.web_sales else null end\n       > case when ss2.store_sales > 0 then ss3.store_sales/ss2.store_sales else null end\n order by ss1.d_year",
+   "plans": 299,
+   "median_runtime_ms": 55.03,
+   "max_runtime_ms": 530.966,
+   "timed_out": 0,
+   "nodes": 36,
+   "top_ops": [
+    "Nested Loop",
+    "CTE Scan",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query032",
+   "demo": false,
+   "sql": "select  sum(cs_ext_discount_amt)  as \"excess discount amount\"\nfrom\n   catalog_sales\n   ,item\n   ,date_dim\nwhere\n(i_manufact_id in (14, 29, 76, 536, 549)\nor i_manager_id BETWEEN 59 and 88)\nand i_item_sk = cs_item_sk\nand d_date between '2000-03-14' and\n        cast('2000-03-14' as date) + interval '90 day'\nand d_date_sk = cs_sold_date_sk\nand cs_ext_discount_amt\n     > (\n         select\n            1.3 * avg(cs_ext_discount_amt)\n         from\n            catalog_sales\n           ,date_dim\n         where\n              cs_item_sk = i_item_sk\n          and d_date between '2000-03-14' and\n                             cast('2000-03-14' as date) + interval '90 day'\n          and d_date_sk = cs_sold_date_sk\n          and cs_list_price between 196 and 225\n          and cs_sales_price / cs_list_price BETWEEN 32 * 0.01 AND 52 * 0.01\n      )\norder by sum(cs_ext_discount_amt)\nlimit 100",
+   "plans": 148,
+   "median_runtime_ms": null,
+   "max_runtime_ms": null,
+   "timed_out": 148,
+   "nodes": 16,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Nested Loop"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query038",
+   "demo": false,
+   "sql": "select  count(*) from (\n    select distinct c_last_name, c_first_name, d_date\n    from store_sales, date_dim, customer\n          where store_sales.ss_sold_date_sk = date_dim.d_date_sk\n      and store_sales.ss_customer_sk = customer.c_customer_sk\n      and d_month_seq between 1177 and 1177 + 11\n      and c_birth_month in (1, 5, 8, 11)\n      and ss_list_price between 59 and 118\n      and ss_wholesale_cost BETWEEN 80 AND 100\n  intersect\n    select distinct c_last_name, c_first_name, d_date\n    from catalog_sales, date_dim, customer\n          where catalog_sales.cs_sold_date_sk = date_dim.d_date_sk\n      and catalog_sales.cs_bill_customer_sk = customer.c_customer_sk\n      and d_month_seq between 1177 and 1177 + 11\n      and c_birth_month in (1, 5, 8, 11)\n      and cs_list_price between 59 and 118\n      and cs_wholesale_cost BETWEEN 80 AND 100\n  intersect\n    select distinct c_last_name, c_first_name, d_date\n    from web_sales, date_dim, customer\n          where web_sales.ws_sold_date_sk = date_dim.d_date_sk\n      and web_sales.ws_bill_customer_sk = customer.c_customer_sk\n      and d_month_seq between 1177 and 1177 + 11\n      and c_birth_month in (1, 5, 8, 11)\n      and ws_list_price between 59 and 118\n      and ws_wholesale_cost BETWEEN 80 AND 100\n) hot_cust\nlimit 100",
+   "plans": 300,
+   "median_runtime_ms": 511.093,
+   "max_runtime_ms": 1864.335,
+   "timed_out": 0,
+   "nodes": 41,
+   "top_ops": [
+    "Unique",
+    "Nested Loop",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query039",
+   "demo": false,
+   "sql": "with inv as\n(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy\n       ,stdev,mean, case mean when 0 then null else stdev/mean end cov\n from(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy\n            ,stddev_samp(inv_quantity_on_hand) stdev,avg(inv_quantity_on_hand) mean\n      from inventory\n          ,item\n          ,warehouse\n          ,date_dim\n      where inv_item_sk = i_item_sk\n        and inv_warehouse_sk = w_warehouse_sk\n        and inv_date_sk = d_date_sk\n        and d_year =2002\n        and i_category IN ('Children', 'Sports')\n        and i_manager_id BETWEEN 59 and 78\n        and inv_quantity_on_hand between 157 and 357\n      group by w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy) foo\n where case mean when 0 then 0 else stdev/mean end > 1)\nselect inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean, inv1.cov\n        ,inv2.w_warehouse_sk,inv2.i_item_sk,inv2.d_moy,inv2.mean, inv2.cov\nfrom inv inv1,inv inv2\nwhere inv1.i_item_sk = inv2.i_item_sk\n  and inv1.w_warehouse_sk =  inv2.w_warehouse_sk\n  and inv1.d_moy=3\n  and inv2.d_moy=3+1\norder by inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean,inv1.cov\n        ,inv2.d_moy,inv2.mean, inv2.cov",
+   "plans": 259,
+   "median_runtime_ms": 887.352,
+   "max_runtime_ms": 3731.414,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "CTE Scan",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query039#1",
+   "demo": false,
+   "sql": "with inv as\n(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy\n       ,stdev,mean, case mean when 0 then null else stdev/mean end cov\n from(select w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy\n            ,stddev_samp(inv_quantity_on_hand) stdev,avg(inv_quantity_on_hand) mean\n      from inventory\n          ,item\n          ,warehouse\n          ,date_dim\n      where inv_item_sk = i_item_sk\n        and inv_warehouse_sk = w_warehouse_sk\n        and inv_date_sk = d_date_sk\n        and d_year =2002\n        and i_category IN ('Children', 'Sports')\n        and i_manager_id BETWEEN 59 and 78\n        and inv_quantity_on_hand between 157 and 357\n      group by w_warehouse_name,w_warehouse_sk,i_item_sk,d_moy) foo\n where case mean when 0 then 0 else stdev/mean end > 1)\nselect inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean, inv1.cov\n        ,inv2.w_warehouse_sk,inv2.i_item_sk,inv2.d_moy,inv2.mean, inv2.cov\nfrom inv inv1,inv inv2\nwhere inv1.i_item_sk = inv2.i_item_sk\n  and inv1.w_warehouse_sk =  inv2.w_warehouse_sk\n  and inv1.d_moy=3\n  and inv2.d_moy=3+1\n  and inv1.cov > 1.5\norder by inv1.w_warehouse_sk,inv1.i_item_sk,inv1.d_moy,inv1.mean,inv1.cov\n        ,inv2.d_moy,inv2.mean, inv2.cov",
+   "plans": 226,
+   "median_runtime_ms": 861.746,
+   "max_runtime_ms": 3756.7,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "CTE Scan",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query054",
+   "demo": false,
+   "sql": "with my_customers as (\n select distinct c_customer_sk\n        , c_current_addr_sk\n from\n        ( select cs_sold_date_sk sold_date_sk,\n                 cs_bill_customer_sk customer_sk,\n                 cs_item_sk item_sk,\n                 cs_wholesale_cost wholesale_cost\n          from   catalog_sales\n          union all\n          select ws_sold_date_sk sold_date_sk,\n                 ws_bill_customer_sk customer_sk,\n                 ws_item_sk item_sk,\n                 ws_wholesale_cost wholesale_cost\n          from   web_sales\n         ) cs_or_ws_sales,\n         item,\n         date_dim,\n         customer\n where   sold_date_sk = d_date_sk\n         and item_sk = i_item_sk\n         and i_category = 'Men'\n         and i_class = 'sports-apparel'\n         and c_customer_sk = cs_or_ws_sales.customer_sk\n         and d_moy = 11\n         and d_year = 2001\n         and wholesale_cost BETWEEN 2 AND 32\n         and c_birth_year BETWEEN 1980 AND 1993\n )\n , my_revenue as (\n select c_customer_sk,\n        sum(ss_ext_sales_price) as revenue\n from   my_customers,\n        store_sales,\n        customer_address,\n        store,\n        date_dim\n where  c_current_addr_sk = ca_address_sk\n        and ca_county = s_county\n        and ca_state = s_state\n        and ss_sold_date_sk = d_date_sk\n        and c_customer_sk = ss_customer_sk\n        and ss_wholesale_cost BETWEEN 2 AND 32\n        and s_state in ('AR','KY','MI'\n                    ,'MN','MS','ND'\n                    ,'OK','SC','UT'\n                    ,'WA')\n        and d_month_seq between (select distinct d_month_seq+1\n                                 from   date_dim where d_year = 2001 and d_moy = 11)\n                           and  (select distinct d_month_seq+3\n                                 from   date_dim where d_year = 2001 and d_moy = 11)\n group by c_customer_sk\n )\n , segments as\n (select cast((revenue/50) as int) as segment\n  from   my_revenue\n )\n  select  segment, count(*) as num_customers, segment*50 as segment_base\n from segments\n group by segment\n order by segment, num_customers\n limit 100",
+   "plans": 295,
+   "median_runtime_ms": 30.546,
+   "max_runtime_ms": 8268.703,
+   "timed_out": 17,
+   "nodes": 36,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query058",
+   "demo": false,
+   "sql": "with ss_items as\n (select i_item_id item_id\n       ,c_birth_year birth_year\n        ,sum(ss_ext_sales_price) ss_item_rev\n from store_sales\n     ,item\n     ,date_dim\n     ,customer\n where ss_item_sk = i_item_sk\n   and d_date in (select d_date\n                  from date_dim\n                  where d_month_seq = (select d_month_seq\n                                      from date_dim\n                                      where d_date = '2000-04-25'))\n   and ss_sold_date_sk   = d_date_sk\n   and ss_list_price between 233 and 262\n   and i_manager_id BETWEEN 59 and 88\n   and ss_customer_sk = c_customer_sk\n   and c_birth_year BETWEEN 1985 AND 1991\ngroup by i_item_id, c_birth_year),\n cs_items as\n (select i_item_id item_id\n        ,c_birth_year birth_year\n        ,sum(cs_ext_sales_price) cs_item_rev\n  from catalog_sales\n      ,item\n      ,date_dim\n      ,customer\n where cs_item_sk = i_item_sk\n  and  d_date in (select d_date\n                  from date_dim\n                  where d_month_seq = (select d_month_seq\n                                      from date_dim\n                                      where d_date = '2000-04-25'))\n  and  cs_sold_date_sk = d_date_sk\n  and  cs_list_price between 233 and 262\n  and i_manager_id BETWEEN 59 and 88\n  and cs_bill_customer_sk = c_customer_sk\n  and c_birth_year BETWEEN 1985 AND 1991\ngroup by i_item_id, c_birth_year),\n ws_items as\n (select i_item_id item_id\n      ,c_birth_year birth_year\n        ,sum(ws_ext_sales_price) ws_item_rev\n  from web_sales\n      ,item\n      ,date_dim\n      ,customer\n where ws_item_sk = i_item_sk\n  and  d_date in (select d_date\n                  from date_dim\n                  where d_month_seq = (select d_month_seq\n                                     from date_dim\n                                     where d_date = '2000-04-25'))\n  and ws_sold_date_sk   = d_date_sk\n  and ws_list_price between 233 and 262\n  and i_manager_id BETWEEN 59 and 88\n  and ws_bill_customer_sk = c_customer_sk\n  and c_birth_year BETWEEN 1985 AND 1991\ngroup by i_item_id, c_birth_year)\n  select  ss_items.item_id, ss_items.birth_year\n       ,ss_item_rev\n       ,ss_item_rev/((ss_item_rev+cs_item_rev+ws_item_rev)/3) * 100 ss_dev\n       ,cs_item_rev\n       ,cs_item_rev/((ss_item_rev+cs_item_rev+ws_item_rev)/3) * 100 cs_dev\n       ,ws_item_rev\n       ,ws_item_rev/((ss_item_rev+cs_item_rev+ws_item_rev)/3) * 100 ws_dev\n       ,(ss_item_rev+cs_item_rev+ws_item_rev)/3 average\n from ss_items,cs_items,ws_items\n where ss_items.item_id=cs_items.item_id\n   and ss_items.item_id=ws_items.item_id\n   and ss_items.birth_year = cs_items.birth_year\n   and ss_items.birth_year = ws_items.birth_year\n   and ss_item_rev between 0.9 * cs_item_rev and 1.1 * cs_item_rev\n   and ss_item_rev between 0.9 * ws_item_rev and 1.1 * ws_item_rev\n   and cs_item_rev between 0.9 * ss_item_rev and 1.1 * ss_item_rev\n   and cs_item_rev between 0.9 * ws_item_rev and 1.1 * ws_item_rev\n   and ws_item_rev between 0.9 * ss_item_rev and 1.1 * ss_item_rev\n   and ws_item_rev between 0.9 * cs_item_rev and 1.1 * cs_item_rev\n order by item_id, birth_year\n         ,ss_item_rev\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 60.546,
+   "max_runtime_ms": 1563.741,
+   "timed_out": 0,
+   "nodes": 49,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query059",
+   "demo": false,
+   "sql": "with wss as\n (select d_week_seq,\n        ss_store_sk,\n        sum(case when (d_day_name='Sunday') then ss_sales_price else null end) sun_sales,\n        sum(case when (d_day_name='Monday') then ss_sales_price else null end) mon_sales,\n        sum(case when (d_day_name='Tuesday') then ss_sales_price else  null end) tue_sales,\n        sum(case when (d_day_name='Wednesday') then ss_sales_price else null end) wed_sales,\n        sum(case when (d_day_name='Thursday') then ss_sales_price else null end) thu_sales,\n        sum(case when (d_day_name='Friday') then ss_sales_price else null end) fri_sales,\n        sum(case when (d_day_name='Saturday') then ss_sales_price else null end) sat_sales\n from store_sales,date_dim\n where d_date_sk = ss_sold_date_sk\n and ss_sales_price / ss_list_price BETWEEN 61 * 0.01 AND 81 * 0.01\n group by d_week_seq,ss_store_sk\n )\n  select  s_store_name1,s_store_id1,d_week_seq1\n       ,sun_sales1/sun_sales2,mon_sales1/mon_sales2\n       ,tue_sales1/tue_sales2,wed_sales1/wed_sales2,thu_sales1/thu_sales2\n       ,fri_sales1/fri_sales2,sat_sales1/sat_sales2\n from\n (select s_store_name s_store_name1,wss.d_week_seq d_week_seq1\n        ,s_store_id s_store_id1,sun_sales sun_sales1\n        ,mon_sales mon_sales1,tue_sales tue_sales1\n        ,wed_sales wed_sales1,thu_sales thu_sales1\n        ,fri_sales fri_sales1,sat_sales sat_sales1\n  from wss,store,date_dim d\n  where d.d_week_seq = wss.d_week_seq and\n        ss_store_sk = s_store_sk and\n        d_month_seq between 1201 and 1201 + 11\n        and s_state in ('AR','KY','MN'\n                    ,'MS','ND','OK','SC','UT')\n        ) y,\n (select s_store_name s_store_name2,wss.d_week_seq d_week_seq2\n        ,s_store_id s_store_id2,sun_sales sun_sales2\n        ,mon_sales mon_sales2,tue_sales tue_sales2\n        ,wed_sales wed_sales2,thu_sales thu_sales2\n        ,fri_sales fri_sales2,sat_sales sat_sales2\n  from wss,store,date_dim d\n  where d.d_week_seq = wss.d_week_seq and\n        ss_store_sk = s_store_sk and\n        d_month_seq between 1201+ 12 and 1201 + 23\n        and s_state in ('AR','KY','MN'\n                    ,'MS','ND','OK','SC','UT')) x\n where s_store_id1=s_store_id2\n   and d_week_seq1=d_week_seq2-52\n order by s_store_name1,s_store_id1,d_week_seq1\nlimit 100",
+   "plans": 77,
+   "median_runtime_ms": 1495.279,
+   "max_runtime_ms": 6279.725,
+   "timed_out": 2,
+   "nodes": 24,
+   "top_ops": [
+    "Hash Join",
+    "Hash",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query064",
+   "demo": false,
+   "sql": "with cs_ui as\n (select cs_item_sk\n        ,sum(cs_ext_list_price) as sale,sum(cr_refunded_cash+cr_reversed_charge+cr_store_credit) as refund\n  from catalog_sales\n      ,catalog_returns\n  where cs_item_sk = cr_item_sk\n    and cs_order_number = cr_order_number\n    and cs_wholesale_cost BETWEEN 80 AND 100\n   group by cs_item_sk\n  having sum(cs_ext_list_price)>2*sum(cr_refunded_cash+cr_reversed_charge+cr_store_credit)),\ncross_sales as\n (select i_product_name product_name\n     ,i_item_sk item_sk\n     ,s_store_name store_name\n     ,s_zip store_zip\n     ,ad1.ca_street_number b_street_number\n     ,ad1.ca_street_name b_street_name\n     ,ad1.ca_city b_city\n     ,ad1.ca_zip b_zip\n     ,ad2.ca_street_number c_street_number\n     ,ad2.ca_street_name c_street_name\n     ,ad2.ca_city c_city\n     ,ad2.ca_zip c_zip\n     ,d1.d_year as syear\n     ,d2.d_year as fsyear\n     ,d3.d_year s2year\n     ,count(*) cnt\n     ,sum(ss_wholesale_cost) s1\n     ,sum(ss_list_price) s2\n     ,sum(ss_coupon_amt) s3\n  FROM   store_sales\n        ,store_returns\n        ,cs_ui\n        ,date_dim d1\n        ,date_dim d2\n        ,date_dim d3\n        ,store\n        ,customer\n        ,customer_demographics cd1\n        ,customer_demographics cd2\n        ,promotion\n        ,household_demographics hd1\n        ,household_demographics hd2\n        ,customer_address ad1\n        ,customer_address ad2\n        ,income_band ib1\n        ,income_band ib2\n        ,item\n  WHERE  ss_store_sk = s_store_sk AND\n         ss_sold_date_sk = d1.d_date_sk AND\n         ss_customer_sk = c_customer_sk AND\n         ss_cdemo_sk= cd1.cd_demo_sk AND\n         ss_hdemo_sk = hd1.hd_demo_sk AND\n         ss_addr_sk = ad1.ca_address_sk and\n         ss_item_sk = i_item_sk and\n         ss_item_sk = sr_item_sk and\n         ss_ticket_number = sr_ticket_number and\n         ss_item_sk = cs_ui.cs_item_sk and\n         c_current_cdemo_sk = cd2.cd_demo_sk AND\n         c_current_hdemo_sk = hd2.hd_demo_sk AND\n         c_current_addr_sk = ad2.ca_address_sk and\n         c_first_sales_date_sk = d2.d_date_sk and\n         c_first_shipto_date_sk = d3.d_date_sk and\n         ss_promo_sk = p_promo_sk and\n         hd1.hd_income_band_sk = ib1.ib_income_band_sk and\n         hd2.hd_income_band_sk = ib2.ib_income_band_sk and\n         cd1.cd_marital_status <> cd2.cd_marital_status and\n         i_current_price between 57 and 57 + 10\n         and p_channel_email = 'N'\n         and p_channel_tv = 'N'\n         and p_channel_radio = 'Y'\n         and ad2.ca_state in ('ND','SC','UT')\n         and ss_wholesale_cost BETWEEN 80 AND 100\n         and cd1.cd_marital_status in ('U', 'D', 'D')\n         and cd1.cd_education_status in ('Secondary', 'College', 'Advanced Degree')\n         and cd2.cd_marital_status in ('U', 'D', 'D')\n         and cd2.cd_education_status in ('Secondary', 'College', 'Advanced Degree')\ngroup by i_product_name\n       ,i_item_sk\n       ,s_store_name\n       ,s_zip\n       ,ad1.ca_street_number\n       ,ad1.ca_street_name\n       ,ad1.ca_city\n       ,ad1.ca_zip\n       ,ad2.ca_street_number\n       ,ad2.ca_street_name\n       ,ad2.ca_city\n       ,ad2.ca_zip\n       ,d1.d_year\n       ,d2.d_year\n       ,d3.d_year\n)\nselect cs1.product_name\n     ,cs1.store_name\n     ,cs1.store_zip\n     ,cs1.b_street_number\n     ,cs1.b_street_name\n     ,cs1.b_city\n     ,cs1.b_zip\n     ,cs1.c_street_number\n     ,cs1.c_street_name\n     ,cs1.c_city\n     ,cs1.c_zip\n     ,cs1.syear\n     ,cs1.cnt\n     ,cs1.s1 as s11\n     ,cs1.s2 as s21\n     ,cs1.s3 as s31\n     ,cs2.s1 as s12\n     ,cs2.s2 as s22\n     ,cs2.s3 as s32\n     ,cs2.syear\n     ,cs2.cnt\nfrom cross_sales cs1,cross_sales cs2\nwhere cs1.item_sk=cs2.item_sk and\n     cs1.syear = 2001 and\n     cs2.syear = 2001 + 1 and\n     cs2.cnt <= cs1.cnt and\n     cs1.store_name = cs2.store_name and\n     cs1.store_zip = cs2.store_zip\norder by cs1.product_name\n       ,cs1.store_name\n       ,cs2.cnt\n       ,cs1.s1\n       ,cs2.s1",
+   "plans": 285,
+   "median_runtime_ms": 463.467,
+   "max_runtime_ms": 4717.951,
+   "timed_out": 0,
+   "nodes": 48,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query065",
+   "demo": false,
+   "sql": "select \n\ts_store_name,\n\ti_item_desc,\n\tsc.revenue,\n\ti_current_price,\n\ti_wholesale_cost,\n\ti_brand\n from store, item,\n     (select ss_store_sk, avg(revenue) as ave\n \tfrom\n \t    (select  ss_store_sk, ss_item_sk,\n \t\t     sum(ss_sales_price) as revenue\n \t\tfrom store_sales, date_dim\n \t\twhere ss_sold_date_sk = d_date_sk and d_month_seq between 1199 and 1199+11\n    and ss_sales_price / ss_list_price BETWEEN 29 * 0.01 AND 39 * 0.01\n \t\tgroup by ss_store_sk, ss_item_sk) sa\n \tgroup by ss_store_sk) sb,\n     (select  ss_store_sk, ss_item_sk, sum(ss_sales_price) as revenue\n \tfrom store_sales, date_dim\n \twhere ss_sold_date_sk = d_date_sk and d_month_seq between 1199 and 1199+11\n  and ss_sales_price / ss_list_price BETWEEN 29 * 0.01 AND 39 * 0.01\n \tgroup by ss_store_sk, ss_item_sk) sc\n where sb.ss_store_sk = sc.ss_store_sk and\n       sc.revenue <= 0.1 * sb.ave and\n       s_store_sk = sc.ss_store_sk and\n       i_item_sk = sc.ss_item_sk\n       and i_manager_id BETWEEN 85 and 89\n       and s_state in ('MN','ND','SC')\n order by s_store_name, i_item_desc\nlimit 100",
+   "plans": 91,
+   "median_runtime_ms": 199.205,
+   "max_runtime_ms": 1410.798,
+   "timed_out": 0,
+   "nodes": 26,
+   "top_ops": [
+    "Aggregate",
+    "Sort",
+    "Nested Loop"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query069",
+   "demo": false,
+   "sql": "select \n  cd_gender,\n  cd_marital_status,\n  cd_education_status,\n  count(*) cnt1,\n  cd_purchase_estimate,\n  count(*) cnt2,\n  cd_credit_rating,\n  count(*) cnt3\n from\n  customer c,customer_address ca,customer_demographics\n where\n  c.c_current_addr_sk = ca.ca_address_sk and\n  ca_state in ('MS','OK','WA') and\n  cd_demo_sk = c.c_current_cdemo_sk\n  and cd_marital_status in ('D', 'D', 'U')\n  and cd_education_status in ('2 yr Degree', 'College') and\n  exists (select *\n          from store_sales,date_dim\n          where c.c_customer_sk = ss_customer_sk and\n                ss_sold_date_sk = d_date_sk and\n                d_year = 2000 and\n                d_moy between 9 and 9+2\n                and ss_list_price between 13 and 102\n          ) and\n   (not exists (select *\n            from web_sales,date_dim\n            where c.c_customer_sk = ws_bill_customer_sk and\n                  ws_sold_date_sk = d_date_sk and\n                  d_year = 2000 and\n                  d_moy between 9 and 9+2\n                  and ws_list_price between 13 and 102\n            ) and\n    not exists (select *\n            from catalog_sales,date_dim\n            where c.c_customer_sk = cs_ship_customer_sk and\n                  cs_sold_date_sk = d_date_sk and\n                  d_year = 2000 and\n                  d_moy between 9 and 9+2\n                  and cs_list_price between 13 and 102)\n            )\n group by cd_gender,\n          cd_marital_status,\n          cd_education_status,\n          cd_purchase_estimate,\n          cd_credit_rating\n order by cd_gender,\n          cd_marital_status,\n          cd_education_status,\n          cd_purchase_estimate,\n          cd_credit_rating\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 182.516,
+   "max_runtime_ms": 2995.968,
+   "timed_out": 0,
+   "nodes": 29,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query075",
+   "demo": false,
+   "sql": "WITH all_sales AS (\n SELECT d_year\n       ,i_brand_id\n       ,i_class_id\n       ,i_category_id\n       ,i_manufact_id\n       ,SUM(sales_cnt) AS sales_cnt\n       ,SUM(sales_amt) AS sales_amt\n FROM (SELECT d_year\n             ,i_brand_id\n             ,i_class_id\n             ,i_category_id\n             ,i_manufact_id\n             ,cs_quantity - COALESCE(cr_return_quantity,0) AS sales_cnt\n             ,cs_ext_sales_price - COALESCE(cr_return_amount,0.0) AS sales_amt\n       FROM catalog_sales JOIN item ON i_item_sk=cs_item_sk\n                          JOIN date_dim ON d_date_sk=cs_sold_date_sk\n                          LEFT JOIN catalog_returns ON (cs_order_number=cr_order_number\n                                                    AND cs_item_sk=cr_item_sk)\n       WHERE i_category='Men'\n       and cs_sales_price / cs_list_price BETWEEN 79 * 0.01 AND 99 * 0.01\n       and cr_reason_sk in (11, 20, 27, 32, 65)\n       UNION\n       SELECT d_year\n             ,i_brand_id\n             ,i_class_id\n             ,i_category_id\n             ,i_manufact_id\n             ,ss_quantity - COALESCE(sr_return_quantity,0) AS sales_cnt\n             ,ss_ext_sales_price - COALESCE(sr_return_amt,0.0) AS sales_amt\n       FROM store_sales JOIN item ON i_item_sk=ss_item_sk\n                        JOIN date_dim ON d_date_sk=ss_sold_date_sk\n                        LEFT JOIN store_returns ON (ss_ticket_number=sr_ticket_number\n                                                AND ss_item_sk=sr_item_sk)\n       WHERE i_category='Men'\n       and ss_sales_price / ss_list_price BETWEEN 79 * 0.01 AND 99 * 0.01\n       and sr_reason_sk in (11, 20, 27, 32, 65)\n       UNION\n       SELECT d_year\n             ,i_brand_id\n             ,i_class_id\n             ,i_category_id\n             ,i_manufact_id\n             ,ws_quantity - COALESCE(wr_return_quantity,0) AS sales_cnt\n             ,ws_ext_sales_price - COALESCE(wr_return_amt,0.0) AS sales_amt\n       FROM web_sales JOIN item ON i_item_sk=ws_item_sk\n                      JOIN date_dim ON d_date_sk=ws_sold_date_sk\n                      LEFT JOIN web_returns ON (ws_order_number=wr_order_number\n                                            AND ws_item_sk=wr_item_sk)\n       WHERE i_category='Men'\n       and ws_sales_price / ws_list_price BETWEEN 79 * 0.01 AND 99 * 0.01\n       and wr_reason_sk in (11, 20, 27, 32, 65)) sales_detail\nGROUP BY d_year, i_brand_id, i_class_id, i_category_id, i_manufact_id)\n SELECT  prev_yr.d_year AS prev_year\n                          ,curr_yr.d_year AS year\n                          ,curr_yr.i_brand_id\n                          ,curr_yr.i_class_id\n                          ,curr_yr.i_category_id\n                          ,curr_yr.i_manufact_id\n                          ,prev_yr.sales_cnt AS prev_yr_cnt\n                          ,curr_yr.sales_cnt AS curr_yr_cnt\n                          ,curr_yr.sales_cnt-prev_yr.sales_cnt AS sales_cnt_diff\n                          ,curr_yr.sales_amt-prev_yr.sales_amt AS sales_amt_diff\n FROM all_sales curr_yr, all_sales prev_yr\n WHERE curr_yr.i_brand_id=prev_yr.i_brand_id\n   AND curr_yr.i_class_id=prev_yr.i_class_id\n   AND curr_yr.i_category_id=prev_yr.i_category_id\n   AND curr_yr.i_manufact_id=prev_yr.i_manufact_id\n   AND curr_yr.d_year=2001\n   AND prev_yr.d_year=2001-1\n   AND prev_yr.sales_cnt > 0\n   AND CAST(curr_yr.sales_cnt AS DECIMAL(17,2))/CAST(prev_yr.sales_cnt AS DECIMAL(17,2))<0.9\n ORDER BY sales_cnt_diff,sales_amt_diff\n limit 100",
+   "plans": 298,
+   "median_runtime_ms": 204.811,
+   "max_runtime_ms": 1835.919,
+   "timed_out": 0,
+   "nodes": 34,
+   "top_ops": [
+    "Nested Loop",
+    "Seq Scan",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query080",
+   "demo": false,
+   "sql": "with ssr as\n (select  s_store_id as store_id,\n          sum(ss_ext_sales_price) as sales,\n          sum(coalesce(sr_return_amt, 0)) as returns,\n          sum(ss_net_profit - coalesce(sr_net_loss, 0)) as profit\n  from store_sales left outer join store_returns on\n         (ss_item_sk = sr_item_sk and ss_ticket_number = sr_ticket_number),\n     date_dim,\n     store,\n     item,\n     promotion\n where ss_sold_date_sk = d_date_sk\n       and d_date between cast('2000-07-21' as date)\n                  and cast('2000-07-21' as date) + interval '30 day'\n       and ss_store_sk = s_store_sk\n       and ss_item_sk = i_item_sk\n       and i_current_price > 50\n       and ss_promo_sk = p_promo_sk\n       and p_channel_email = 'Y'\n       and p_channel_tv = 'N'\n       and p_channel_radio = 'Y'\n       and p_channel_press = 'Y'\n       and p_channel_event = 'N'\n       and ss_wholesale_cost BETWEEN 32 AND 47\n       and i_category IN ('Books', 'Jewelry')\n group by s_store_id)\n ,\n csr as\n (select  cp_catalog_page_id as catalog_page_id,\n          sum(cs_ext_sales_price) as sales,\n          sum(coalesce(cr_return_amount, 0)) as returns,\n          sum(cs_net_profit - coalesce(cr_net_loss, 0)) as profit\n  from catalog_sales left outer join catalog_returns on\n         (cs_item_sk = cr_item_sk and cs_order_number = cr_order_number),\n     date_dim,\n     catalog_page,\n     item,\n     promotion\n where cs_sold_date_sk = d_date_sk\n       and d_date between cast('2000-07-21' as date)\n                  and cast('2000-07-21' as date) + interval '30 day'\n        and cs_catalog_page_sk = cp_catalog_page_sk\n       and cs_item_sk = i_item_sk\n       and i_current_price > 50\n       and cs_promo_sk = p_promo_sk\n       and p_channel_email = 'Y'\n       and p_channel_tv = 'N'\n       and p_channel_radio = 'Y'\n       and p_channel_press = 'Y'\n       and p_channel_event = 'N'\n       and cs_wholesale_cost BETWEEN 32 AND 47\n       and i_category IN ('Books', 'Jewelry')\ngroup by cp_catalog_page_id)\n ,\n wsr as\n (select  web_site_id,\n          sum(ws_ext_sales_price) as sales,\n          sum(coalesce(wr_return_amt, 0)) as returns,\n          sum(ws_net_profit - coalesce(wr_net_loss, 0)) as profit\n  from web_sales left outer join web_returns on\n         (ws_item_sk = wr_item_sk and ws_order_number = wr_order_number),\n     date_dim,\n     web_site,\n     item,\n     promotion\n where ws_sold_date_sk = d_date_sk\n       and d_date between cast('2000-07-21' as date)\n                  and cast('2000-07-21' as date) + interval '30 day'\n        and ws_web_site_sk = web_site_sk\n       and ws_item_sk = i_item_sk\n       and i_current_price > 50\n       and ws_promo_sk = p_promo_sk\n       and p_channel_email = 'Y'\n       and p_channel_tv = 'N'\n       and p_channel_radio = 'Y'\n       and p_channel_press = 'Y'\n       and p_channel_event = 'N'\n       and ws_wholesale_cost BETWEEN 32 AND 47\n       and i_category IN ('Books', 'Jewelry')\ngroup by web_site_id)\n  select  channel\n        , id\n        , sum(sales) as sales\n        , sum(returns) as returns\n        , sum(profit) as profit\n from\n (select 'store channel' as channel\n        , 'store' || store_id as id\n        , sales\n        , returns\n        , profit\n from   ssr\n union all\n select 'catalog channel' as channel\n        , 'catalog_page' || catalog_page_id as id\n        , sales\n        , returns\n        , profit\n from  csr\n union all\n select 'web channel' as channel\n        , 'web_site' || web_site_id as id\n        , sales\n        , returns\n        , profit\n from   wsr\n ) x\n group by rollup (channel, id)\n order by channel\n         ,id\n limit 100",
+   "plans": 300,
+   "median_runtime_ms": 86.273,
+   "max_runtime_ms": 1215.878,
+   "timed_out": 0,
+   "nodes": 55,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query081",
+   "demo": false,
+   "sql": "with customer_total_return as\n (select cr_returning_customer_sk as ctr_customer_sk\n        ,ca_state as ctr_state, \n \tsum(cr_return_amt_inc_tax) as ctr_total_return\n from catalog_returns\n     ,date_dim\n     ,customer_address\n where cr_returned_date_sk = d_date_sk \n   and d_year =1998\n   and cr_returning_addr_sk = ca_address_sk \n group by cr_returning_customer_sk\n         ,ca_state )\n  select  c_customer_id,c_salutation,c_first_name,c_last_name,ca_street_number,ca_street_name\n                   ,ca_street_type,ca_suite_number,ca_city,ca_county,ca_state,ca_zip,ca_country,ca_gmt_offset\n                  ,ca_location_type,ctr_total_return\n from customer_total_return ctr1\n     ,customer_address\n     ,customer\n where ctr1.ctr_total_return > (select avg(ctr_total_return)*1.2\n \t\t\t  from customer_total_return ctr2 \n                  \t  where ctr1.ctr_state = ctr2.ctr_state)\n       and ca_address_sk = c_current_addr_sk\n       and ca_state = 'SC'\n       and ctr1.ctr_customer_sk = c_customer_sk\n order by c_customer_id,c_salutation,c_first_name,c_last_name,ca_street_number,ca_street_name\n                   ,ca_street_type,ca_suite_number,ca_city,ca_county,ca_state,ca_zip,ca_country,ca_gmt_offset\n                  ,ca_location_type,ctr_total_return\n limit 100",
+   "plans": 167,
+   "median_runtime_ms": null,
+   "max_runtime_ms": null,
+   "timed_out": 167,
+   "nodes": 19,
+   "top_ops": [
+    "Index Scan",
+    "Aggregate",
+    "Nested Loop"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query083",
+   "demo": false,
+   "sql": "with sr_items as\n (select i_item_id item_id,\n        sum(sr_return_quantity) sr_item_qty\n from store_returns,\n      item,\n      date_dim\n where sr_item_sk = i_item_sk\n and   d_date    in\n\t(select d_date\n\tfrom date_dim\n\twhere d_month_seq in\n\t\t(select d_month_seq\n\t\tfrom date_dim\n\t  where d_date in ('2002-01-19','2002-05-09','2002-08-19','2002-10-13')))\n and   sr_returned_date_sk   = d_date_sk\n and i_category IN ('Jewelry', 'Men')\n and i_manager_id BETWEEN 91 and 100\n and sr_return_amt / sr_return_quantity between 231 and 260\n and sr_reason_sk in (14, 19, 45, 56, 65)\ngroup by i_item_id),\n cr_items as\n (select i_item_id item_id,\n        sum(cr_return_quantity) cr_item_qty\n from catalog_returns,\n      item,\n      date_dim\n where cr_item_sk = i_item_sk\n and   d_date    in\n\t(select d_date\n\tfrom date_dim\n  where d_month_seq in\n\t\t(select d_month_seq\n\t\tfrom date_dim\n\t  \t  where d_date in ('2002-01-19','2002-05-09','2002-08-19','2002-10-13')))\n and   cr_returned_date_sk   = d_date_sk\n and i_category IN ('Jewelry', 'Men')\n and i_manager_id BETWEEN 91 and 100\n and cr_return_amount / cr_return_quantity between 231 and 260\n and cr_reason_sk in (14, 19, 45, 56, 65)\n group by i_item_id),\n wr_items as\n (select i_item_id item_id,\n        sum(wr_return_quantity) wr_item_qty\n from web_returns,\n      item,\n      date_dim\n where wr_item_sk = i_item_sk\n and   d_date    in\n\t(select d_date\n\tfrom date_dim\n  where d_month_seq in\n\t\t(select d_month_seq\n\t\tfrom date_dim\n\t\t\t  where d_date in ('2002-01-19','2002-05-09','2002-08-19','2002-10-13')))\n and   wr_returned_date_sk   = d_date_sk\n and i_category IN ('Jewelry', 'Men')\n and i_manager_id BETWEEN 91 and 100\n and wr_return_amt / wr_return_quantity between 231 and 260\n and wr_reason_sk in (14, 19, 45, 56, 65)\n group by i_item_id)\n  select  sr_items.item_id\n       ,sr_item_qty\n       ,sr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 sr_dev\n       ,cr_item_qty\n       ,cr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 cr_dev\n       ,wr_item_qty\n       ,wr_item_qty/(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 * 100 wr_dev\n       ,(sr_item_qty+cr_item_qty+wr_item_qty)/3.0 average\n from sr_items\n     ,cr_items\n     ,wr_items\n where sr_items.item_id=cr_items.item_id\n   and sr_items.item_id=wr_items.item_id\n order by sr_items.item_id\n         ,sr_item_qty\n limit 100",
+   "plans": 289,
+   "median_runtime_ms": 76.773,
+   "max_runtime_ms": 759.911,
+   "timed_out": 0,
+   "nodes": 47,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query087",
+   "demo": false,
+   "sql": "select count(*)\nfrom ((select distinct c_last_name, c_first_name, d_date\n       from store_sales, date_dim, customer\n       where store_sales.ss_sold_date_sk = date_dim.d_date_sk\n         and store_sales.ss_customer_sk = customer.c_customer_sk\n         and d_month_seq between 1182 and 1182+11\n         and ss_list_price between 233 and 262\n         and c_birth_year BETWEEN 1983 AND 1989\n         and ss_wholesale_cost BETWEEN 90 AND 100\n         )\n       except\n      (select distinct c_last_name, c_first_name, d_date\n       from catalog_sales, date_dim, customer\n       where catalog_sales.cs_sold_date_sk = date_dim.d_date_sk\n         and catalog_sales.cs_bill_customer_sk = customer.c_customer_sk\n         and d_month_seq between 1182 and 1182+11\n         and cs_list_price between 233 and 262\n         and c_birth_year BETWEEN 1983 AND 1989\n         and cs_wholesale_cost BETWEEN 90 AND 100\n         )\n       except\n      (select distinct c_last_name, c_first_name, d_date\n       from web_sales, date_dim, customer\n       where web_sales.ws_sold_date_sk = date_dim.d_date_sk\n         and web_sales.ws_bill_customer_sk = customer.c_customer_sk\n         and d_month_seq between 1182 and 1182+11\n         and ws_list_price between 233 and 262\n         and c_birth_year BETWEEN 1983 AND 1989\n         and ws_wholesale_cost BETWEEN 90 AND 100\n         )\n) cool_cust",
+   "plans": 300,
+   "median_runtime_ms": 427.573,
+   "max_runtime_ms": 1492.809,
+   "timed_out": 0,
+   "nodes": 37,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Unique"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query092",
+   "demo": false,
+   "sql": "select \n   sum(ws_ext_discount_amt)  as \"Excess Discount Amount\"\nfrom\n    web_sales\n   ,item\n   ,date_dim\nwhere\n(i_manufact_id BETWEEN 75 and 274\nor i_category IN ('Books', 'Children', 'Sports'))\nand i_item_sk = ws_item_sk\nand d_date between '2000-01-23' and\n        cast('2000-01-23' as date) + interval '90 day'\nand d_date_sk = ws_sold_date_sk\nand ws_wholesale_cost BETWEEN 30 AND 50\nand ws_ext_discount_amt\n     > (\n         SELECT\n            1.3 * avg(ws_ext_discount_amt)\n         FROM\n            web_sales\n           ,date_dim\n         WHERE\n              ws_item_sk = i_item_sk\n          and d_date between '2000-01-23' and\n                             cast('2000-01-23' as date) + interval '90 day'\n          and d_date_sk = ws_sold_date_sk\n          and ws_wholesale_cost BETWEEN 30 AND 50\n          and ws_sales_price / ws_list_price BETWEEN 85 * 0.01 AND 100 * 0.01\n  )\norder by sum(ws_ext_discount_amt)\nlimit 100",
+   "plans": 251,
+   "median_runtime_ms": 4991.497,
+   "max_runtime_ms": 9905.765,
+   "timed_out": 190,
+   "nodes": 16,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Nested Loop"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/multi/query094",
+   "demo": false,
+   "sql": "select \n   count(distinct ws_order_number) as \"order count\"\n  ,sum(ws_ext_ship_cost) as \"total shipping cost\"\n  ,sum(ws_net_profit) as \"total net profit\"\nfrom\n   web_sales ws1\n  ,date_dim\n  ,customer_address\n  ,web_site\nwhere\n    d_date between '2001-3-01' and\n           cast('2001-3-01' as date) + interval '60 day'\nand ws1.ws_ship_date_sk = d_date_sk\nand ws1.ws_ship_addr_sk = ca_address_sk\nand ca_state in ('GA','LA','MI'\n            ,'OH' ,'TX' ,'VA')\nand ws1.ws_web_site_sk = web_site_sk\nand web_gmt_offset >= -5\nand ws1.ws_list_price between 231 and 260\nand exists (select *\n            from web_sales ws2\n            where ws1.ws_order_number = ws2.ws_order_number\n              and ws1.ws_warehouse_sk <> ws2.ws_warehouse_sk)\nand not exists(select *\n               from web_returns wr1\n               where ws1.ws_order_number = wr1.wr_order_number\n               and wr1.wr_reason_sk in (11, 20, 27, 32, 65)\n               )\norder by count(distinct ws_order_number)\nlimit 100",
+   "plans": 299,
+   "median_runtime_ms": 168.8,
+   "max_runtime_ms": 3880.171,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query013_spj",
+   "demo": false,
+   "sql": "select min(ss_quantity)\n       ,min(ss_ext_sales_price)\n       ,min(ss_ext_wholesale_cost)\n       ,min(ss_ext_wholesale_cost)\n from store_sales\n     ,store\n     ,customer_demographics\n     ,household_demographics\n     ,customer_address\n     ,date_dim\n where s_store_sk = ss_store_sk\n and  ss_sold_date_sk = d_date_sk and d_year = 2001\n and((ss_hdemo_sk=hd_demo_sk\n  and cd_demo_sk = ss_cdemo_sk\n  and cd_marital_status = 'U'\n  and cd_education_status = 'Unknown'\n  and ss_sales_price between 100.00 and 150.00\n  and hd_dep_count = 3\n     )or\n     (ss_hdemo_sk=hd_demo_sk\n  and cd_demo_sk = ss_cdemo_sk\n  and cd_marital_status = 'S'\n  and cd_education_status = '4 yr Degree'\n  and ss_sales_price between 50.00 and 100.00\n  and hd_dep_count = 1\n     ) or\n     (ss_hdemo_sk=hd_demo_sk\n  and cd_demo_sk = ss_cdemo_sk\n  and cd_marital_status = 'U'\n  and cd_education_status = 'College'\n  and ss_sales_price between 150.00 and 200.00\n  and hd_dep_count = 1\n     ))\n and((ss_addr_sk = ca_address_sk\n  and ca_country = 'United States'\n  and ca_state in ('MS', 'OK', 'WA')\n  and ss_net_profit between 100 and 200\n     ) or\n     (ss_addr_sk = ca_address_sk\n  and ca_country = 'United States'\n  and ca_state in ('AR', 'KY', 'UT')\n  and ss_net_profit between 150 and 300\n     ) or\n     (ss_addr_sk = ca_address_sk\n  and ca_country = 'United States'\n  and ca_state in ('MN', 'ND', 'SC')\n  and ss_net_profit between 50 and 250\n     ))",
+   "plans": 83,
+   "median_runtime_ms": 190.366,
+   "max_runtime_ms": 1364.363,
+   "timed_out": 0,
+   "nodes": 16,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query018_spj",
+   "demo": false,
+   "sql": "select min(i_item_id),\n        min(ca_country),\n        min(ca_state),\n        min(ca_county),\n        min(cs_quantity),\n        min(cs_list_price),\n        min(cs_coupon_amt),\n        min(cs_sales_price),\n        min(cs_net_profit),\n        min(c_birth_year),\n        min(cd_dep_count)\n from catalog_sales, customer_demographics, customer, customer_address, date_dim, item\n where cs_sold_date_sk = d_date_sk and\n       cs_item_sk = i_item_sk and\n       cs_bill_cdemo_sk = cd_demo_sk and\n       cs_bill_customer_sk = c_customer_sk and\n       cd_gender = 'F' and\n       cd_education_status = 'Advanced Degree' and\n       c_current_addr_sk = ca_address_sk and\n       d_year = 2000 and\n       c_birth_month = 5 and\n       ca_state in ('AR', 'KY', 'UT')\n       and cs_wholesale_cost BETWEEN 36 AND 41\n       AND i_category = 'Jewelry'",
+   "plans": 300,
+   "median_runtime_ms": 98.689,
+   "max_runtime_ms": 652.978,
+   "timed_out": 0,
+   "nodes": 14,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query019_spj",
+   "demo": false,
+   "sql": "select min(i_brand_id), min(i_manufact_id),\n \tmin(ss_ext_sales_price)\n from date_dim, store_sales, item,customer,customer_address,store\n where d_date_sk = ss_sold_date_sk\n   and ss_item_sk = i_item_sk\n   and ss_customer_sk = c_customer_sk\n   and c_current_addr_sk = ca_address_sk\n   and ss_store_sk = s_store_sk\n   AND i_category  = 'Sports'\n   and d_year=2000\n   and d_moy = 1\n   and substring(ca_zip,1,5) <> substring(s_zip,1,5)\n   and ca_state  = 'ND'\n   and c_birth_month = 11\n   and ss_wholesale_cost BETWEEN 80 AND 100",
+   "plans": 297,
+   "median_runtime_ms": 25.324,
+   "max_runtime_ms": 746.439,
+   "timed_out": 0,
+   "nodes": 15,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query025_spj",
+   "demo": false,
+   "sql": "select\n min(i_item_id)\n ,min(i_item_desc)\n ,min(s_store_id)\n ,min(s_store_name)\n ,min(ss_net_profit)\n ,min(sr_net_loss)\n ,min(cs_net_profit)\n ,min(ss_item_sk)\n ,min(sr_ticket_number)\n ,min(cs_order_number)\n from\n store_sales\n ,store_returns\n ,catalog_sales\n ,date_dim d1\n ,date_dim d2\n ,date_dim d3\n ,store\n ,item\n where\n d1.d_moy = 6\n and d1.d_year = 2001\n and d1.d_date_sk = ss_sold_date_sk\n and i_item_sk = ss_item_sk\n and s_store_sk = ss_store_sk\n and ss_customer_sk = sr_customer_sk\n and ss_item_sk = sr_item_sk\n and ss_ticket_number = sr_ticket_number\n and sr_returned_date_sk = d2.d_date_sk\n and d2.d_moy               between 6 and  6 + 2\n and d2.d_year              = 2001\n and sr_customer_sk = cs_bill_customer_sk\n and sr_item_sk = cs_item_sk\n and cs_sold_date_sk = d3.d_date_sk\n and d3.d_moy               between 6 and  6 + 2\n and d3.d_year              = 2001",
+   "plans": 112,
+   "median_runtime_ms": 82.884,
+   "max_runtime_ms": 6642.901,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query027_spj",
+   "demo": false,
+   "sql": "select min(i_item_id),\n        min(s_state),\n        min(ss_quantity),\n        min(ss_list_price),\n        min(ss_coupon_amt),\n        min(ss_sales_price),\n        min(ss_item_sk),\n        min(ss_ticket_number)\n from store_sales, customer_demographics, date_dim, store, item\n where ss_sold_date_sk = d_date_sk and\n       ss_item_sk = i_item_sk and\n       ss_store_sk = s_store_sk and\n       ss_cdemo_sk = cd_demo_sk and\n       cd_gender = 'F' and\n       cd_marital_status = 'D' and\n       cd_education_status = 'Secondary' and\n       d_year = 2000 and\n       s_state = 'SC' and\n      i_category  = 'Jewelry'",
+   "plans": 187,
+   "median_runtime_ms": 9.38,
+   "max_runtime_ms": 515.383,
+   "timed_out": 0,
+   "nodes": 13,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query040_spj",
+   "demo": false,
+   "sql": "select\n   min(w_state)\n  ,min(i_item_id)\n  ,min(cs_item_sk)\n  ,min(cs_order_number)\n  ,min(cr_item_sk)\n  ,min(cr_order_number)\n from\n   catalog_sales left outer join catalog_returns on\n       (cs_order_number = cr_order_number\n        and cs_item_sk = cr_item_sk)\n  ,warehouse\n  ,item\n  ,date_dim\n where\n i_item_sk          = cs_item_sk\n and cs_warehouse_sk    = w_warehouse_sk\n and cs_sold_date_sk    = d_date_sk\n and d_date between (cast ('2002-03-12' as date) - interval '30 day')\n                and (cast ('2002-03-12' as date) + interval '30 day') \n and i_category  = 'Sports'\n and i_manager_id between 59 and 98\n and cs_wholesale_cost between 33 and 52\n and cr_reason_sk = 46",
+   "plans": 169,
+   "median_runtime_ms": 34.356,
+   "max_runtime_ms": 63.95,
+   "timed_out": 0,
+   "nodes": 11,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query050_spj",
+   "demo": false,
+   "sql": "select\n   min(s_store_name)\n  ,min(s_company_id)\n  ,min(s_street_number)\n  ,min(s_street_name)\n  ,min(s_suite_number)\n  ,min(s_city)\n  ,min(s_zip)\n  ,min(ss_ticket_number)\n  ,min(ss_sold_date_sk)\n  ,min(sr_returned_date_sk)\n  ,min(ss_item_sk)\n  ,min(d1.d_date_sk)\nfrom\n   store_sales\n  ,store_returns\n  ,store\n  ,date_dim d1\n  ,date_dim d2\nwhere\n    d2.d_moy = 1\nand ss_ticket_number = sr_ticket_number\nand ss_item_sk = sr_item_sk\nand ss_sold_date_sk   = d1.d_date_sk\nand sr_returned_date_sk   = d2.d_date_sk\nand ss_customer_sk = sr_customer_sk\nand ss_store_sk = s_store_sk\nand sr_store_sk = s_store_sk\nand d1.d_date between (d2.d_date - interval '120 day')\n               and d2.d_date\nand d1.d_dow = 4\nand s_state in ('ND','SC','UT')",
+   "plans": 112,
+   "median_runtime_ms": 11.672,
+   "max_runtime_ms": 313.592,
+   "timed_out": 0,
+   "nodes": 13,
+   "top_ops": [
+    "Nested Loop",
+    "Seq Scan",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query072_spj",
+   "demo": false,
+   "sql": "select min(i_item_sk)\n      ,min(w_warehouse_name)\n      ,min(d1.d_week_seq)\n      ,min(cs_item_sk)\n      ,min(cs_order_number)\n      ,min(inv_item_sk)\nfrom catalog_sales\njoin inventory on (cs_item_sk = inv_item_sk)\njoin warehouse on (w_warehouse_sk=inv_warehouse_sk)\njoin item on (i_item_sk = cs_item_sk)\njoin customer_demographics on (cs_bill_cdemo_sk = cd_demo_sk)\njoin household_demographics on (cs_bill_hdemo_sk = hd_demo_sk)\njoin date_dim d1 on (cs_sold_date_sk = d1.d_date_sk)\njoin date_dim d2 on (inv_date_sk = d2.d_date_sk)\njoin date_dim d3 on (cs_ship_date_sk = d3.d_date_sk)\nleft outer join promotion on (cs_promo_sk=p_promo_sk)\nleft outer join catalog_returns on (cr_item_sk = cs_item_sk and cr_order_number = cs_order_number)\nwhere d1.d_week_seq = d2.d_week_seq\n  and inv_quantity_on_hand < cs_quantity\n  and d3.d_date > d1.d_date + interval '3 day'\n  and hd_buy_potential = '>10000'\n  and d1.d_year = 2002\n  and cd_marital_status = 'D'\n  and cd_dep_count between 4 and 6\n  and i_category IN ('Books', 'Children', 'Sports')\n  and cs_wholesale_cost BETWEEN 80 AND 100",
+   "plans": 254,
+   "median_runtime_ms": 178.336,
+   "max_runtime_ms": 621.308,
+   "timed_out": 0,
+   "nodes": 22,
+   "top_ops": [
+    "Index Scan",
+    "Nested Loop",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query084_spj",
+   "demo": false,
+   "sql": "select min(c_customer_id),\n    min(sr_ticket_number),\n    min(sr_item_sk)\n from customer\n     ,customer_address\n     ,customer_demographics\n     ,household_demographics\n     ,income_band\n     ,store_returns\n where ca_city\t        =  'Newport'\n   and c_current_addr_sk = ca_address_sk\n   and ib_lower_bound   >=  3 * 10000\n   and ib_upper_bound   <=  3 * 10000 + 50000\n   and ib_income_band_sk = hd_income_band_sk\n   and cd_demo_sk = c_current_cdemo_sk\n   and hd_demo_sk = c_current_hdemo_sk\n   and sr_cdemo_sk = cd_demo_sk",
+   "plans": 141,
+   "median_runtime_ms": 77.993,
+   "max_runtime_ms": 217.943,
+   "timed_out": 0,
+   "nodes": 17,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query085_spj",
+   "demo": false,
+   "sql": "select min(ws_quantity)\n       ,min(wr_refunded_cash)\n       ,min(wr_fee)\n       ,min(ws_item_sk)\n       ,min(wr_order_number)\n       ,min(cd1.cd_demo_sk)\n\t   ,min(cd2.cd_demo_sk)\n from web_sales, web_returns, web_page, customer_demographics cd1,\n      customer_demographics cd2, customer_address, date_dim, reason\n where ws_web_page_sk = wp_web_page_sk\n   and ws_item_sk = wr_item_sk\n   and ws_order_number = wr_order_number\n   and ws_sold_date_sk = d_date_sk and d_year = 1998\n   and cd1.cd_demo_sk = wr_refunded_cdemo_sk\n   and cd2.cd_demo_sk = wr_returning_cdemo_sk\n   and ca_address_sk = wr_refunded_addr_sk\n   and r_reason_sk = wr_reason_sk\n   and\n   (\n    (\n     cd1.cd_marital_status = 'S'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = '4 yr Degree'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 100.00 and 150.00\n    )\n   or\n    (\n     cd1.cd_marital_status = 'U'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = 'College'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 50.00 and 100.00\n    )\n   or\n    (\n     cd1.cd_marital_status = 'M'\n     and\n     cd1.cd_marital_status = cd2.cd_marital_status\n     and\n     cd1.cd_education_status = 'Unknown'\n     and\n     cd1.cd_education_status = cd2.cd_education_status\n     and\n     ws_sales_price between 150.00 and 200.00\n    )\n   )\n   and\n   (\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('MN', 'MS', 'WA')\n     and ws_net_profit between 100 and 200\n    )\n    or\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('AR', 'KY', 'OK')\n     and ws_net_profit between 150 and 300\n    )\n    or\n    (\n     ca_country = 'United States'\n     and\n     ca_state in ('ND', 'SC', 'UT')\n     and ws_net_profit between 50 and 250\n    )\n   )",
+   "plans": 115,
+   "median_runtime_ms": 132.039,
+   "max_runtime_ms": 316.375,
+   "timed_out": 0,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query091_spj",
+   "demo": false,
+   "sql": "select  \n        min(cc_call_center_id),\n        min(cc_name),\n        min(cc_manager),\n        min(cr_net_loss),\n        min(cr_item_sk),\n        min(cr_order_number)\nfrom\n        call_center,\n        catalog_returns,\n        date_dim,\n        customer,\n        customer_address,\n        customer_demographics,\n        household_demographics\nwhere\n        cr_call_center_sk       = cc_call_center_sk\nand     cr_returned_date_sk     = d_date_sk\nand     cr_returning_customer_sk= c_customer_sk\nand     cd_demo_sk              = c_current_cdemo_sk\nand     hd_demo_sk              = c_current_hdemo_sk\nand     ca_address_sk           = c_current_addr_sk\nand     d_year                  = 2000 \nand     d_moy                   = 5\nand     ( (cd_marital_status       = 'M' and cd_education_status     = 'Unknown')\n        or(cd_marital_status       = 'W' and cd_education_status     = 'Advanced Degree'))\nand     hd_buy_potential like 'Unknown%'\nand     ca_gmt_offset           = -7",
+   "plans": 163,
+   "median_runtime_ms": 48.828,
+   "max_runtime_ms": 120.477,
+   "timed_out": 0,
+   "nodes": 16,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query099_spj",
+   "demo": false,
+   "sql": "select min(w_warehouse_name)\n  ,min(sm_type)\n  ,min(cc_name)\n  ,min(cs_order_number)\n  ,min(cs_item_sk)\nfrom\n   catalog_sales\n  ,warehouse\n  ,ship_mode\n  ,call_center\n  ,date_dim\nwhere\n    d_month_seq between 1180 and 1180 + 23\nand cs_ship_date_sk   = d_date_sk\nand cs_warehouse_sk   = w_warehouse_sk\nand cs_ship_mode_sk   = sm_ship_mode_sk\nand cs_call_center_sk = cc_call_center_sk\nand cs_list_price between 58 and 87\nand sm_type = 'TWO DAY'\nand cc_class = 'medium'\nand w_gmt_offset = -5",
+   "plans": 294,
+   "median_runtime_ms": 194.845,
+   "max_runtime_ms": 754.928,
+   "timed_out": 0,
+   "nodes": 15,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query100_spj",
+   "demo": false,
+   "sql": "select min(item1.i_item_sk),\n    min(item2.i_item_sk),\n    min(s1.ss_ticket_number),\n    min(s1.ss_item_sk)\nFROM item AS item1,\nitem AS item2,\nstore_sales AS s1,\nstore_sales AS s2,\ndate_dim,\ncustomer,\ncustomer_address,\ncustomer_demographics\nWHERE\nitem1.i_item_sk < item2.i_item_sk\nAND s1.ss_ticket_number = s2.ss_ticket_number\nAND s1.ss_item_sk = item1.i_item_sk and s2.ss_item_sk = item2.i_item_sk\nAND s1.ss_customer_sk = c_customer_sk\nand c_current_addr_sk = ca_address_sk\nand c_current_cdemo_sk = cd_demo_sk\nAND d_year between 1999 and 1999 + 1\nand d_date_sk = s1.ss_sold_date_sk\nand item1.i_category in ('Children', 'Music')\nand item2.i_manager_id between 58 and 77\nand cd_marital_status = 'D'\nand cd_education_status = 'College'\nand s1.ss_list_price between 196 and 210\nand s2.ss_list_price between 196 and 210",
+   "plans": 300,
+   "median_runtime_ms": 484.531,
+   "max_runtime_ms": 9759.217,
+   "timed_out": 8,
+   "nodes": 18,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Index Only Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query101_spj",
+   "demo": false,
+   "sql": "select min(c_customer_sk), min(ss_item_sk), min(sr_ticket_number), min(ws_order_number)\nFROM\nstore_sales,\nstore_returns,\nweb_sales,\ndate_dim d1,\ndate_dim d2,\nitem,\ncustomer,\ncustomer_address,\nhousehold_demographics\nWHERE\nss_ticket_number = sr_ticket_number\nAND ss_customer_sk = ws_bill_customer_sk\nAND ss_customer_sk = c_customer_sk\nAND c_current_addr_sk = ca_address_sk\nAND c_current_hdemo_sk = hd_demo_sk\nAND ss_item_sk = sr_item_sk\nAND sr_item_sk = ws_item_sk\nAND i_item_sk = ss_item_sk\nAND i_category IN ('Books', 'Children', 'Sports')\nAND sr_returned_date_sk = d1.d_date_sk\nAND ws_sold_date_sk = d2.d_date_sk\nAND d2.d_date between d1.d_date AND (d1.d_date + interval '90 day')\nAND ca_state in ('AR', 'KY', 'MS', 'OK', 'UT')\nAND d1.d_year = 1998\nAND hd_income_band_sk BETWEEN 1 AND 7\nAND hd_buy_potential = '>10000'\nAND ss_sales_price / ss_list_price BETWEEN 80 * 0.01 AND 100 * 0.01",
+   "plans": 206,
+   "median_runtime_ms": 410.115,
+   "max_runtime_ms": 7875.005,
+   "timed_out": 1,
+   "nodes": 20,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "dsb",
+   "template_id": "dsb/spj/query102_spj",
+   "demo": false,
+   "sql": "select min(ss_item_sk),\n    min(ss_ticket_number),\n    min(ws_order_number),\n    min(c_customer_sk),\n    min(cd_demo_sk),\n    min(hd_demo_sk)\nfrom\n    store_sales,\n    web_sales,\n    date_dim d1,\n    date_dim d2,\n    customer,\n    inventory,\n    store,\n    warehouse,\n    item,\n    customer_demographics,\n    household_demographics,\n    customer_address\nwhere\n    ss_item_sk = i_item_sk\n    and ws_item_sk = ss_item_sk\n    and ss_sold_date_sk = d1.d_date_sk\n    and ws_sold_date_sk = d2.d_date_sk\n    and d2.d_date between d1.d_date and (d1.d_date + interval '30 day')\n    and ss_customer_sk = c_customer_sk\n    and ws_bill_customer_sk = c_customer_sk\n    and ws_warehouse_sk = inv_warehouse_sk\n    and ws_warehouse_sk = w_warehouse_sk\n    and inv_item_sk = ss_item_sk\n    and inv_date_sk = ss_sold_date_sk\n    and inv_quantity_on_hand >= ss_quantity\n    and s_state = w_state\n    AND i_category IN ('Books', 'Children', 'Sports')\n    and i_manager_id IN (5, 35, 45, 46, 48, 51, 54, 73, 85, 94)\n    and c_current_cdemo_sk = cd_demo_sk\n    and c_current_hdemo_sk = hd_demo_sk\n    and c_current_addr_sk = ca_address_sk\n    and ca_state in ('AL', 'GA', 'IN', 'NC', 'OH')\n    and d1.d_year = 2001\n    and ws_wholesale_cost BETWEEN 80 AND 100",
+   "plans": 300,
+   "median_runtime_ms": 213.666,
+   "max_runtime_ms": 7181.435,
+   "timed_out": 9,
+   "nodes": 26,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/brand_by_category",
+   "demo": false,
+   "sql": "SELECT p.brand, COUNT(*) FROM sales s JOIN products p ON p.product_id = s.product_id WHERE p.category = 'toys' AND s.quantity >= 3 GROUP BY p.brand",
+   "plans": 112,
+   "median_runtime_ms": 433.996,
+   "max_runtime_ms": 1480.435,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/city_signups",
+   "demo": false,
+   "sql": "SELECT COUNT(*) FROM customers WHERE city = 'Bhopal' AND signup_date >= '2025-03-29'",
+   "plans": 105,
+   "median_runtime_ms": 18.502,
+   "max_runtime_ms": 50.541,
+   "timed_out": 0,
+   "nodes": 4,
+   "top_ops": [
+    "Aggregate",
+    "Gather",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/customer_recent_orders",
+   "demo": false,
+   "sql": "SELECT order_id, amount FROM sales WHERE customer_id = 81866 ORDER BY transaction_date DESC LIMIT 20",
+   "plans": 40,
+   "median_runtime_ms": 70.313,
+   "max_runtime_ms": 775.789,
+   "timed_out": 0,
+   "nodes": 4,
+   "top_ops": [
+    "Limit",
+    "Sort",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/customer_segment_spend",
+   "demo": false,
+   "sql": "SELECT c.city, COUNT(DISTINCT s.customer_id), SUM(s.amount) FROM customers c JOIN sales s ON s.customer_id = c.customer_id WHERE c.segment = 'retail' AND c.signup_date >= '2026-07-13' GROUP BY c.city",
+   "plans": 239,
+   "median_runtime_ms": 388.337,
+   "max_runtime_ms": 1178.978,
+   "timed_out": 0,
+   "nodes": 7,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/large_orders",
+   "demo": false,
+   "sql": "SELECT s.order_id, p.category, s.amount FROM sales s JOIN products p ON p.product_id = s.product_id WHERE s.amount > 3331.78 AND s.transaction_date >= '2024-08-28' ORDER BY s.amount DESC LIMIT 50",
+   "plans": 174,
+   "median_runtime_ms": 433.47,
+   "max_runtime_ms": 3544.594,
+   "timed_out": 0,
+   "nodes": 6,
+   "top_ops": [
+    "Seq Scan",
+    "Limit",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/q1",
+   "demo": true,
+   "sql": "SELECT SUM(amount) FROM sales WHERE region_id = 4 AND transaction_date >= '2025-09-23'",
+   "plans": 186,
+   "median_runtime_ms": 201.313,
+   "max_runtime_ms": 770.791,
+   "timed_out": 0,
+   "nodes": 4,
+   "top_ops": [
+    "Aggregate",
+    "Gather",
+    "Bitmap Heap Scan"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/q2",
+   "demo": true,
+   "sql": "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = 9 AND date_trunc('month', s.transaction_date) = '2026-02-01' GROUP BY p.category",
+   "plans": 20,
+   "median_runtime_ms": 556.616,
+   "max_runtime_ms": 1602.676,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/q2_rewritten",
+   "demo": true,
+   "sql": "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = 4 AND s.transaction_date >= '2024-09-01' AND s.transaction_date < '2024-10-01' GROUP BY p.category",
+   "plans": 190,
+   "median_runtime_ms": 204.267,
+   "max_runtime_ms": 678.659,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/q3_month_report",
+   "demo": true,
+   "sql": "SELECT store_id, COUNT(*), SUM(amount) FROM sales WHERE transaction_date >= '2025-04-01' AND transaction_date < '2025-05-01' GROUP BY store_id",
+   "plans": 101,
+   "median_runtime_ms": 198.281,
+   "max_runtime_ms": 580.344,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Gather Merge",
+    "Sort"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/q4_segment_date",
+   "demo": true,
+   "sql": "SELECT c.segment, s.transaction_date, SUM(s.amount) FROM sales s JOIN customers c ON c.customer_id = s.customer_id WHERE c.segment = 'student' AND s.transaction_date BETWEEN '2024-11-03' AND '2024-12-03' GROUP BY c.segment, s.transaction_date",
+   "plans": 222,
+   "median_runtime_ms": 254.321,
+   "max_runtime_ms": 730.807,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/region_daily",
+   "demo": false,
+   "sql": "SELECT transaction_date, SUM(amount) FROM sales WHERE region_id IN (2, 5) AND transaction_date BETWEEN '2024-12-18' AND '2025-03-21' GROUP BY transaction_date",
+   "plans": 254,
+   "median_runtime_ms": 211.305,
+   "max_runtime_ms": 684.834,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Sort",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/returns_by_reason",
+   "demo": false,
+   "sql": "SELECT r.reason, COUNT(*), AVG(r.return_date - s.transaction_date) FROM returns r JOIN sales s ON s.order_id = r.order_id WHERE s.region_id = 12 AND r.return_date >= '2026-02-04' GROUP BY r.reason",
+   "plans": 252,
+   "median_runtime_ms": 301.993,
+   "max_runtime_ms": 1467.535,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/store_city_top",
+   "demo": false,
+   "sql": "SELECT st.city, SUM(s.amount) FROM sales s JOIN stores st ON st.store_id = s.store_id WHERE s.region_id = 12 GROUP BY st.city ORDER BY 2 DESC LIMIT 10",
+   "plans": 109,
+   "median_runtime_ms": 235.947,
+   "max_runtime_ms": 1205.992,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Sort",
+    "Aggregate",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "quickmart",
+   "template_id": "qm/store_payment_mix",
+   "demo": false,
+   "sql": "SELECT payment_method, SUM(amount) FROM sales WHERE store_id = 128 AND transaction_date >= '2025-12-10' GROUP BY payment_method",
+   "plans": 184,
+   "median_runtime_ms": 41.253,
+   "max_runtime_ms": 1140.996,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Bitmap Heap Scan",
+    "Bitmap Index Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/brand_by_category",
+   "demo": false,
+   "sql": "SELECT p.brand, COUNT(*) FROM sales s JOIN products p ON p.product_id = s.product_id WHERE p.category = 'toys' AND s.quantity >= 3 GROUP BY p.brand",
+   "plans": 45,
+   "median_runtime_ms": 85.835,
+   "max_runtime_ms": 194.313,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/city_signups",
+   "demo": false,
+   "sql": "SELECT COUNT(*) FROM customers WHERE city = 'Bhopal' AND signup_date >= '2025-03-29'",
+   "plans": 84,
+   "median_runtime_ms": 2.361,
+   "max_runtime_ms": 4.728,
+   "timed_out": 0,
+   "nodes": 2,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Bitmap Heap Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/customer_recent_orders",
+   "demo": false,
+   "sql": "SELECT order_id, amount FROM sales WHERE customer_id = 16374 ORDER BY transaction_date DESC LIMIT 20",
+   "plans": 0,
+   "median_runtime_ms": null,
+   "max_runtime_ms": null,
+   "timed_out": 0,
+   "nodes": null,
+   "top_ops": []
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/customer_segment_spend",
+   "demo": false,
+   "sql": "SELECT c.city, COUNT(DISTINCT s.customer_id), SUM(s.amount) FROM customers c JOIN sales s ON s.customer_id = c.customer_id WHERE c.segment = 'retail' AND c.signup_date >= '2026-07-13' GROUP BY c.city",
+   "plans": 221,
+   "median_runtime_ms": 81.037,
+   "max_runtime_ms": 186.941,
+   "timed_out": 0,
+   "nodes": 7,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Sort"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/large_orders",
+   "demo": false,
+   "sql": "SELECT s.order_id, p.category, s.amount FROM sales s JOIN products p ON p.product_id = s.product_id WHERE s.amount > 3331.78 AND s.transaction_date >= '2024-08-28' ORDER BY s.amount DESC LIMIT 50",
+   "plans": 96,
+   "median_runtime_ms": 70.518,
+   "max_runtime_ms": 169.022,
+   "timed_out": 0,
+   "nodes": 6,
+   "top_ops": [
+    "Limit",
+    "Sort",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/q1",
+   "demo": true,
+   "sql": "SELECT SUM(amount) FROM sales WHERE region_id = 4 AND transaction_date >= '2025-09-23'",
+   "plans": 113,
+   "median_runtime_ms": 27.627,
+   "max_runtime_ms": 121.533,
+   "timed_out": 0,
+   "nodes": 4,
+   "top_ops": [
+    "Aggregate",
+    "Bitmap Heap Scan",
+    "Bitmap Index Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/q2",
+   "demo": true,
+   "sql": "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = 9 AND date_trunc('month', s.transaction_date) = '2026-02-01' GROUP BY p.category",
+   "plans": 10,
+   "median_runtime_ms": 156.255,
+   "max_runtime_ms": 266.884,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/q2_rewritten",
+   "demo": true,
+   "sql": "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = 4 AND s.transaction_date >= '2024-09-01' AND s.transaction_date < '2024-10-01' GROUP BY p.category",
+   "plans": 125,
+   "median_runtime_ms": 23.272,
+   "max_runtime_ms": 134.966,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Nested Loop"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/q3_month_report",
+   "demo": true,
+   "sql": "SELECT store_id, COUNT(*), SUM(amount) FROM sales WHERE transaction_date >= '2025-04-01' AND transaction_date < '2025-05-01' GROUP BY store_id",
+   "plans": 50,
+   "median_runtime_ms": 20.733,
+   "max_runtime_ms": 111.081,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Bitmap Heap Scan",
+    "Bitmap Index Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/q4_segment_date",
+   "demo": true,
+   "sql": "SELECT c.segment, s.transaction_date, SUM(s.amount) FROM sales s JOIN customers c ON c.customer_id = s.customer_id WHERE c.segment = 'student' AND s.transaction_date BETWEEN '2024-11-03' AND '2024-12-03' GROUP BY c.segment, s.transaction_date",
+   "plans": 162,
+   "median_runtime_ms": 55.575,
+   "max_runtime_ms": 117.365,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/region_daily",
+   "demo": false,
+   "sql": "SELECT transaction_date, SUM(amount) FROM sales WHERE region_id IN (2, 5) AND transaction_date BETWEEN '2024-12-18' AND '2025-03-21' GROUP BY transaction_date",
+   "plans": 189,
+   "median_runtime_ms": 35.2,
+   "max_runtime_ms": 124.182,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Bitmap Heap Scan",
+    "Bitmap Index Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/returns_by_reason",
+   "demo": false,
+   "sql": "SELECT r.reason, COUNT(*), AVG(r.return_date - s.transaction_date) FROM returns r JOIN sales s ON s.order_id = r.order_id WHERE s.region_id = 12 AND r.return_date >= '2026-02-04' GROUP BY r.reason",
+   "plans": 190,
+   "median_runtime_ms": 60.274,
+   "max_runtime_ms": 174.185,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/store_city_top",
+   "demo": false,
+   "sql": "SELECT st.city, SUM(s.amount) FROM sales s JOIN stores st ON st.store_id = s.store_id WHERE s.region_id = 12 GROUP BY st.city ORDER BY 2 DESC LIMIT 10",
+   "plans": 45,
+   "median_runtime_ms": 42.463,
+   "max_runtime_ms": 131.637,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Sort",
+    "Aggregate",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "quickmart_1000000",
+   "template_id": "qm/store_payment_mix",
+   "demo": false,
+   "sql": "SELECT payment_method, SUM(amount) FROM sales WHERE store_id = 128 AND transaction_date >= '2025-12-10' GROUP BY payment_method",
+   "plans": 140,
+   "median_runtime_ms": 1.953,
+   "max_runtime_ms": 105.419,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Bitmap Heap Scan",
+    "Bitmap Index Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q01",
+   "demo": false,
+   "sql": "select\n\tl_returnflag,\n\tl_linestatus,\n\tsum(l_quantity) as sum_qty,\n\tsum(l_extendedprice) as sum_base_price,\n\tsum(l_extendedprice * (1 - l_discount)) as sum_disc_price,\n\tsum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,\n\tavg(l_quantity) as avg_qty,\n\tavg(l_extendedprice) as avg_price,\n\tavg(l_discount) as avg_disc,\n\tcount(*) as count_order\nfrom\n\tlineitem\nwhere\n\tl_shipdate <= date '1998-12-01' - interval '91' day\ngroup by\n\tl_returnflag,\n\tl_linestatus\norder by\n\tl_returnflag,\n\tl_linestatus",
+   "plans": 20,
+   "median_runtime_ms": 2681.605,
+   "max_runtime_ms": 8030.243,
+   "timed_out": 0,
+   "nodes": 5,
+   "top_ops": [
+    "Aggregate",
+    "Gather Merge",
+    "Sort"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q02",
+   "demo": false,
+   "sql": "select\n\ts_acctbal,\n\ts_name,\n\tn_name,\n\tp_partkey,\n\tp_mfgr,\n\ts_address,\n\ts_phone,\n\ts_comment\nfrom\n\tpart,\n\tsupplier,\n\tpartsupp,\n\tnation,\n\tregion\nwhere\n\tp_partkey = ps_partkey\n\tand s_suppkey = ps_suppkey\n\tand p_size = 35\n\tand p_type like '%COPPER'\n\tand s_nationkey = n_nationkey\n\tand n_regionkey = r_regionkey\n\tand r_name = 'ASIA'\n\tand ps_supplycost = (\n\t\tselect\n\t\t\tmin(ps_supplycost)\n\t\tfrom\n\t\t\tpartsupp,\n\t\t\tsupplier,\n\t\t\tnation,\n\t\t\tregion\n\t\twhere\n\t\t\tp_partkey = ps_partkey\n\t\t\tand s_suppkey = ps_suppkey\n\t\t\tand s_nationkey = n_nationkey\n\t\t\tand n_regionkey = r_regionkey\n\t\t\tand r_name = 'ASIA'\n\t)\norder by\n\ts_acctbal desc,\n\tn_name,\n\ts_name,\n\tp_partkey",
+   "plans": 60,
+   "median_runtime_ms": 361.858,
+   "max_runtime_ms": 528.8,
+   "timed_out": 0,
+   "nodes": 22,
+   "top_ops": [
+    "Seq Scan",
+    "Nested Loop",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q03",
+   "demo": false,
+   "sql": "select\n\tl_orderkey,\n\tsum(l_extendedprice * (1 - l_discount)) as revenue,\n\to_orderdate,\n\to_shippriority\nfrom\n\tcustomer,\n\torders,\n\tlineitem\nwhere\n\tc_mktsegment = 'HOUSEHOLD'\n\tand c_custkey = o_custkey\n\tand l_orderkey = o_orderkey\n\tand o_orderdate < date '1995-03-19'\n\tand l_shipdate > date '1995-03-19'\ngroup by\n\tl_orderkey,\n\to_orderdate,\n\to_shippriority\norder by\n\trevenue desc,\n\to_orderdate",
+   "plans": 40,
+   "median_runtime_ms": 608.409,
+   "max_runtime_ms": 1641.923,
+   "timed_out": 0,
+   "nodes": 11,
+   "top_ops": [
+    "Sort",
+    "Aggregate",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q04",
+   "demo": false,
+   "sql": "select\n\to_orderpriority,\n\tcount(*) as order_count\nfrom\n\torders\nwhere\n\to_orderdate >= date '1995-11-01'\n\tand o_orderdate < date '1995-11-01' + interval '3' month\n\tand exists (\n\t\tselect\n\t\t\t*\n\t\tfrom\n\t\t\tlineitem\n\t\twhere\n\t\t\tl_orderkey = o_orderkey\n\t\t\tand l_commitdate < l_receiptdate\n\t)\ngroup by\n\to_orderpriority\norder by\n\to_orderpriority",
+   "plans": 60,
+   "median_runtime_ms": 341.093,
+   "max_runtime_ms": 871.954,
+   "timed_out": 0,
+   "nodes": 7,
+   "top_ops": [
+    "Aggregate",
+    "Gather Merge",
+    "Sort"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q05",
+   "demo": false,
+   "sql": "select\n\tn_name,\n\tsum(l_extendedprice * (1 - l_discount)) as revenue\nfrom\n\tcustomer,\n\torders,\n\tlineitem,\n\tsupplier,\n\tnation,\n\tregion\nwhere\n\tc_custkey = o_custkey\n\tand l_orderkey = o_orderkey\n\tand l_suppkey = s_suppkey\n\tand c_nationkey = s_nationkey\n\tand s_nationkey = n_nationkey\n\tand n_regionkey = r_regionkey\n\tand r_name = 'EUROPE'\n\tand o_orderdate >= date '1993-01-01'\n\tand o_orderdate < date '1993-01-01' + interval '1' year\ngroup by\n\tn_name\norder by\n\trevenue desc",
+   "plans": 80,
+   "median_runtime_ms": 483.678,
+   "max_runtime_ms": 2911.414,
+   "timed_out": 0,
+   "nodes": 20,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q06",
+   "demo": false,
+   "sql": "select\n\tsum(l_extendedprice * l_discount) as revenue\nfrom\n\tlineitem\nwhere\n\tl_shipdate >= date '1993-01-01'\n\tand l_shipdate < date '1993-01-01' + interval '1' year\n\tand l_discount between 0.02 - 0.01 and 0.02 + 0.01\n\tand l_quantity < 25",
+   "plans": 40,
+   "median_runtime_ms": 636.027,
+   "max_runtime_ms": 1488.8,
+   "timed_out": 0,
+   "nodes": 4,
+   "top_ops": [
+    "Aggregate",
+    "Gather",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q07",
+   "demo": false,
+   "sql": "select\n\tsupp_nation,\n\tcust_nation,\n\tl_year,\n\tsum(volume) as revenue\nfrom\n\t(\n\t\tselect\n\t\t\tn1.n_name as supp_nation,\n\t\t\tn2.n_name as cust_nation,\n\t\t\textract(year from l_shipdate) as l_year,\n\t\t\tl_extendedprice * (1 - l_discount) as volume\n\t\tfrom\n\t\t\tsupplier,\n\t\t\tlineitem,\n\t\t\torders,\n\t\t\tcustomer,\n\t\t\tnation n1,\n\t\t\tnation n2\n\t\twhere\n\t\t\ts_suppkey = l_suppkey\n\t\t\tand o_orderkey = l_orderkey\n\t\t\tand c_custkey = o_custkey\n\t\t\tand s_nationkey = n1.n_nationkey\n\t\t\tand c_nationkey = n2.n_nationkey\n\t\t\tand (\n\t\t\t\t(n1.n_name = 'ARGENTINA' and n2.n_name = 'JAPAN')\n\t\t\t\tor (n1.n_name = 'JAPAN' and n2.n_name = 'ARGENTINA')\n\t\t\t)\n\t\t\tand l_shipdate between date '1995-01-01' and date '1996-12-31'\n\t) as shipping\ngroup by\n\tsupp_nation,\n\tcust_nation,\n\tl_year\norder by\n\tsupp_nation,\n\tcust_nation,\n\tl_year",
+   "plans": 40,
+   "median_runtime_ms": 2821.482,
+   "max_runtime_ms": 5683.167,
+   "timed_out": 0,
+   "nodes": 19,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q08",
+   "demo": false,
+   "sql": "select\n\to_year,\n\tsum(case\n\t\twhen nation = 'JAPAN' then volume\n\t\telse 0\n\tend) / sum(volume) as mkt_share\nfrom\n\t(\n\t\tselect\n\t\t\textract(year from o_orderdate) as o_year,\n\t\t\tl_extendedprice * (1 - l_discount) as volume,\n\t\t\tn2.n_name as nation\n\t\tfrom\n\t\t\tpart,\n\t\t\tsupplier,\n\t\t\tlineitem,\n\t\t\torders,\n\t\t\tcustomer,\n\t\t\tnation n1,\n\t\t\tnation n2,\n\t\t\tregion\n\t\twhere\n\t\t\tp_partkey = l_partkey\n\t\t\tand s_suppkey = l_suppkey\n\t\t\tand l_orderkey = o_orderkey\n\t\t\tand o_custkey = c_custkey\n\t\t\tand c_nationkey = n1.n_nationkey\n\t\t\tand n1.n_regionkey = r_regionkey\n\t\t\tand r_name = 'ASIA'\n\t\t\tand s_nationkey = n2.n_nationkey\n\t\t\tand o_orderdate between date '1995-01-01' and date '1996-12-31'\n\t\t\tand p_type = 'LARGE PLATED TIN'\n\t) as all_nations\ngroup by\n\to_year\norder by\n\to_year",
+   "plans": 91,
+   "median_runtime_ms": 612.647,
+   "max_runtime_ms": 1453.928,
+   "timed_out": 0,
+   "nodes": 24,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q09",
+   "demo": false,
+   "sql": "select\n\tnation,\n\to_year,\n\tsum(amount) as sum_profit\nfrom\n\t(\n\t\tselect\n\t\t\tn_name as nation,\n\t\t\textract(year from o_orderdate) as o_year,\n\t\t\tl_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity as amount\n\t\tfrom\n\t\t\tpart,\n\t\t\tsupplier,\n\t\t\tlineitem,\n\t\t\tpartsupp,\n\t\t\torders,\n\t\t\tnation\n\t\twhere\n\t\t\ts_suppkey = l_suppkey\n\t\t\tand ps_suppkey = l_suppkey\n\t\t\tand ps_partkey = l_partkey\n\t\t\tand p_partkey = l_partkey\n\t\t\tand o_orderkey = l_orderkey\n\t\t\tand s_nationkey = n_nationkey\n\t\t\tand p_name like '%mint%'\n\t) as profit\ngroup by\n\tnation,\n\to_year\norder by\n\tnation,\n\to_year desc",
+   "plans": 231,
+   "median_runtime_ms": 3134.423,
+   "max_runtime_ms": 9231.616,
+   "timed_out": 3,
+   "nodes": 18,
+   "top_ops": [
+    "Seq Scan",
+    "Nested Loop",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q10",
+   "demo": false,
+   "sql": "select\n\tc_custkey,\n\tc_name,\n\tsum(l_extendedprice * (1 - l_discount)) as revenue,\n\tc_acctbal,\n\tn_name,\n\tc_address,\n\tc_phone,\n\tc_comment\nfrom\n\tcustomer,\n\torders,\n\tlineitem,\n\tnation\nwhere\n\tc_custkey = o_custkey\n\tand l_orderkey = o_orderkey\n\tand o_orderdate >= date '1994-07-01'\n\tand o_orderdate < date '1994-07-01' + interval '3' month\n\tand l_returnflag = 'R'\n\tand c_nationkey = n_nationkey\ngroup by\n\tc_custkey,\n\tc_name,\n\tc_acctbal,\n\tc_phone,\n\tn_name,\n\tc_address,\n\tc_comment\norder by\n\trevenue desc",
+   "plans": 70,
+   "median_runtime_ms": 839.493,
+   "max_runtime_ms": 2158.267,
+   "timed_out": 0,
+   "nodes": 15,
+   "top_ops": [
+    "Seq Scan",
+    "Hash Join",
+    "Hash"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q11",
+   "demo": false,
+   "sql": "select\n\tps_partkey,\n\tsum(ps_supplycost * ps_availqty) as value\nfrom\n\tpartsupp,\n\tsupplier,\n\tnation\nwhere\n\tps_suppkey = s_suppkey\n\tand s_nationkey = n_nationkey\n\tand n_name = 'MOZAMBIQUE'\ngroup by\n\tps_partkey having\n\t\tsum(ps_supplycost * ps_availqty) > (\n\t\t\tselect\n\t\t\t\tsum(ps_supplycost * ps_availqty) * 0.0001000000\n\t\t\tfrom\n\t\t\t\tpartsupp,\n\t\t\t\tsupplier,\n\t\t\t\tnation\n\t\t\twhere\n\t\t\t\tps_suppkey = s_suppkey\n\t\t\t\tand s_nationkey = n_nationkey\n\t\t\t\tand n_name = 'MOZAMBIQUE'\n\t\t)\norder by\n\tvalue desc",
+   "plans": 40,
+   "median_runtime_ms": 174.362,
+   "max_runtime_ms": 424.829,
+   "timed_out": 0,
+   "nodes": 20,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q12",
+   "demo": false,
+   "sql": "select\n\tl_shipmode,\n\tsum(case\n\t\twhen o_orderpriority = '1-URGENT'\n\t\t\tor o_orderpriority = '2-HIGH'\n\t\t\tthen 1\n\t\telse 0\n\tend) as high_line_count,\n\tsum(case\n\t\twhen o_orderpriority <> '1-URGENT'\n\t\t\tand o_orderpriority <> '2-HIGH'\n\t\t\tthen 1\n\t\telse 0\n\tend) as low_line_count\nfrom\n\torders,\n\tlineitem\nwhere\n\to_orderkey = l_orderkey\n\tand l_shipmode in ('RAIL', 'MAIL')\n\tand l_commitdate < l_receiptdate\n\tand l_shipdate < l_commitdate\n\tand l_receiptdate >= date '1994-01-01'\n\tand l_receiptdate < date '1994-01-01' + interval '1' year\ngroup by\n\tl_shipmode\norder by\n\tl_shipmode",
+   "plans": 40,
+   "median_runtime_ms": 805.073,
+   "max_runtime_ms": 2039.547,
+   "timed_out": 0,
+   "nodes": 8,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q13",
+   "demo": false,
+   "sql": "select\n\tc_count,\n\tcount(*) as custdist\nfrom\n\t(\n\t\tselect\n\t\t\tc_custkey,\n\t\t\tcount(o_orderkey)\n\t\tfrom\n\t\t\tcustomer left outer join orders on\n\t\t\t\tc_custkey = o_custkey\n\t\t\t\tand o_comment not like '%unusual%requests%'\n\t\tgroup by\n\t\t\tc_custkey\n\t) as c_orders (c_custkey, c_count)\ngroup by\n\tc_count\norder by\n\tcustdist desc,\n\tc_count desc",
+   "plans": 20,
+   "median_runtime_ms": 1214.135,
+   "max_runtime_ms": 2122.293,
+   "timed_out": 0,
+   "nodes": 10,
+   "top_ops": [
+    "Aggregate",
+    "Sort",
+    "Gather Merge"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q14",
+   "demo": false,
+   "sql": "select\n\t100.00 * sum(case\n\t\twhen p_type like 'PROMO%'\n\t\t\tthen l_extendedprice * (1 - l_discount)\n\t\telse 0\n\tend) / sum(l_extendedprice * (1 - l_discount)) as promo_revenue\nfrom\n\tlineitem,\n\tpart\nwhere\n\tl_partkey = p_partkey\n\tand l_shipdate >= date '1994-09-01'\n\tand l_shipdate < date '1994-09-01' + interval '1' month",
+   "plans": 90,
+   "median_runtime_ms": 345.417,
+   "max_runtime_ms": 1130.006,
+   "timed_out": 0,
+   "nodes": 7,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q16",
+   "demo": false,
+   "sql": "select\n\tp_brand,\n\tp_type,\n\tp_size,\n\tcount(distinct ps_suppkey) as supplier_cnt\nfrom\n\tpartsupp,\n\tpart\nwhere\n\tp_partkey = ps_partkey\n\tand p_brand <> 'Brand#45'\n\tand p_type not like 'LARGE BRUSHED%'\n\tand p_size in (39, 30, 50, 28, 33, 46, 2, 47)\n\tand ps_suppkey not in (\n\t\tselect\n\t\t\ts_suppkey\n\t\tfrom\n\t\t\tsupplier\n\t\twhere\n\t\t\ts_comment like '%Customer%Complaints%'\n\t)\ngroup by\n\tp_brand,\n\tp_type,\n\tp_size\norder by\n\tsupplier_cnt desc,\n\tp_brand,\n\tp_type,\n\tp_size",
+   "plans": 20,
+   "median_runtime_ms": 400.494,
+   "max_runtime_ms": 869.64,
+   "timed_out": 0,
+   "nodes": 9,
+   "top_ops": [
+    "Sort",
+    "Seq Scan",
+    "Aggregate"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q17",
+   "demo": false,
+   "sql": "select\n\tsum(l_extendedprice) / 7.0 as avg_yearly\nfrom\n\tlineitem,\n\tpart\nwhere\n\tp_partkey = l_partkey\n\tand p_brand = 'Brand#54'\n\tand p_container = 'JUMBO CAN'\n\tand l_quantity < (\n\t\tselect\n\t\t\t0.2 * avg(l_quantity)\n\t\tfrom\n\t\t\tlineitem\n\t\twhere\n\t\t\tl_partkey = p_partkey\n\t)",
+   "plans": 87,
+   "median_runtime_ms": 1439.331,
+   "max_runtime_ms": 2154.038,
+   "timed_out": 30,
+   "nodes": 8,
+   "top_ops": [
+    "Seq Scan",
+    "Aggregate",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q18",
+   "demo": false,
+   "sql": "select\n\tc_name,\n\tc_custkey,\n\to_orderkey,\n\to_orderdate,\n\to_totalprice,\n\tsum(l_quantity)\nfrom\n\tcustomer,\n\torders,\n\tlineitem\nwhere\n\to_orderkey in (\n\t\tselect\n\t\t\tl_orderkey\n\t\tfrom\n\t\t\tlineitem\n\t\tgroup by\n\t\t\tl_orderkey having\n\t\t\t\tsum(l_quantity) > 314\n\t)\n\tand c_custkey = o_custkey\n\tand o_orderkey = l_orderkey\ngroup by\n\tc_name,\n\tc_custkey,\n\to_orderkey,\n\to_orderdate,\n\to_totalprice\norder by\n\to_totalprice desc,\n\to_orderdate",
+   "plans": 30,
+   "median_runtime_ms": 3177.951,
+   "max_runtime_ms": 3943.707,
+   "timed_out": 0,
+   "nodes": 15,
+   "top_ops": [
+    "Aggregate",
+    "Sort",
+    "Hash Join"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q19",
+   "demo": false,
+   "sql": "select\n\tsum(l_extendedprice* (1 - l_discount)) as revenue\nfrom\n\tlineitem,\n\tpart\nwhere\n\t(\n\t\tp_partkey = l_partkey\n\t\tand p_brand = 'Brand#43'\n\t\tand p_container in ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')\n\t\tand l_quantity >= 6 and l_quantity <= 6 + 10\n\t\tand p_size between 1 and 5\n\t\tand l_shipmode in ('AIR', 'AIR REG')\n\t\tand l_shipinstruct = 'DELIVER IN PERSON'\n\t)\n\tor\n\t(\n\t\tp_partkey = l_partkey\n\t\tand p_brand = 'Brand#53'\n\t\tand p_container in ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')\n\t\tand l_quantity >= 20 and l_quantity <= 20 + 10\n\t\tand p_size between 1 and 10\n\t\tand l_shipmode in ('AIR', 'AIR REG')\n\t\tand l_shipinstruct = 'DELIVER IN PERSON'\n\t)\n\tor\n\t(\n\t\tp_partkey = l_partkey\n\t\tand p_brand = 'Brand#45'\n\t\tand p_container in ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')\n\t\tand l_quantity >= 20 and l_quantity <= 20 + 10\n\t\tand p_size between 1 and 15\n\t\tand l_shipmode in ('AIR', 'AIR REG')\n\t\tand l_shipinstruct = 'DELIVER IN PERSON'\n\t)",
+   "plans": 69,
+   "median_runtime_ms": 141.534,
+   "max_runtime_ms": 1875.313,
+   "timed_out": 0,
+   "nodes": 7,
+   "top_ops": [
+    "Aggregate",
+    "Gather",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q20",
+   "demo": false,
+   "sql": "select\n\ts_name,\n\ts_address\nfrom\n\tsupplier,\n\tnation\nwhere\n\ts_suppkey in (\n\t\tselect\n\t\t\tps_suppkey\n\t\tfrom\n\t\t\tpartsupp\n\t\twhere\n\t\t\tps_partkey in (\n\t\t\t\tselect\n\t\t\t\t\tp_partkey\n\t\t\t\tfrom\n\t\t\t\t\tpart\n\t\t\t\twhere\n\t\t\t\t\tp_name like 'misty%'\n\t\t\t)\n\t\t\tand ps_availqty > (\n\t\t\t\tselect\n\t\t\t\t\t0.5 * sum(l_quantity)\n\t\t\t\tfrom\n\t\t\t\t\tlineitem\n\t\t\t\twhere\n\t\t\t\t\tl_partkey = ps_partkey\n\t\t\t\t\tand l_suppkey = ps_suppkey\n\t\t\t\t\tand l_shipdate >= date '1997-01-01'\n\t\t\t\t\tand l_shipdate < date '1997-01-01' + interval '1' year\n\t\t\t)\n\t)\n\tand s_nationkey = n_nationkey\n\tand n_name = 'JORDAN'\norder by\n\ts_name",
+   "plans": 98,
+   "median_runtime_ms": 700.465,
+   "max_runtime_ms": 882.694,
+   "timed_out": 49,
+   "nodes": 11,
+   "top_ops": [
+    "Seq Scan",
+    "Nested Loop",
+    "Index Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q21",
+   "demo": false,
+   "sql": "select\n\ts_name,\n\tcount(*) as numwait\nfrom\n\tsupplier,\n\tlineitem l1,\n\torders,\n\tnation\nwhere\n\ts_suppkey = l1.l_suppkey\n\tand o_orderkey = l1.l_orderkey\n\tand o_orderstatus = 'F'\n\tand l1.l_receiptdate > l1.l_commitdate\n\tand exists (\n\t\tselect\n\t\t\t*\n\t\tfrom\n\t\t\tlineitem l2\n\t\twhere\n\t\t\tl2.l_orderkey = l1.l_orderkey\n\t\t\tand l2.l_suppkey <> l1.l_suppkey\n\t)\n\tand not exists (\n\t\tselect\n\t\t\t*\n\t\tfrom\n\t\t\tlineitem l3\n\t\twhere\n\t\t\tl3.l_orderkey = l1.l_orderkey\n\t\t\tand l3.l_suppkey <> l1.l_suppkey\n\t\t\tand l3.l_receiptdate > l3.l_commitdate\n\t)\n\tand s_nationkey = n_nationkey\n\tand n_name = 'UNITED STATES'\ngroup by\n\ts_name\norder by\n\tnumwait desc,\n\ts_name",
+   "plans": 40,
+   "median_runtime_ms": 1587.206,
+   "max_runtime_ms": 3543.772,
+   "timed_out": 0,
+   "nodes": 17,
+   "top_ops": [
+    "Nested Loop",
+    "Index Scan",
+    "Seq Scan"
+   ]
+  },
+  {
+   "database": "tpch",
+   "template_id": "tpch/q22",
+   "demo": false,
+   "sql": "select\n\tcntrycode,\n\tcount(*) as numcust,\n\tsum(c_acctbal) as totacctbal\nfrom\n\t(\n\t\tselect\n\t\t\tsubstring(c_phone from 1 for 2) as cntrycode,\n\t\t\tc_acctbal\n\t\tfrom\n\t\t\tcustomer\n\t\twhere\n\t\t\tsubstring(c_phone from 1 for 2) in\n\t\t\t\t('23', '25', '32', '24', '33', '16', '20')\n\t\t\tand c_acctbal > (\n\t\t\t\tselect\n\t\t\t\t\tavg(c_acctbal)\n\t\t\t\tfrom\n\t\t\t\t\tcustomer\n\t\t\t\twhere\n\t\t\t\t\tc_acctbal > 0.00\n\t\t\t\t\tand substring(c_phone from 1 for 2) in\n\t\t\t\t\t\t('23', '25', '32', '24', '33', '16', '20')\n\t\t\t)\n\t\t\tand not exists (\n\t\t\t\tselect\n\t\t\t\t\t*\n\t\t\t\tfrom\n\t\t\t\t\torders\n\t\t\t\twhere\n\t\t\t\t\to_custkey = c_custkey\n\t\t\t)\n\t) as custsale\ngroup by\n\tcntrycode\norder by\n\tcntrycode",
+   "plans": 60,
+   "median_runtime_ms": 246.385,
+   "max_runtime_ms": 593.546,
+   "timed_out": 0,
+   "nodes": 12,
+   "top_ops": [
+    "Aggregate",
+    "Seq Scan",
+    "Gather"
+   ]
+  }
+ ]
+}

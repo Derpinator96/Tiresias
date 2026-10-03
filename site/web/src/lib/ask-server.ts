@@ -1,7 +1,10 @@
 import "server-only";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { load } from "js-yaml";
 import { runJob, type AskJob, type Call } from "@/lib/ask-shared";
+import { buildBundle } from "@/lib/bundle-build";
+import { summarize, type Bundle, type BundleSummary, type LedgerCounts } from "@/lib/bundle";
 
 // Live Ask, local web container only (infra/docker-compose.yml service `web`). Runtime env, never
 // inlined at build: BT_LOCAL=1 turns it on; GATEWAY_URL, AI_URL; BT_CONFIG is the read-only
@@ -45,8 +48,47 @@ function caller(base: string | undefined, timeoutS: number): Call {
 }
 
 // One map per server process; on globalThis so dev reloads do not drop it. Lost on restart.
-const g = globalThis as unknown as { __btJobs?: Map<string, AskJob> };
+const g = globalThis as unknown as { __btJobs?: Map<string, AskJob>; __btReady?: Set<string> };
 const jobs = (g.__btJobs ??= new Map());
+const ready = (g.__btReady ??= new Set()); // bundle builds that finished (file written, or job.error says why not)
+
+// ---- history: one JSON bundle per question under BT_HISTORY_DIR (real names inside) ----------
+const ID_RE = /^qn_[0-9a-f]{8}$/;
+const historyDir = () => process.env.BT_HISTORY_DIR || "./.bt-history";
+
+export function readBundle(id: string): Bundle | null {
+  if (!ID_RE.test(id)) return null;
+  try { return JSON.parse(readFileSync(join(historyDir(), `${id}.json`), "utf8")); } catch { return null; }
+}
+
+export function deleteBundle(id: string): boolean {
+  if (!ID_RE.test(id)) return false;
+  try { unlinkSync(join(historyDir(), `${id}.json`)); return true; } catch { return false; }
+}
+
+export function listBundles(): BundleSummary[] {
+  let files: string[] = [];
+  try { files = readdirSync(historyDir()); } catch { return []; }
+  return files
+    .filter((f) => ID_RE.test(f.replace(/\.json$/, "")))
+    .map((f) => readBundle(f.replace(/\.json$/, "")))
+    .filter((b): b is Bundle => !!b)
+    .map(summarize)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+async function finish(job: AskJob, question: string, gateway: Call, ai: Call, before: LedgerCounts) {
+  await runJob(job, gateway, ai);
+  const bundle = await buildBundle(job, question, gateway, ai, before);
+  try {
+    mkdirSync(historyDir(), { recursive: true });
+    writeFileSync(join(historyDir(), `${job.question_id}.json`), JSON.stringify(bundle));
+  } catch (e) {
+    job.error ??= `could not save the history file: ${e instanceof Error ? e.message : String(e)}`;
+  } finally {
+    ready.add(job.question_id); // the page stops polling either way; job.error says when the save failed
+  }
+}
 
 export async function startAsk(question: string): Promise<{ question_id: string } | { error: string; status: number }> {
   const cfg = webConfig();
@@ -56,7 +98,12 @@ export async function startAsk(question: string): Promise<{ question_id: string 
   if (r.status !== 200) return { error: `the gateway could not resolve the question (HTTP ${r.status})`, status: 502 };
   const job: AskJob = { question_id: r.body.question_id, template_ids: r.body.template_ids, done: false };
   jobs.set(job.question_id, job);
-  void runJob(job, gateway, ai); // not awaited: the page polls GET
+  const before = await gateway("/v1/ledger").then((l) => l.body, () => null);
+  const counts: LedgerCounts = {
+    outbound_payloads: before?.outbound_payloads ?? 0, outbound_canary_hits: before?.outbound_canary_hits ?? 0,
+    outbound_blocked: before?.outbound_blocked ?? 0, canaries_planted: before?.canaries_planted ?? 0,
+  };
+  void finish(job, question, gateway, ai, counts); // not awaited: the page polls GET
   return { question_id: job.question_id };
 }
 
@@ -64,7 +111,10 @@ export async function askState(qid: string) {
   const job = jobs.get(qid);
   if (!job) return null;
   const poll_ms = webConfig().ask_poll_ms;
-  if (job.ask) return { ...job, poll_ms, events: [] as string[] };
+  // The raw pieces (ask_body, files, rl, simulation) stay server side: the page reads the bundle.
+  const { ask_body, files, rl, simulation, ...shown } = job; // eslint-disable-line @typescript-eslint/no-unused-vars
+  const bundle_ready = ready.has(qid) || existsSync(join(historyDir(), `${qid}.json`));
+  if (job.ask) return { ...shown, bundle_ready, poll_ms, events: [] as string[] };
   const ai = caller(process.env.AI_URL, 10);
   let events: string[] = [];
   try {
@@ -73,5 +123,5 @@ export async function askState(qid: string) {
   } catch {
     // progress only; the job itself reports errors
   }
-  return { ...job, poll_ms, events };
+  return { ...shown, bundle_ready, poll_ms, events };
 }

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Blind Tuner",
+  title: "Tiresias",
   description: "Finds fixes for slow PostgreSQL queries from disguised metadata, and proves the privacy and the speedup.",
 };
 

@@ -9,9 +9,16 @@ export function Pip({ tone }: { tone: "ok" | "busy" | "idle" | "bad" }) {
   return <span className={cn("inline-block size-2 shrink-0 rounded-full", c)} aria-hidden />;
 }
 
-/** A label that says where a figure comes from or what it assumes. Shown next to the figure. */
+/** Where a figure comes from or what it assumes: one line "Source", opens on click. */
 export function Source({ children }: { children: ReactNode }) {
-  return <p className="text-[11px] leading-snug text-slate-600 [overflow-wrap:anywhere]">{children}</p>;
+  return (
+    <details className="group mt-1 text-[11px] leading-snug text-slate-600">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-slate-500 hover:text-slate-800 [&::-webkit-details-marker]:hidden">
+        <span className="font-mono text-[10px]">i</span> source and assumptions
+      </summary>
+      <p className="mt-1 [overflow-wrap:anywhere]">{children}</p>
+    </details>
+  );
 }
 
 export function save(name: string, data: BlobPart, type = "text/plain") {
@@ -103,7 +110,7 @@ export function SqlBlock({ text, file, tone }: { text: string; file?: string; to
 
 export function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="inset-field min-w-0 px-3 py-2 [overflow-wrap:anywhere]">
+    <div className="inset-field min-w-0 px-3 py-2 transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-slate-300 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0 [overflow-wrap:anywhere]">
       <div className="text-[11px] text-slate-500">{label}</div>
       <div className="font-mono text-base font-semibold tracking-tight text-slate-900">{value}</div>
       {note && <Source>{note}</Source>}

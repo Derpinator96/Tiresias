@@ -231,6 +231,17 @@ sandbox:
   # runs) and never runs the twin; any other config gets 409. "live" measures every time.
   twin_mode: recorded
   twin_record_path: /var/lib/blind-tuner/twin_recorded.json
+  # Recorded mode without a record: estimate from HypoPG costs (after cost / before cost,
+  # clamped to [this, 1.0], times the measured mean_ms). Human decision 2026-10-04.
+  estimate_min_ratio: 0.1
+  # The estimate's index size: HypoPG's figure times this. Calibrated on the Q1 index (HypoPG
+  # 280 MB, 68 MB measured on the twin, db/NOTES.md), so the search's storage penalty is scored
+  # on a realistic size. Human decision 2026-10-04.
+  estimate_storage_scale: 0.25
+  # A rewritten template keeps at most this share of its time in the estimate: EXPLAIN costs
+  # cannot see per-row CPU, and the twin measured Q2's date_trunc rewrite alone 63.5% faster
+  # (gateway/NOTES.md 2026-10-03). Human decision 2026-10-04.
+  estimate_rewrite_ratio: 0.4
   twin_hero_table_scale: 1.0
   twin_other_tables_scale: 0.2
   timing_runs: 5                  # median of 5 warm runs
@@ -278,7 +289,7 @@ llm:
   # unreachable, timeout, HTTP error such as a revoked key, malformed reply, key or model not
   # set), the whole answer is asked again of the next provider in this list, in order. A canary
   # block never fails over (fail closed), and air-gapped mode (BT_LLM_PROVIDER) never does.
-  fallback: [openai, nim]
+  fallback: [gemini, openai]
   model: gemini-3.8-flash
   api_key_env: GEMINI_API_KEY
   temperature: 0
@@ -389,6 +400,13 @@ web:
   # Read at runtime by site/web/src/lib/ask-server.ts from the read-only mount BT_CONFIG.
   ask_timeout_s: 300   # per gateway or ai call; same as dashboard/data.py TIMEOUT_S (Node's fetch also stops waiting for headers at 300 s)
   ask_poll_ms: 1000    # how often the page asks for progress, like the dashboard's 1 s fragment
+  # /slow-log: how many plan-generation templates (data/plans/web_sample.json, slowest median
+  # first) the page lists beside pg-prod's slow log. Read by site/web/src/lib/db-server.ts.
+  slow_log_sample: 12
+  # /v1/private/tables (local web app only): sample rows per table by default, and the most a
+  # caller may ask for with ?rows=.
+  sample_rows: 10
+  sample_rows_max: 100
 
 tests:
   fast_suite_limit_s: 120

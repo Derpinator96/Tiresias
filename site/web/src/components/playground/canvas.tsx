@@ -10,8 +10,10 @@ import {
   PanelRight, Pause, Pickaxe, Play, RotateCcw, ShieldCheck, SkipBack, SkipForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
-import { CONFIG, INDEX_COLS, ms, run } from "@/lib/facts";
+import { CONFIG } from "@/lib/facts";
+import type { RunView } from "@/lib/run-view";
+import { useView } from "@/lib/view";
+import { RunBanner } from "@/components/viz/run-banner";
 import { STAGES, stageState, useRun, type StageId } from "@/lib/store";
 import { Pip } from "./bits";
 
@@ -19,25 +21,27 @@ const ICON: Record<StageId, typeof Database> = {
   source: Database, gateway: ShieldCheck, miner: Pickaxe, gnn: Cpu, rl: Grid3x3, llm: MessageSquareCode, twin: FlaskConical, dba: ClipboardCheck,
 };
 
-// Card body per stage: [label, value] pairs from the run record, plus a source line.
-const BODY: Record<StageId, { rows: [string, string][]; note: string }> = {
-  source: { rows: [["Q1 mean before", ms(run.q1.mean_ms_before)], ["hero table rows", run.dataset.hero_table_rows.toLocaleString("en-US")], ["slow threshold", `${run.q1.slow_threshold_ms} ms`]], note: "pg_stat_statements on pg-prod" },
-  gateway: { rows: [["payloads scanned", String(run.privacy.payloads)], ["canary hits", `${run.privacy.canary_hits} of ${run.privacy.canaries_planted}`], ["names", "HMAC-SHA256"]], note: "every outgoing payload ledgered" },
-  miner: { rows: [["recommended", INDEX_COLS], ["columns", String(run.search.recommended_columns)]], note: "illustrative codes; FP-Growth, weighted by calls x latency; candidate count not in run record" },
-  gnn: { rows: [["predicted before", ms(run.search.predicted_before_ms)], ["predicted after", ms(run.search.predicted_after_ms)]], note: run.search.estimator_label },
-  rl: { rows: [["method", "tabular Q-learning"], ["episodes", `${CONFIG.episodes} (config.yaml)`]], note: run.search.label },
-  llm: { rows: [["model", run.llm.model], ["tool calls", String(run.llm.tool_calls)], ["numbers checked", String(run.llm.numbers_checked)]], note: `${run.privacy.llm_payloads} payloads to the LLM, ${run.privacy.canary_hits} canary hits` },
-  twin: { rows: [["before / after", `${ms(run.twin.before_ms)} / ${ms(run.twin.after_ms)}`], ["faster", `${run.twin.speedup_pct}%`], ["index size", `${run.twin.storage_mb} MB`]], note: `median of ${run.twin.runs} runs on the statistical twin` },
-  dba: { rows: [["migration.sql", "CREATE INDEX CONCURRENTLY"], ["rollback.sql", "DROP INDEX CONCURRENTLY"]], note: "the DBA runs the files; nothing runs on pg-prod by itself" },
-};
+// Card body per stage: [label, value] pairs from the run view, plus a source line.
+const n = (x: number | null, unit = " ms") => (x === null ? "not in bundle" : `${x.toFixed(1)}${unit}`);
+const body = (v: RunView): Record<StageId, { rows: [string, string][]; note: string }> => ({
+  source: { rows: [["mean before", n(v.meanBefore)], ["table rows", v.heroRows === null ? "not in bundle" : v.heroRows.toLocaleString("en-US")], ["slow threshold", `${v.slowThresholdMs} ms`]], note: v.src.prod },
+  gateway: { rows: [["payloads scanned", String(v.payloads)], ["canary hits", `${v.canaryHits} of ${v.canariesPlanted}`], ["names", "HMAC-SHA256"]], note: v.src.ledger },
+  miner: { rows: [["recommended", v.indexCols], ["columns", String(v.recommendedColumns)]], note: v.live ? `${v.candidates.length} candidates mined; FP-Growth, weighted by calls x latency` : "illustrative codes; FP-Growth, weighted by calls x latency; candidate count not in run record" },
+  gnn: { rows: [["predicted before", n(v.predictedBefore)], ["predicted after", n(v.predictedAfter)]], note: v.estimatorLabel },
+  rl: { rows: [["method", "tabular Q-learning"], ["actions", v.live ? String(v.actions.length) : `${CONFIG.episodes} episodes (config.yaml)`]], note: v.searchLabel },
+  llm: { rows: [["model", v.llm.model], ["tool calls", v.llm.toolCalls === null ? "not in bundle" : String(v.llm.toolCalls)], v.live ? ["checker", v.llm.checker ?? "not run"] : ["numbers checked", String(v.llm.numbersChecked)]], note: v.live ? `${v.events.length} events, ${v.canaryHits} canary hits` : `${v.llmPayloads} payloads to the LLM, ${v.canaryHits} canary hits` },
+  twin: { rows: [["before / after", `${n(v.twinBefore)} / ${n(v.twinAfter)}`], ["faster", v.speedupPct === null ? "not in bundle" : `${v.speedupPct.toFixed(1)}%`], ["storage", n(v.storageMb, " MB")]], note: v.src.twin },
+  dba: { rows: [["migration.sql", v.migration ? "CREATE INDEX CONCURRENTLY" : "none"], ["rollback.sql", v.rollback ? "DROP INDEX CONCURRENTLY" : "none"]], note: "the DBA runs the files; nothing runs on pg-prod by itself" },
+});
 
 type StageData = { i: number; tgt: Position; src: Position };
 
 function StageNode({ data, id }: NodeProps<Node<StageData>>) {
   const { step, status, completedAt, selected, gates } = useRun();
   const state = stageState(data.i, step, status);
+  const v = useView();
   const Icon = ICON[id as StageId];
-  const b = BODY[id as StageId];
+  const b = body(v)[id as StageId];
   return (
     <div className="stage-card w-[260px] p-3" data-state={state} data-selected={selected === id}>
       <Handle type="target" position={data.tgt} className="!size-2 !border-slate-300 !bg-white" />
@@ -57,7 +61,7 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
       </div>
       {id === "gnn" && (
         <div className="mb-2 rounded-md border border-amber-300/70 bg-amber-50/80 px-2 py-1 font-mono text-[10.5px] leading-tight text-amber-900">
-          {run.search.estimator_label}
+          {v.estimatorLabel}
         </div>
       )}
       <dl className="space-y-0.5">
@@ -139,6 +143,7 @@ function Toolbar() {
   const { step, status, speed, play, pause, forward, back, reset, setSpeed, toggleDrawer, drawerOpen } = useRun();
   const zoom = useStore((s) => s.transform[2]);
   const { fitView } = useReactFlow();
+  const v = useView();
 
   useEffect(() => {
     if (status !== "running") return;
@@ -150,9 +155,8 @@ function Toolbar() {
   return (
     <div className="glass-bar pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 px-3 py-2">
       <div className="flex items-center gap-2">
-        <Link href="/" className="text-sm font-semibold text-slate-900 hover:underline">Blind Tuner</Link>
-        <span className="rounded-md border border-slate-200 bg-white/60 px-1.5 py-0.5 text-[11px] text-slate-600">demo retail DB, 10M rows</span>
-        <span className="font-mono text-[11px] text-slate-500">{run.run_id}</span>
+        <span className="rounded-md border border-slate-200 bg-white/60 px-1.5 py-0.5 text-[11px] text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
+        <span className="font-mono text-[11px] text-slate-500">{v.id}</span>
       </div>
       <div className="mx-auto flex flex-wrap items-center gap-1">
         {status === "running" ? (
@@ -180,7 +184,7 @@ function Toolbar() {
       </div>
       <div className="flex items-center gap-1">
         <span className="flex items-center gap-1.5 text-[11px] text-slate-500" title="Where the figures come from">
-          <Pip tone="idle" /> run record
+          <Pip tone={v.live ? "ok" : "idle"} /> {v.live ? "bundle" : "run record"}
         </span>
         <span className="ml-1 rounded-md border border-slate-200 bg-white/70 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">{Math.round(zoom * 100)}%</span>
         <button className={btn} onClick={() => fitView({ padding: 0.12, duration: 300 })}><Maximize className="size-3.5" /> Fit</button>
@@ -195,23 +199,17 @@ function Toolbar() {
 
 function EventLog() {
   const log = useRun((s) => s.log);
+  const v = useView();
   return (
     <div className="glass pointer-events-auto absolute bottom-3 left-14 z-10 w-[min(340px,calc(100%-68px))] rounded-xl p-3">
       <div className="mb-1 text-xs font-semibold text-slate-900">Replay log</div>
-      <p className="mb-2 text-[11px] leading-snug text-slate-500">
-        Replay of {run.run_id} (finished {run.finished_at}, {run.elapsed_s} s). Figures are the run record; the pacing here is not the real stage timing.
-      </p>
+      <p className="mb-2 text-[11px] leading-snug text-slate-500">{v.id}: figures from the {v.live ? "bundle" : "run record"}; pacing is not real timing</p>
       <ol className="max-h-32 space-y-0.5 overflow-y-auto font-mono text-[11px] text-slate-700">
         {log.length === 0 && <li className="text-slate-400">no events yet: press Run pipeline or Forward</li>}
         {[...log].reverse().map((e, i) => (
           <li key={log.length - i}><span className="text-slate-400">{e.t}</span> {e.msg}</li>
         ))}
       </ol>
-      <div className="mt-2 flex gap-3 border-t border-slate-200/70 pt-2 text-[11px] text-slate-600">
-        <Link href="/" className="hover:underline">Home</Link>
-        <Link href="/privacy" className="hover:underline">Privacy</Link>
-        <Link href="/terms" className="hover:underline">Terms</Link>
-      </div>
     </div>
   );
 }
@@ -243,14 +241,20 @@ function Flow() {
 }
 
 export function Canvas({ children }: { children?: React.ReactNode }) {
+  const v = useView();
+  const setSource = useRun((s) => s.setSource);
+  useEffect(() => setSource(v.id), [v.id, setSource]);
   return (
     <ReactFlowProvider>
-      <div className="relative h-dvh w-full overflow-hidden">
-        <h1 className="sr-only">Blind Tuner pipeline replay of {run.run_id}</h1>
-        <Flow />
-        <Toolbar />
-        <EventLog />
-        {children}
+      <div className="flex h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden lg:h-dvh">
+        <h1 className="sr-only">Tiresias pipeline replay of {v.id}</h1>
+        <RunBanner className="m-2 mb-0 shrink-0" />
+        <div className="relative min-h-0 flex-1">
+          <Flow />
+          <Toolbar />
+          <EventLog />
+          {children}
+        </div>
       </div>
     </ReactFlowProvider>
   );

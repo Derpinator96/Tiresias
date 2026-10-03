@@ -1,0 +1,101 @@
+{
+ "_source": "illustrative plans. plan 'q1' is the HashedPlan example in docs/architecture.md (not a plan from run_d1b30d38); plan 'report' is invented for the picture. Codes are illustrative.",
+ "plans": [
+  {
+   "id": "q1",
+   "label": "Q1 before the index",
+   "ran": true,
+   "nodes": [
+    {
+     "node_id": 0,
+     "parent_id": null,
+     "op": "Aggregate",
+     "est_rows": 1,
+     "est_cost": 1250000,
+     "width": 32,
+     "actual_rows": 1,
+     "self_ms": 10
+    },
+    {
+     "node_id": 1,
+     "parent_id": 0,
+     "op": "Seq Scan",
+     "relation": "t_7a3f91c2",
+     "filter_cols": [
+      "c_19c2d04e",
+      "c_88b1a7f3"
+     ],
+     "est_rows": 18000,
+     "est_cost": 1240000,
+     "width": 8,
+     "actual_rows": 20000,
+     "rows_removed": 50000000,
+     "self_ms": 39800
+    }
+   ]
+  },
+  {
+   "id": "report",
+   "label": "report with a join (invented)",
+   "ran": true,
+   "nodes": [
+    {
+     "node_id": 0,
+     "parent_id": null,
+     "op": "Aggregate",
+     "est_rows": 12,
+     "est_cost": 520000,
+     "width": 40,
+     "actual_rows": 12,
+     "self_ms": 6
+    },
+    {
+     "node_id": 1,
+     "parent_id": 0,
+     "op": "Hash Join",
+     "est_rows": 9000,
+     "est_cost": 510000,
+     "width": 24,
+     "actual_rows": 410000,
+     "self_ms": 950
+    },
+    {
+     "node_id": 2,
+     "parent_id": 1,
+     "op": "Seq Scan",
+     "relation": "t_7a3f91c2",
+     "filter_cols": [
+      "c_19c2d04e"
+     ],
+     "est_rows": 9000,
+     "est_cost": 480000,
+     "width": 16,
+     "actual_rows": 410000,
+     "self_ms": 2300
+    },
+    {
+     "node_id": 3,
+     "parent_id": 1,
+     "op": "Hash",
+     "est_rows": 500,
+     "est_cost": 24,
+     "width": 12,
+     "actual_rows": 500,
+     "self_ms": 1
+    },
+    {
+     "node_id": 4,
+     "parent_id": 3,
+     "op": "Index Scan",
+     "relation": "t_41b0c3de",
+     "index": "i_5e07a912",
+     "est_rows": 500,
+     "est_cost": 22,
+     "width": 12,
+     "actual_rows": 500,
+     "self_ms": 2
+    }
+   ]
+  }
+ ]
+}

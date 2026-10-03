@@ -18,6 +18,11 @@ export type AskJob = {
   migration?: string;
   rollback?: string;
   error?: string;
+  // Raw pieces kept for the bundle (src/lib/bundle-build.ts); the page never reads them.
+  rl?: unknown;                     // /ai/rl/run body when the web ran the search
+  files?: Record<string, string>;   // raw /v1/approve files
+  ask_body?: unknown;               // raw /ai/ask body (llm, seconds, failovers, events, tool_calls)
+  simulation?: unknown;             // raw SimResult
 };
 
 /** The runnable SQL in an approve file, without its comments. A rewrite is a suggested code
@@ -66,6 +71,7 @@ export async function runJob(job: AskJob, gateway: Call, ai: Call): Promise<void
     const r = await ai("/ai/ask", { question_id: job.question_id, template_ids: job.template_ids });
     const body = r.body ?? {};
     const good = r.status === 200;
+    job.ask_body = body;
     job.ask = good
       ? { status: 200, checker: body.status, unmatched: body.unmatched ?? [], hashed: body.answer?.text ?? "", tool_calls: body.tool_calls }
       : { status: r.status, detail: errorLine(r.status, body) };
@@ -78,12 +84,14 @@ export async function runJob(job: AskJob, gateway: Call, ai: Call): Promise<void
       const rl = await ai("/ai/rl/run", {});
       if (rl.status !== 200) throw new Error(`the search failed (HTTP ${rl.status} from the ai service)`);
       config = rl.body.config;
+      job.rl = rl.body;
       sim = null;
     }
     job.config = config;
     if (config.actions.length) {
       if (!sim) sim = await ok(gateway, "/v1/simulate/twin", config);
       const files = (await ok(gateway, "/v1/approve", config)).files;
+      job.files = files;
       job.migration = sqlStatements(files["migration.sql"]);
       job.rollback = sqlStatements(files["rollback.sql"]);
       const table = config.actions.find((a: { type: string }) => a.type === "add_index")?.table;
@@ -97,6 +105,7 @@ export async function runJob(job: AskJob, gateway: Call, ai: Call): Promise<void
         saved_ms: t.before_ms - t.after_ms, pct: t.before_ms ? (100 * (t.before_ms - t.after_ms)) / t.before_ms : 0,
       }));
     }
+    job.simulation = sim;
     job.sim = sim ? { runs: sim.runs, write_ms_delta: sim.write_ms_delta, storage_mb_delta: sim.storage_mb_delta } : null;
   } catch (e) {
     job.ask ??= { status: 0, detail: "not reached" };

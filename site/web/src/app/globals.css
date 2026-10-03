@@ -98,6 +98,19 @@
       radial-gradient(40rem 30rem at 85% 10%, rgb(224 242 254 / 0.5), transparent 70%);
     background-attachment: fixed;
   }
+  /* every button and link eases its hover colours; utilities (transition-all etc.) still win */
+  button,
+  a {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: 150ms;
+  }
+  /* hand-rolled tables (figures, ledger, columns): a row tint on hover. shadcn rows keep their own. */
+  tbody > tr {
+    transition: background-color 150ms;
+  }
+  tbody > tr:hover {
+    background-color: rgb(15 23 42 / 0.035);
+  }
 }
 
 /* Every shadcn surface gets the glass treatment here, once, by its data-slot. */
@@ -106,7 +119,7 @@
   [data-slot="alert"],
   [data-slot="table-container"],
   [data-slot="tabs-list"],
-  [data-slot="accordion-item"] {
+  [data-slot="accordion"] {
     backdrop-filter: blur(var(--glass-blur));
     box-shadow: var(--glass-shadow);
   }
@@ -129,7 +142,13 @@
     border: 1px solid var(--glass-border);
     border-radius: 0.75rem;
     box-shadow: var(--glass-shadow);
-    transition: border-color 150ms, box-shadow 150ms;
+    transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+  }
+  /* before the state rules, so a processing ring wins over the hover ring */
+  .stage-card:hover {
+    transform: translateY(-1px);
+    border-color: var(--glass-edge);
+    box-shadow: 0 0 0 2px rgb(15 23 42 / 0.1), var(--glass-shadow-lg);
   }
   .stage-card[data-state="processing"] {
     border-color: rgb(59 130 246);
@@ -147,17 +166,45 @@
   }
 }
 
+/* cards: a 1px lift, a firmer edge and a deeper shadow on hover, 150 ms; no transform when motion is reduced */
 @utility glass {
   background-color: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
+  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+  &:hover {
+    transform: translateY(-1px);
+    border-color: var(--glass-edge);
+    box-shadow: var(--glass-shadow-lg);
+  }
 }
 @utility glass-strong {
   background-color: var(--glass-strong-bg);
   backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow-lg);
+  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+  &:hover {
+    transform: translateY(-1px);
+    border-color: var(--glass-edge);
+    box-shadow: 0 28px 56px -12px rgb(15 23 42 / 0.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .glass-strong,
+  .stage-card,
+  button,
+  a,
+  tbody > tr {
+    transition: none;
+  }
+  .glass:hover,
+  .glass-strong:hover,
+  .stage-card:hover {
+    transform: none;
+  }
 }
 @utility glass-subtle {
   background-color: var(--glass-subtle-bg);

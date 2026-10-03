@@ -120,9 +120,16 @@ def simulate_twin(config: dict = Body(...)):
     key = _twin_record_key(config, [t["template_id"] for t in g.slow_templates(snap)])
     if cfg("sandbox.twin_mode") == "recorded":
         rec = _twin_records().get(key)
-        if rec is None:   # never touches the twin in this mode
-            raise HTTPException(409, {"not_recorded": "no recorded twin measurement for this config"})
-        return _to_ai("SimResult", {**rec["sim"], "config_id": config["config_id"]})
+        if rec is not None:
+            return _to_ai("SimResult", {**rec["sim"], "config_id": config["config_id"]})
+        # Never touches the twin in this mode: an unrecorded config is estimated from HypoPG
+        # costs (human decision 2026-10-04); the estimate is not saved as a record.
+        try:
+            sim = g.estimate_twin(snap, config)
+        except (KeyError, ValueError) as e:
+            raise HTTPException(400, f"cannot estimate this config: {type(e).__name__}") from None
+        validate("SimResult", sim)
+        return _to_ai("SimResult", sim)
     try:
         sim, agreement = g.simulate_twin(snap, config, os.environ["TWIN_DSN"])
     except (KeyError, ValueError) as e:
@@ -138,8 +145,8 @@ def simulate_twin(config: dict = Body(...)):
 # Recorded twin measurements (human decision 2026-10-04, sandbox.twin_mode). Every live twin
 # measurement is saved here, keyed by the config's actions and the slow-template set; in
 # "recorded" mode the twin is never used: a recorded config is answered from this file, any
-# other config gets 409 (the search reports it and does not choose it).
-# The numbers are real twin measurements, replayed; the dashboard labels them as recorded.
+# other config is estimated from HypoPG costs (Gateway.estimate_twin, human decision 2026-10-04).
+# The recorded numbers are real twin measurements, replayed; the dashboard labels them as recorded.
 _TWIN_LOCK = threading.Lock()
 
 
@@ -295,6 +302,45 @@ def withheld(request: Request):
     queryid, reason and first-seen time only, never the text. Private side."""
     _not_ai(request)
     return JSONResponse(sorted(gw().withheld.values(), key=lambda w: w["first_seen"]))
+
+
+# ---- private side (local web app: real names and values, refused to ai) -------------------
+@app.get("/v1/private/names")
+def private_names(request: Request):
+    """{code: real}: t_ table, c_ table.column, i_ index, q_ normalized SQL."""
+    _not_ai(request)
+    g = gw()
+    return JSONResponse(g.real_names(g.snapshot()))
+
+
+@app.get("/v1/private/slow-log")
+def private_slow_log(request: Request):
+    """Every template with real SQL, raw calls and times, slow flag and its latest logged
+    literal query (or null), total_ms descending."""
+    _not_ai(request)
+    g = gw()
+    return JSONResponse(g.slow_log(g.snapshot()))
+
+
+@app.get("/v1/private/slow-log/random")
+def private_slow_log_random(request: Request):
+    import random
+    _not_ai(request)
+    g = gw()
+    rows = g.slow_log(g.snapshot())["templates"]
+    if not rows:
+        raise HTTPException(404, "no templates yet")
+    return JSONResponse(random.choice(rows))
+
+
+@app.get("/v1/private/tables")
+def private_tables(request: Request, rows: int | None = None):
+    """Every table: code, row estimate, size, columns with codes and `rows` sample rows."""
+    _not_ai(request)
+    n = int(cfg("web.sample_rows")) if rows is None else rows
+    n = max(0, min(n, int(cfg("web.sample_rows_max"))))
+    g = gw()
+    return JSONResponse(g.tables(g.snapshot(), n))
 
 
 @app.get("/v1/twin/fidelity")

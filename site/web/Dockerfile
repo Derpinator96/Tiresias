@@ -8,6 +8,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build && chown -R node:node /app/.next
+# The history volume (asked questions, real names) must be writable by the node user.
+RUN mkdir -p /var/lib/blind-tuner-web && chown node:node /var/lib/blind-tuner-web
 USER node
 EXPOSE 3000
 CMD ["node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

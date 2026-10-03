@@ -203,8 +203,15 @@ services:
       AI_URL: http://ai:8100
       BT_CONFIG: /config/config.yaml
       BT_WEB_HOSTS: "127.0.0.1:3000,localhost:3000"
+      # Asked questions and everything the pipeline produced for them (src/lib/bundle.ts); the
+      # administrator's history. Real names inside, so it stays in this private volume.
+      BT_HISTORY_DIR: /var/lib/blind-tuner-web
+      # DSB, TPC-H and QuickMart query texts with their plan statistics (scripts/plans_web_sample.py).
+      BT_PLANS_SAMPLE: /data/web_sample.json
     volumes:
       - ./config.yaml:/config/config.yaml:ro
+      - ./data/plans/web_sample.json:/data/web_sample.json:ro
+      - web-history:/var/lib/blind-tuner-web
     ports:
       - "127.0.0.1:3000:3000"
     networks: [boundary, operator]
@@ -266,6 +273,7 @@ networks:
 
 volumes:
   pgprod-data:
+  web-history:
   pgprod-log:
   pgtwin-data:
   gateway-ledger:

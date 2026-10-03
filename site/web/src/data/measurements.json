@@ -1,0 +1,102 @@
+{
+  "_about": "Dated measurements quoted from the repo's NOTES.md files. Charts read only this file and the run record (run_d1b30d38.json); no chart holds a literal number.",
+  "skew": {
+    "label": "rows held by the filtered value",
+    "percent": 30.01,
+    "source": "db/NOTES.md, 2026-10-03, synthetic demo data",
+    "total_percent": 100,
+    "rest_percent": 69.99
+  },
+  "drift": {
+    "source": "miner/NOTES.md live test, 2026-10-03; threshold config.yaml miner.drift_js_threshold, 2 windows",
+    "threshold": 0.2,
+    "windows": [
+      {
+        "label": "same mix",
+        "distance": 0.0206
+      },
+      {
+        "label": "switch +1",
+        "distance": 0.3937
+      },
+      {
+        "label": "switch +2",
+        "distance": 0.4413
+      }
+    ],
+    "y_headroom": 1.1
+  },
+  "gnn": {
+    "source": "models/gnn/NOTES.md, 2026-10-03: 3,133 test plans from 17 unseen templates; lower is better; reference weights, never served",
+    "metrics": [
+      {
+        "id": "median",
+        "label": "Median q-error"
+      },
+      {
+        "id": "p95",
+        "label": "95th percentile"
+      }
+    ],
+    "models": [
+      {
+        "label": "reference GNN",
+        "median": 1.892,
+        "p95": 9.636,
+        "slot": "blue"
+      },
+      {
+        "label": "boosted trees",
+        "median": 1.786,
+        "p95": 11.785,
+        "slot": "orange"
+      },
+      {
+        "label": "Postgres",
+        "median": 3.266,
+        "p95": 25.601,
+        "slot": "aqua"
+      }
+    ]
+  },
+  "rl": {
+    "source": "rl/NOTES.md, 2026-10-03",
+    "episodes_note": "300 episodes in about 2 s",
+    "q1_predicted_ms": {
+      "before": 120.0,
+      "after": 39.3
+    },
+    "q3_partition_twin_ms": {
+      "before": 217.8,
+      "after": 46.2
+    },
+    "q3_source": "rl/NOTES.md step 32, 2026-10-03"
+  },
+  "fidelity": {
+    "source": "db/NOTES.md, 2026-10-03, correlated twin, loaded machine; 1.0 = the twin predicts production's speedup exactly",
+    "exact": 1.0,
+    "queries": [
+      {
+        "label": "Q1",
+        "value": 0.763
+      },
+      {
+        "label": "Q2",
+        "value": 0.987
+      },
+      {
+        "label": "two-region",
+        "value": 0.951
+      }
+    ]
+  },
+  "llm": {
+    "max_tool_calls": 8,
+    "source": "config.yaml llm.max_tool_calls"
+  },
+  "approve": {
+    "check_minutes": 10,
+    "rollback_worse_by_pct": 10,
+    "source": "config.yaml approve.*"
+  }
+}

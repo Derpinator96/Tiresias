@@ -273,6 +273,94 @@ class Gateway:
         }
         return sim, r.plan_agreement
 
+    def estimate_twin(self, snap: Snapshot, config: dict) -> dict:
+        """SimResult for recorded mode when no twin record exists (human decision 2026-10-04,
+        not labelled on screen): before_ms is each slow template's measured mean_ms, after_ms
+        scales it by the HypoPG plan cost ratio with the config's indexes and rewrites, clamped
+        to [sandbox.estimate_min_ratio, 1]. A partition action is ignored; a rewrite rule that
+        does not apply leaves its template unchanged. Deterministic and cheap (two EXPLAINs
+        per template, nothing runs)."""
+        from db.sandbox import hypopg
+        from gateway.rounding import round_ms, round_sig
+        indexes = self.decode_config(config)
+        slow = self.slow_templates(snap)
+        if not slow:
+            raise ValueError("no slow template to estimate")
+        tids = [t["template_id"] for t in slow]
+        original = self.sample_queries(snap, tids)
+        after_q = dict(original)
+        rewritten: set[str] = set()
+        for tid, rule in self.decode_rewrites(config).items():
+            one = {"actions": [{"type": "rewrite", "template_id": tid, "rule_id": rule}]}
+            try:
+                after_q[tid] = (self.rewritten_queries(snap, one)[tid], False)
+                rewritten.add(tid)
+            except ValueError:
+                pass
+        before = hypopg.explain_with_indexes(self.prod_dsn, [], original).plans
+        after = hypopg.explain_with_indexes(self.prod_dsn, indexes, after_q)
+        min_ratio = float(cfg("sandbox.estimate_min_ratio"))
+        # Plan costs cannot see what a rewrite saves per row (the twin measured Q2's date_trunc
+        # rewrite 63.5% faster with the same seq scan), so a rewritten template gets at most
+        # sandbox.estimate_rewrite_ratio of its time.
+        rewrite_ratio = float(cfg("sandbox.estimate_rewrite_ratio"))
+
+        def after_ms(t: dict) -> float:
+            tid = t["template_id"]
+            ms = estimate_after_ms(t["mean_ms"], before[tid]["Plan"]["Total Cost"],
+                                   after.plans[tid]["Plan"]["Total Cost"], min_ratio)
+            return min(ms, t["mean_ms"] * rewrite_ratio) if tid in rewritten else ms
+
+        return {
+            "config_id": config["config_id"],
+            "source": "twin",
+            "templates": [{"template_id": t["template_id"], "before_ms": round_ms(t["mean_ms"]),
+                           "after_ms": round_ms(after_ms(t))} for t in slow],
+            "write_ms_delta": round_ms(len(indexes) * float(cfg("rl.write_penalty_ms_per_index"))),
+            # HypoPG sizes a btree well above what the twin builds (280 MB vs 68 MB measured for the
+            # Q1 index), and the search's storage penalty would veto every index on that figure.
+            "storage_mb_delta": round_sig(after.index_bytes / 2**20 * float(cfg("sandbox.estimate_storage_scale"))),
+            "runs": int(cfg("sandbox.timing_runs")),
+        }
+
+    # ---- private side (local web app; real names, refused to ai by the API) ----------------
+    def real_names(self, snap: Snapshot) -> dict[str, str]:
+        """{code: real name} for every vault code (t_ table, c_ table.column, i_ index,
+        q_ normalized SQL)."""
+        out = {code: e["name"] for code, e in self.hasher.vault.items()}
+        out.update({t.template_id: t.normalized_sql for t in snap.templates})
+        return out
+
+    def slow_log(self, snap: Snapshot) -> dict:
+        threshold = float(cfg("workload.slow_query_ms"))
+        rows = []
+        for t in snap.templates:
+            logged = snap.plans_for(t.template_id)
+            rows.append({"template_id": t.template_id, "sql": t.normalized_sql, "calls": int(t.calls),
+                         "mean_ms": t.hashed["mean_ms"], "total_ms": t.hashed["total_ms"],
+                         "slow": t.hashed["mean_ms"] >= threshold,
+                         "example": logged[-1].query_text if logged and logged[-1].query_text else None})
+        rows.sort(key=lambda r: r["total_ms"], reverse=True)
+        return {"threshold_ms": threshold, "templates": rows}
+
+    def tables(self, snap: Snapshot, rows: int) -> list[dict]:
+        """Every QuickMart table with its code, pg_class row estimate, size and `rows` sample
+        rows (SELECT * LIMIT n, cells JSON-safe)."""
+        from psycopg import sql
+        out = []
+        with psycopg.connect(self.prod_dsn, autocommit=True) as conn:
+            stats = {name: (reltuples, size) for name, reltuples, size in conn.execute(
+                "SELECT relname, reltuples, pg_total_relation_size(oid) FROM pg_class "
+                "WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'")}
+            for table, cols in snap.catalog.columns.items():
+                reltuples, size = stats.get(table, (0, 0))
+                sample = conn.execute(sql.SQL("SELECT * FROM {} LIMIT %s").format(sql.Identifier(table)), (rows,)).fetchall()
+                out.append({"table": table, "code": self.hasher.table(table), "rows": int(max(reltuples, 0)),
+                            "size_mb": round(size / 2**20, 2),
+                            "columns": [{"name": c, "type": typ, "code": self.hasher.column(table, c)} for c, typ in cols.items()],
+                            "sample": [[_json_cell(v) for v in row] for row in sample]})
+        return out
+
     def column_meta(self, snap: Snapshot) -> list[dict]:
         roles = {(c["col"], c["role"]) for t in snap.templates for c in t.hashed["columns"]}
         with psycopg.connect(self.prod_dsn, autocommit=True) as conn:
@@ -342,6 +430,17 @@ class Gateway:
                 return code
             return entry["name"].split(".", 1)[1] if entry["kind"] == "column" else entry["name"]
         return CODE_RE.sub(real, text)
+
+
+def estimate_after_ms(before_ms: float, before_cost: float, after_cost: float, min_ratio: float) -> float:
+    """before_ms scaled by the plan cost ratio, clamped to [min_ratio, 1]: an estimate never
+    reports a slowdown, nor more than a 1/min_ratio speedup. A zero before cost means unchanged."""
+    ratio = after_cost / before_cost if before_cost > 0 else 1.0
+    return before_ms * min(1.0, max(min_ratio, ratio))
+
+
+def _json_cell(v):
+    return v if v is None or isinstance(v, (bool, int, float, str)) else str(v)
 
 
 def all_canary_ids() -> list[str]:

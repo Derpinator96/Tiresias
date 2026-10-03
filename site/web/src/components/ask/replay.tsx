@@ -43,9 +43,7 @@ export function AskReplay() {
     return (
       <div className="glass rounded-xl p-5">
         <span className="rounded-md border border-slate-300 bg-slate-50/80 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">PLACEHOLDER</span>
-        <p className="mt-2 text-sm text-slate-700">
-          No Ask session has been recorded yet. With the stack running and an LLM key set, a maintainer runs <code className="font-mono">make record-ask</code>; this page then replays that session, with hashed names only. No figure is shown until then.
-        </p>
+        <p className="mt-2 text-sm text-slate-700">No session recorded yet: <code className="font-mono">make record-ask</code> writes one, hashed names only.</p>
       </div>
     );
   }
@@ -55,7 +53,7 @@ export function AskReplay() {
     <div className="space-y-4">
       <div className="glass rounded-xl p-5">
         <p className="text-sm text-slate-700">
-          Recorded {r.recorded_at} with {r.model} at commit <span className="font-mono">{r.git_commit.slice(0, 12)}</span>. The question was resolved on the private side; the AI side received <span className="font-mono">{r.question_id}</span> and template codes <span className="font-mono">{r.template_ids.join(", ") || "none"}</span> only.
+          Recorded {r.recorded_at}, {r.model}, commit <span className="font-mono">{r.git_commit.slice(0, 12)}</span>. The AI side received <span className="font-mono">{r.question_id}</span> and codes <span className="font-mono">{r.template_ids.join(", ") || "none"}</span> only.
         </p>
       </div>
 
@@ -72,12 +70,12 @@ export function AskReplay() {
           {events.slice(0, shown).map((e, i) => <li key={i}><span className="text-slate-400">{i + 1}</span> {e}</li>)}
           {shown === 0 && <li className="text-slate-500">press Play to step through the {events.length} events</li>}
         </ol>
-        <Source>Pacing is for reading, not the real timing. {r.tool_calls} tool calls in this session.</Source>
+        <Source>pacing is not real timing; {r.tool_calls} tool calls</Source>
       </div>
 
       <div className="glass rounded-xl p-5">
         <div className="mb-2 flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">Answer, as the AI side wrote it</h3>
+          <h3 className="text-sm font-semibold text-slate-900">Answer, hashed</h3>
           <Pip tone={r.status === "ok" ? "ok" : "bad"} /> <span className="text-xs text-slate-700">number checker: {r.status}</span>
         </div>
         <p className="inset-field whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{r.answer.text}</p>
@@ -88,12 +86,12 @@ export function AskReplay() {
             <tbody className="font-mono">{r.answer.numbers.map((n, i) => <tr key={i} className="border-t border-slate-200/70"><td className="px-3 py-1">{n.value}</td><td className="px-3">{n.tool_call_id}</td></tr>)}</tbody>
           </table>
         )}
-        <Source>Codes stay as the AI side saw them; on the operator side the gateway translates them back to names.</Source>
+        <Source>codes as the AI side saw them; the gateway dehashes on the operator side</Source>
       </div>
 
       {r.simulation ? (
         <div className="glass rounded-xl p-5">
-          <h3 className="mb-2 text-sm font-semibold text-slate-900">Measured on the twin by the agent&apos;s simulate tool</h3>
+          <h3 className="mb-2 text-sm font-semibold text-slate-900">Measured on the twin</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {r.simulation.templates.map((t) => (
               <Stat key={t.template_id} label={t.template_id} value={`${t.before_ms.toFixed(1)} to ${t.after_ms.toFixed(1)} ms`} note={`${(100 * (1 - t.after_ms / t.before_ms)).toFixed(1)}% faster, median of ${r.simulation!.runs} runs`} />
@@ -101,12 +99,12 @@ export function AskReplay() {
           </div>
         </div>
       ) : (
-        <div className="glass rounded-xl p-5 text-sm text-slate-700">The agent made no twin measurement in this session.</div>
+        <div className="glass rounded-xl p-5 text-sm text-slate-700">No twin measurement in this session.</div>
       )}
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <Stat label="payloads sent during this session" value={String(sent)} note="gateway ledger, after minus before" />
-        <Stat label="canary hits in all outbound payloads" value={String(r.ledger.canary_hits_after)} note="gateway ledger total after the session" />
+        <Stat label="payloads sent this session" value={String(sent)} note="gateway ledger, after minus before" />
+        <Stat label="canary hits, all payloads" value={String(r.ledger.canary_hits_after)} note="gateway ledger total after the session" />
       </div>
     </div>
   );

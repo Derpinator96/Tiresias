@@ -21,4 +21,8 @@ site/dist/
 # Plan generation output (step 18): raw plans stay local; only the committed sample is tracked
 data/plans/*
 !data/plans/sample_200.jsonl
+!data/plans/web_sample.json
 data/gnn/
+
+# local web app history (real names), host dev only
+site/web/.bt-history/

@@ -75,7 +75,7 @@ const RUN_LINE = (f: string) =>
   `-- Run with: psql -v ON_ERROR_STOP=1 -f ${f}  (no BEGIN/COMMIT and no --single-transaction: CONCURRENTLY cannot run in a transaction block)`;
 const IDX = `bt_${CODE.table}_${CODE.eq}_${CODE.range}`;
 export const MIGRATION_SQL = [
-  "-- Blind Tuner migration for <config_id not in run record> (search: <not in run record>).",
+  "-- Tiresias migration for <config_id not in run record> (search: <not in run record>).",
   RUN_LINE("migration.sql"),
   "-- Before it: python post_deploy_check.py baseline. After it: python post_deploy_check.py check.",
   `-- 1. add_index on ${CODE.table} ${INDEX_COLS}`,
@@ -83,7 +83,7 @@ export const MIGRATION_SQL = [
   "",
 ].join("\n");
 export const ROLLBACK_SQL = [
-  "-- Blind Tuner rollback for <config_id not in run record>: undoes migration.sql, last action first.",
+  "-- Tiresias rollback for <config_id not in run record>: undoes migration.sql, last action first.",
   RUN_LINE("rollback.sql"),
   "-- post_deploy_check.py check runs this file itself when a template's median latency gets worse.",
   "-- undo 1: drop the index migration.sql created (IF EXISTS: also clears an invalid index a failed build left)",

@@ -25,6 +25,8 @@ type State = {
   log: { t: string; msg: string }[];
   gates: boolean[]; // DBA pre-flight checks, ticked by the viewer
   authorizedAt: string | null;
+  source: string; // what the replay log names: the run record's id, or the current bundle's id (set by the canvas)
+  setSource: (id: string) => void;
   toggleGate: (i: number) => void;
   authorize: () => void;
   play: () => void;
@@ -49,6 +51,8 @@ export const useRun = create<State>()((set, get) => ({
   log: [],
   gates: [false, false, false, false],
   authorizedAt: null,
+  source: run.run_id,
+  setSource: (source) => set({ source }),
   toggleGate: (i) => set((s) => ({ gates: s.gates.map((g, j) => (j === i ? !g : g)), authorizedAt: null })),
   authorize: () => set((s) => (s.gates.every(Boolean) ? { authorizedAt: now(), log: [...s.log, { t: now(), msg: "deployment authorized in this browser (nothing sent)" }] } : s)),
 
@@ -68,7 +72,7 @@ export const useRun = create<State>()((set, get) => ({
         step,
         completedAt,
         status: done ? "completed" : s.status === "running" ? "running" : "paused",
-        log: [...s.log, { t: completedAt[s.step]!, msg: `${STAGES[s.step].title}: replayed from ${run.run_id}` }],
+        log: [...s.log, { t: completedAt[s.step]!, msg: `${STAGES[s.step].title}: replayed from ${s.source}` }],
       };
     }),
   back: () =>
