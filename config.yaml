@@ -3,10 +3,9 @@
 # They are starting points to tune, not results.
 
 dataset:
-  # Sales table size. 1,000,000 for the walking skeleton; 50,000,000 approved by a human on
-  # 2026-10-03 (the doc's default), with the doc's fallback: 10,000,000 if `make seed` takes
-  # over 30 minutes on the demo machine.
-  sales_rows: 50000000
+  # Sales table size. 1,000,000 for the walking skeleton. 10,000,000 (the doc's fallback) set
+  # by a human on 2026-10-03: the free Gemini tier timed out on the 50,000,000 flow.
+  sales_rows: 10000000
   # Decision B: fixed sizes for small tables.
   regions_rows: 12
   stores_rows: 500
