@@ -17,7 +17,7 @@ Record every decision here with its date, so a fresh session can pick up without
 - DSB and TPC-H loaders: built in step 18 (db/plangen/load.py).
 - Plan generation for GNN training: built in step 18 (db/plangen/), see below.
 - Twin correlations for column pairs the miner flags (MISSING).
-- pgbench write-cost scripts (MISSING).
+- pgbench write-cost scripts: built in step 24 (db/sandbox/write_cost.py).
 - Q2 to Q4 (MISSING).
 - 2026-10-03: Q1 measured after seeding at 1,000,000 sales rows: median 24.9 ms (runs 32.6, 24.5, 24.8, 24.9, 25.7), and 28.9 ms on a reseed. The doc's 500 ms auto_explain threshold would never log it. Proposed `workload.slow_query_ms: 10` (decision A), applied so the auto_explain path is exercised, pending human approval.
 - 2026-10-03: Q1 matches 2,407 rows; region 7 holds 30.01% of sales; sales is 73 MB on disk.
