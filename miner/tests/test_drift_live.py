@@ -75,7 +75,10 @@ def test_switch_to_q4_triggers_drift_and_search_adapts_without_restart(clean_q4)
     after_rl = ai("/ai/rl/run", {"weights": weights})
     print("before:", before_rl["config"]["actions"], "after:", after_rl["config"]["actions"])
     assert after_rl["q_entries"] >= before_rl["q_entries"]     # same Q-table, kept and extended
-    new = {a["cand_id"] for a in after_rl["config"]["actions"]} - {a["cand_id"] for a in before_rl["config"]["actions"]}
+    # Index actions only: since step 23 a config may also hold rewrites, which carry no cand_id.
+    def cands(rl):
+        return {a["cand_id"] for a in rl["config"]["actions"] if a["type"] == "add_index"}
+    new = cands(after_rl) - cands(before_rl)
     assert new, "the search did not change its recommendation after drift"
     empty = {"config_id": "cfg_00000000", "search": "greedy", "actions": []}
     plan_before, plan_after = q4_plan(empty, q4), q4_plan(after_rl["config"], q4)

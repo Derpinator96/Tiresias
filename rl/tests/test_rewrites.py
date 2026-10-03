@@ -140,3 +140,16 @@ def test_same_actions_are_measured_on_the_twin_once(monkeypatch):
     second, cached2 = search.twin({"config_id": "cfg_00000002", "search": "q_learning", "actions": [a]})
     assert (cached1, cached2) == (False, True) and calls == ["/v1/simulate/twin"]
     assert second["config_id"] == "cfg_00000002" and second["templates"] == first["templates"]
+
+
+def test_cached_simulation_is_not_reused_after_the_workload_changes(monkeypatch):
+    calls = []
+    monkeypatch.setattr(search.gw, "post", lambda path, cfg_: calls.append(path) or {"templates": []})
+    config = search._config([{"type": "add_index", "table": "t_0000000a", "columns": ["c_0000000a"]}])
+    monkeypatch.setattr(search, "_WORKLOAD", frozenset({"q_0000000a"}))
+    store = {}
+    search._simulate("/v1/simulate/twin", config, store)
+    assert search._simulate("/v1/simulate/twin", config, store)[1] is True          # same workload: cached
+    monkeypatch.setattr(search, "_WORKLOAD", frozenset({"q_0000000a", "q_0000000b"}))  # drift added a template
+    assert search._simulate("/v1/simulate/twin", config, store)[1] is False
+    assert len(calls) == 2

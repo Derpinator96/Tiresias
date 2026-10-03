@@ -65,8 +65,11 @@ STOP = "stop"
 _Q: dict[tuple[frozenset, str], float] = {}   # persists across run() calls (drift keeps learning)
 # Gateway results per set of actions: (monotonic time, response). Shared by every search in
 # this process; reused for rl.sim_cache_s (doc: identical configs are never re-costed).
-_HYPO: dict[frozenset, tuple[float, dict]] = {}
-_TWIN: dict[frozenset, tuple[float, dict]] = {}
+_HYPO: dict[tuple, tuple[float, dict]] = {}
+_TWIN: dict[tuple, tuple[float, dict]] = {}
+# The slow templates of the latest run(). Part of every cache key: a result measured before the
+# workload changed (drift adds Q4) covers other templates and must not be reused.
+_WORKLOAD: frozenset = frozenset()
 
 
 def _akey(a: dict) -> str:
@@ -93,7 +96,7 @@ def _simulate(path: str, config: dict, store: dict) -> tuple[dict, bool]:
     """(gateway response, from cache) for `config`, reused for rl.sim_cache_s per set of actions.
     ponytail: time-based cache; a twin or pg-prod reseeded within the TTL serves stale numbers
     until it expires. Key it on a data version if the gateway ever exposes one."""
-    key = frozenset(_akey(a) for a in config["actions"])
+    key = (frozenset(_akey(a) for a in config["actions"]), _WORKLOAD)
     hit = store.get(key)
     if hit and time.monotonic() - hit[0] < float(cfg("rl.sim_cache_s")):
         return hit[1], True
@@ -157,7 +160,7 @@ class GreedySearch:
         self.model = model
         self._cache: dict[frozenset, tuple[float, float]] = {}
         self._raw: dict[frozenset, float] = {}   # weighted raw HypoPG root cost, for the re-check
-        self._hypo: dict[frozenset, tuple[float, dict]] = {}   # run() shares the module's _HYPO
+        self._hypo: dict[tuple, tuple[float, dict]] = {}   # run() shares the module's _HYPO
         self.trace = Trace()
 
     def cost(self, chosen: list[dict]) -> tuple[float, float]:
@@ -333,7 +336,9 @@ def run(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
     """Fetch hashed inputs from the gateway, mine candidates (original and rewritten shapes),
     check the matching rewrites, calibrate the predictor on the measured plans, search, and
     re-check the top configurations on the twin. Returns (Config, Trace)."""
+    global _WORKLOAD
     templates = gw.get("/v1/templates/slow")
+    _WORKLOAD = frozenset(t["template_id"] for t in templates)
     column_meta = gw.get("/v1/meta/columns")
     table_meta = gw.get("/v1/meta/tables")
     rewrites = gw.get("/v1/rewrite/candidates")

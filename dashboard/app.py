@@ -313,9 +313,11 @@ if drift["triggered"]:
                 f"Q-table ({rec['q_entries']:,} entries).")
     if not rec["config"]["actions"]:
         st.info("For the new mix the search found no index worth its write and storage cost.")
-    for a in rec["config"]["actions"]:
-        st.markdown(f"New recommendation: add index on **{view(a['table'] + ' (' + ', '.join(a['columns']) + ')')}**: "
-                    f"predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call ({rec['estimator_label']})")
+    for a in rec["config"]["actions"]:          # index and, since step 23, rewrite actions
+        what = data.describe(a, view)
+        saving = (f": predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call ({rec['estimator_label']})"
+                  if "contribution" in a else "")
+        st.markdown(f"New recommendation: {what[0].lower()}{what[1:]}{saving}")
     st.caption(rec["label"])
 
 st.header("Candidate indexes from mining")

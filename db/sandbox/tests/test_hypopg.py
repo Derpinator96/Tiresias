@@ -67,7 +67,7 @@ def test_gateway_twin_endpoint_measures_q1_speedup():
     assert r.status_code == 200, r.text
     sim = r.json()
     assert contract_errors("SimResult", sim) == []
-    assert sim["source"] == "twin" and sim["write_ms_delta"] is None and sim["storage_mb_delta"] > 0
+    assert sim["source"] == "twin" and isinstance(sim["write_ms_delta"], float) and sim["storage_mb_delta"] > 0
     # Q1 by its query text, as e2e/test_q1.py finds it: with Q2 in the workload (step 21)
     # templates[0] is no longer Q1 (human-approved test change, 2026-10-03).
     dehash = lambda text: httpx.post(os.environ["GATEWAY_URL"] + "/v1/answers/dehash", timeout=30, json={
