@@ -135,6 +135,23 @@ def ai_gnn_estimator() -> dict:
     return {"estimator": model.estimator, "label": model.label}
 
 
+@app.post("/ai/gnn/explain")
+def ai_gnn_explain(body: dict = Body(...)) -> dict:
+    """{template_id} -> the LLM tool gnn_explain's result (agent/tools.py): the latest plan's
+    nodes with the largest predicted share, row misestimates and the ANALYZE tip, labelled with
+    the serving estimator. The dashboard shows it as each recommendation's reason."""
+    from agent.tools import Toolbox
+    if "template_id" not in body:
+        raise HTTPException(400, "body needs template_id")
+    try:
+        out = Toolbox().gnn_explain(body["template_id"])
+    except httpx.HTTPStatusError as e:      # the gateway's 404 for an unknown template
+        raise HTTPException(e.response.status_code, e.response.text[:300]) from None
+    if "error" in out:
+        raise HTTPException(404, out["error"])
+    return out
+
+
 @app.post("/ai/gnn/predict")
 def ai_gnn_predict(plans: list[dict] = Body(...)) -> list[dict]:
     try:

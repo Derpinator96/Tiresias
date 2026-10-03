@@ -43,11 +43,110 @@ def estimator_label() -> str:
         return LABELS["estimator"]
 
 
+def _fields(action: dict) -> str:
+    return "; ".join(f"{k} {', '.join(map(str, v)) if isinstance(v, list) else v}"
+                     for k, v in action.items() if k not in ("type", "contribution"))
+
+
 def describe(action: dict, name=lambda code: code) -> str:
-    """One Config action in words, names through `name` (dehash or identity)."""
-    if action["type"] == "rewrite":
-        return f"Rewrite {name(action['template_id'])} with rule {action['rule_id']}"
-    return f"Add index on {name(action['table'])} ({', '.join(name(c) for c in action['columns'])})"
+    """One Config action in words, names through `name` (dehash or identity). A type this page
+    does not know, or a known type missing a field, is shown by its type and fields."""
+    t = action.get("type")
+    try:
+        if t == "rewrite":
+            return f"Rewrite {name(action['template_id'])} with rule {action['rule_id']}"
+        if t == "add_index":
+            return f"Add index on {name(action['table'])} ({', '.join(name(c) for c in action['columns'])})"
+        if t == "drop_index":
+            return f"Drop index {name(action['index'])}"
+        if t == "partition":
+            return f"Partition {name(action['table'])} on {name(action['column'])} ({action['scheme']})"
+    except KeyError:
+        pass
+    return f"Action {t}: {name(_fields(action))}"
+
+
+def describe_cand(cand_id: str, candidates: list[dict]) -> str:
+    """A search option ID from the trace in words: rw:<template>:<rule> for a rewrite, else a
+    mined candidate's cand_id. An ID neither matches is shown as is."""
+    if cand_id.startswith("rw:"):
+        _, tid, rule = cand_id.split(":", 2)
+        return describe({"type": "rewrite", "template_id": tid, "rule_id": rule})
+    c = next((c for c in candidates if c["cand_id"] == cand_id), None)
+    return describe({"type": "add_index", "table": c["table"], "columns": c["columns"]}) if c else cand_id
+
+
+def _candidate(action: dict, candidates: list[dict]) -> dict | None:
+    return next((c for c in candidates if c["cand_id"] == action.get("cand_id")
+                 or (c["table"], c["columns"]) == (action.get("table"), action.get("columns"))), None)
+
+
+def targets(action: dict, candidates: list[dict]) -> list[str]:
+    """Template IDs an action is meant to speed up: its own template_id (a rewrite), else the
+    templates in its mined candidate's evidence (an index). Empty when neither is known."""
+    if "template_id" in action:
+        return [action["template_id"]]
+    c = _candidate(action, candidates) if action.get("type") == "add_index" else None
+    return list(c["evidence"]["templates"]) if c else []
+
+
+def reason(tid: str, x: dict) -> str:
+    """gnn_explain's result (agent/tools.py) for one template in words, hashed codes as given."""
+    nodes = "; ".join(f"{n['op']}{' on ' + n['relation'] if n.get('relation') else ''} (node {n['node_id']}): "
+                      f"{n['predicted_share_pct']}% of predicted time, {n['predicted_self_ms']} ms" for n in x["top_nodes"])
+    text = f"Reason for {tid} ({x['label']}): predicted {x['predicted_total_ms']} ms per call; largest nodes: {nodes}."
+    for m in x["misestimates"]:
+        text += (f" Row estimate off by {m['ratio']}x at node {m['node_id']} ({m['op']}"
+                 f"{' on ' + m['relation'] if m.get('relation') else ''}: estimated {m['est_rows']:,} rows, "
+                 f"actual {m['actual_rows']:,}): {m['recommend']}.")
+    if not x["misestimates"]:
+        text += f" No row estimate is off by {x['misestimate_alert_ratio']}x or more."
+    return text
+
+
+def evidence(action: dict, candidates: list[dict], rewrites: list[dict]) -> str:
+    """The metadata behind an action: mining support for an index, the rule and its check
+    status (from the search trace) for a rewrite."""
+    t = action.get("type")
+    if t == "add_index":
+        c = _candidate(action, candidates)
+        if c is None:
+            return "Evidence: no mined candidate in the current mining run matches this index."
+        return (f"Evidence: mined support {100 * c['support']:.1f}% of slow query time (FP-Growth, weighted by total "
+                f"time), column roles {', '.join(c['evidence']['items'])}, in templates {', '.join(c['evidence']['templates'])}.")
+    if t == "rewrite":
+        rw = next((r for r in rewrites if (r["template_id"], r["rule_id"]) == (action["template_id"], action["rule_id"])), None)
+        if rw is None:
+            return f"Evidence: rule {action['rule_id']} matched the template's shape; not checked in this search."
+        checks = ", ".join(f"{k}: {v}" for k, v in rw.get("checks", {}).items())
+        return f"Evidence: rule {action['rule_id']} matched the template's shape; check: {rw['status']}" + (f" ({checks})." if checks else ".")
+    return f"Evidence: this page has no metadata evidence for a {t} action in the search trace."
+
+
+def twin_line(tids: list[str], run: dict) -> str:
+    """The chosen configuration's twin measurement for the templates an action targets."""
+    chosen = next((e for e in run.get("top_configs", []) if e.get("chosen") and "twin" in e), None)
+    if chosen is None:
+        return f"Twin: not measured ({run.get('final_choice', 'no twin re-check in this run')})."
+    rows = [t for t in chosen["twin"]["templates"] if t["template_id"] in tids]
+    if not rows:
+        return "Twin: the measurement holds no template this action targets."
+    return (f"Twin, measured with the whole configuration applied (median of {chosen['twin']['runs']} runs): "
+            + "; ".join(f"{t['template_id']} {t['before_ms']:.1f} ms before, {t['after_ms']:.1f} ms after" for t in rows) + ".")
+
+
+def rl_vs_greedy(run: dict, candidates: list[dict]) -> dict:
+    """Q-learning's and greedy's picks from one /ai/rl/run trace, hashed codes as given. Both
+    predicted with the same estimator and weights; only Q-learning's pick was re-checked on the twin."""
+    g = run.get("greedy") or {}
+    yn = {True: "yes", False: "no", None: "not in the trace"}
+    return {"Q-learning pick": "; ".join(describe(a) for a in run["config"]["actions"]) or "no change",
+            "Q-learning predicted ms after": run.get("final_predicted_ms"),
+            "greedy pick": ("; ".join(describe_cand(c, candidates) for c in g["cand_ids"]) or "no change") if g else "not in the trace",
+            "greedy predicted ms after": g.get("predicted_ms"),
+            "predicted ms before": run.get("baseline_predicted_ms"),
+            "same pick": yn[g.get("same_as_rl")],
+            "same pick before the twin re-check": yn[g.get("same_as_rl_before_twin")]}
 
 
 LLM_UNKNOWN = "LLM: unknown (the ai service did not say which model answers)"

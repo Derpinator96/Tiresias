@@ -260,3 +260,118 @@ def test_llm_in_use_is_named_on_screen(app):
     info = data.llm_info()
     assert info["label"].startswith("LLM: ") and info["label"] != data.LLM_UNKNOWN
     assert info["label"] in text_of(app)
+
+
+# ---- Explanation per action (step 33) ---------------------------------------------------------
+UNKNOWN = {"type": "shard", "table": "t_0000beef", "key": "c_0000beef"}
+
+
+def test_describe_handles_every_action_type_and_unknown_ones():
+    assert data.describe({"type": "drop_index", "index": "i_00000001"}) == "Drop index i_00000001"
+    assert data.describe({"type": "partition", "table": "t_00000001", "column": "c_00000002", "scheme": "range_month"}) \
+        == "Partition t_00000001 on c_00000002 (range_month)"
+    assert data.describe(UNKNOWN) == "Action shard: table t_0000beef; key c_0000beef"
+    assert data.describe({"type": "partition", "table": "t_00000001"}) == "Action partition: table t_00000001"
+    assert data.describe_cand("rw:q_00000001:r1", []) == "Rewrite q_00000001 with rule r1"
+    assert data.describe_cand("part_1", []) == "part_1"
+    for a in ({"type": "drop_index", "index": "i_1"}, UNKNOWN, {"type": "partition", "table": "t", "column": "c", "scheme": "x"}):
+        assert data.targets(a, []) == [] and data.evidence(a, [], []).startswith("Evidence: ")
+
+
+def test_evidence_lines_cite_support_check_status_and_twin():
+    cand = {"cand_id": "cand_00000001", "table": "t_1", "columns": ["c_1", "c_2"], "support": 0.6412,
+            "evidence": {"items": ["c_1:EQ", "c_2:RANGE"], "templates": ["q_1", "q_2"]}}
+    idx = {"type": "add_index", "table": "t_1", "columns": ["c_1", "c_2"]}       # matched by table and columns
+    assert data.targets(idx, [cand]) == ["q_1", "q_2"]
+    assert "mined support 64.1% of slow query time" in data.evidence(idx, [cand], [])
+    rw = {"type": "rewrite", "template_id": "q_2", "rule_id": "r1"}
+    checks = [{"template_id": "q_2", "rule_id": "r1", "status": "TestedOnly", "checks": {"verieql": "unsupported"}}]
+    assert data.targets(rw, [cand]) == ["q_2"]
+    assert data.evidence(rw, [cand], checks).endswith("check: TestedOnly (verieql: unsupported).")
+    run = {"top_configs": [{"chosen": False}, {"chosen": True, "twin": {"runs": 5, "templates": [
+        {"template_id": "q_1", "before_ms": 300.04, "after_ms": 98.31}, {"template_id": "q_9", "before_ms": 1, "after_ms": 1}]}}]}
+    assert data.twin_line(["q_1"], run) == ("Twin, measured with the whole configuration applied (median of 5 runs): "
+                                           "q_1 300.0 ms before, 98.3 ms after.")
+    assert data.twin_line(["q_1"], {"final_choice": "best predicted"}) == "Twin: not measured (best predicted)."
+    x = {"label": "estimator: L", "predicted_total_ms": 12.5, "misestimate_alert_ratio": 10.0, "misestimates": [],
+         "top_nodes": [{"node_id": 1, "op": "Seq Scan", "relation": "t_1", "predicted_share_pct": 97.2, "predicted_self_ms": 12.1}]}
+    assert data.reason("q_1", x) == ("Reason for q_1 (estimator: L): predicted 12.5 ms per call; largest nodes: Seq Scan on t_1 "
+                                     "(node 1): 97.2% of predicted time, 12.1 ms. No row estimate is off by 10.0x or more.")
+
+
+def _fake_run(mined: dict, rewrites: list[dict]) -> dict:
+    """An /ai/rl/run response holding every action type plus an unknown one. Real codes from the
+    live stack, so reasons come from the live /ai/gnn/explain; the twin and saving numbers are
+    test values, not measurements."""
+    c, rw = mined["candidates"][0], rewrites[0]
+    saved = {"predicted_ms_saved": 12.5, "estimator": "postgres_cost_calibrated"}
+    actions = [{"type": "add_index", "table": c["table"], "columns": c["columns"], "cand_id": c["cand_id"], "contribution": saved},
+               {"type": "rewrite", "template_id": rw["template_id"], "rule_id": rw["rule_id"], "contribution": saved},
+               {"type": "partition", "table": c["table"], "column": c["columns"][-1], "scheme": "range_month"},
+               {"type": "drop_index", "index": "i_0000beef"}, {**UNKNOWN, "table": c["table"]}]
+    twin = {"runs": 3, "cached": False, "storage_mb": 1.0,
+            "templates": [{"template_id": t, "before_ms": 300.0, "after_ms": 100.0} for t in c["evidence"]["templates"]]}
+    return {"config": {"config_id": "cfg_0000beef", "search": "q_learning", "actions": actions},
+            "label": data.LABELS["search"], "estimator_label": data.estimator_label(),
+            "baseline_predicted_ms": 50.0, "final_predicted_ms": 20.0, "episodes": 300, "q_entries": 7,
+            "rewrites": [{"template_id": rw["template_id"], "rule_id": rw["rule_id"], "status": "TestedOnly",
+                          "checks": {"verieql": "unsupported", "checksum": "match"}}],
+            "greedy": {"config_id": "cfg_0000cafe", "cand_ids": [c["cand_id"], f"rw:{rw['template_id']}:{rw['rule_id']}", "part_00000001"],
+                       "predicted_ms": 25.0, "same_as_rl": False, "same_as_rl_before_twin": True},
+            "final_choice": "best measured on the twin",
+            "top_configs": [{"actions": actions, "chosen": True, "predicted_drop": 0.6, "hypopg_cost_drop": 0.6,
+                             "measured_drop": 0.66, "score": 0.5, "twin": twin}]}
+
+
+def test_recommendation_explains_every_action_including_unknown_types():
+    mined, rewrites = data.ai("/ai/mine", {}).json(), data.gateway("/v1/rewrite/candidates")
+    run = _fake_run(mined, rewrites)
+    c = mined["candidates"][0]
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.session_state["rl"] = run
+    at.run()
+    assert not at.exception, at.exception
+    text = text_of(at).replace("**", "")
+    estimator = data.estimator_label()          # whichever estimator ai serves; never "GNN" unless it does
+    assert len(re.findall(r"Reason for .*\(" + re.escape(estimator) + r"\): predicted [0-9.]+ ms per call; "
+                          r"largest nodes: .*% of predicted time", text)) >= len(c["evidence"]["templates"]) + 1
+    assert f"mined support {100 * c['support']:.1f}% of slow query time" in text
+    assert f"rule {rewrites[0]['rule_id']} matched the template's shape; check: TestedOnly" in text
+    assert "300.0 ms before, 100.0 ms after" in text
+    assert "Partition sales on" in text and "Drop index" in text and "Action shard: table sales" in text
+    assert "no metadata evidence for a shard action" in text
+    at.toggle[0].set_value(True).run()            # AI view: codes only, reasons still shown
+    assert not at.exception, at.exception
+    hashed = text_of(at)
+    assert not REAL.search(hashed), REAL.search(hashed)
+    assert re.search(r"Reason for q_[0-9a-f]{8} \(", hashed) and re.search(r"Partition t_[0-9a-f]{8} on c_[0-9a-f]{8}", hashed)
+
+
+def test_drift_panel_shows_rl_and_greedy_side_by_side_and_tolerates_unknown_actions(monkeypatch):
+    real = data.ai
+    mined, rewrites = real("/ai/mine", {}).json(), data.gateway("/v1/rewrite/candidates")
+    run = _fake_run(mined, rewrites)
+
+    def ai(path, body=None, method=None):
+        assert path != "/ai/rl/run", "the drift re-run is in session state; nothing new should run"
+        r = real(path, body, method)
+        if path == "/ai/mine":
+            body_ = r.json()
+            body_["drift"].update(triggered=True, triggered_at=1791000000)
+            r.json = lambda: body_
+        return r
+    monkeypatch.setattr(data, "ai", ai)
+    at = AppTest.from_file(APP, default_timeout=120)
+    at.session_state["rl"] = run
+    at.session_state["drift_rl"] = {**run, "config": {**run["config"], "actions": run["config"]["actions"][2:]}}
+    at.session_state["drift_rl_for"] = 1791000000
+    at.run()
+    assert not at.exception, at.exception
+    rows = next(d.value for d in at.dataframe if "greedy pick" in d.value.columns).to_dict("records")
+    assert [r["run"] for r in rows] == ["Run search above (all logged calls)", "drift re-run (drift window mix)"]
+    before, after = rows
+    assert before["Q-learning predicted ms after"] == 20.0 and before["greedy predicted ms after"] == 25.0
+    assert before["same pick"] == "no" and before["same pick before the twin re-check"] == "yes"
+    assert "Add index on sales" in before["greedy pick"] and "part_00000001" in before["greedy pick"]
+    assert after["Q-learning pick"].startswith("Partition sales on")
+    assert "New recommendation: drop index" in text_of(at)

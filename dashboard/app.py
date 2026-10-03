@@ -117,24 +117,61 @@ else:
         st.info("No auto_explain plan is logged for this template.")
 
 # ---- Recommendation, twin, verification -----------------------------------------------------
+mined = data.ai("/ai/mine", {}).json()      # candidates (evidence below) and the drift state
+
+
+def explain(tid: str) -> dict:
+    """gnn_explain's result for one template, through ai; kept until the next search."""
+    cache = st.session_state.setdefault("explain", {})
+    if tid not in cache:
+        r = data.ai("/ai/gnn/explain", {"template_id": tid})
+        cache[tid] = r.json() if r.status_code == 200 else {"error": f"HTTP {r.status_code}"}
+    return cache[tid]
+
+
+def show_evidence(a: dict, run: dict) -> None:
+    """PS4: every recommendation carries the plan model's reason for each template it targets,
+    the metadata evidence that triggered it, and the twin measurement."""
+    tids = data.targets(a, mined["candidates"])
+    for tid in tids:
+        x = explain(tid)
+        st.caption(view(f"Reason for {tid}: not available ({x['error']})." if "error" in x else data.reason(tid, x)))
+    if not tids:
+        st.caption("Reason: no template is linked to this action, so there is no plan to explain.")
+    st.caption(view(data.evidence(a, mined["candidates"], run.get("rewrites", []))))
+    st.caption(view(data.twin_line(tids, run)))
+
+
+def saving(a: dict, run: dict) -> str:
+    c = a.get("contribution")
+    return (f": predicted saving {c['predicted_ms_saved']:.1f} ms per call ({run.get('estimator_label', estimator)})"
+            if c else ": no predicted saving in the trace")
+
+
 st.header("Recommended configuration")
 st.caption(data.LABELS["search"])
+st.caption(f"Each action lists its reason from the plan model ({estimator}), the metadata evidence that triggered it, "
+           "and its twin measurement.")
 if st.button("Run search"):
     st.session_state["rl"] = data.ai("/ai/rl/run", {}).json()
     st.session_state.pop("twin", None)
+    st.session_state.pop("explain", None)
 rl = st.session_state.get("rl")
 if rl:
     if not rl["config"]["actions"]:
         st.info("The search found no index or rewrite worth its write and storage cost.")
     checks = {(c["template_id"], c["rule_id"]): c["status"] for c in rl.get("rewrites", [])}
     for a in rl["config"]["actions"]:
-        if a["type"] == "rewrite":
-            head = f"Rewrite **{view(a['template_id'])}** with rule **{a['rule_id']}** " \
-                   f"(check: {checks.get((a['template_id'], a['rule_id']), 'not checked')})"
-        else:
-            head = f"Add index on **{view(a['table'])} ({', '.join(view(c) for c in a['columns'])})**"
-        st.markdown(f"{head}: predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call "
-                    f"({rl.get('estimator_label', estimator)})")
+        with st.container(border=True):
+            if a.get("type") == "rewrite":
+                head = f"Rewrite **{view(a['template_id'])}** with rule **{a['rule_id']}** " \
+                       f"(check: {checks.get((a['template_id'], a['rule_id']), 'not checked')})"
+            elif a.get("type") == "add_index":
+                head = f"Add index on **{view(a['table'])} ({', '.join(view(c) for c in a['columns'])})**"
+            else:
+                head = f"**{view(data.describe(a))}**"
+            st.markdown(head + saving(a, rl))
+            show_evidence(a, rl)
     st.caption(f"Predicted workload time {rl['baseline_predicted_ms']:.1f} ms before, {rl['final_predicted_ms']:.1f} ms after. "
                "Predictions rank candidates; the twin measurement below is the reported result.")
     g = rl.get("greedy") or {}
@@ -290,7 +327,6 @@ else:
                 f"Plans agree: the operator sequence on the twin matches pg-prod's, before and after.")
 
 # ---- Workload drift and mining candidates ---------------------------------------------------
-mined = data.ai("/ai/mine", {}).json()
 drift = mined["drift"]
 
 st.header("Workload drift")
@@ -313,12 +349,30 @@ if drift["triggered"]:
                 f"Q-table ({rec['q_entries']:,} entries).")
     if not rec["config"]["actions"]:
         st.info("For the new mix the search found no index worth its write and storage cost.")
-    for a in rec["config"]["actions"]:          # index and, since step 23, rewrite actions
-        what = data.describe(a, view)
-        saving = (f": predicted saving {a['contribution']['predicted_ms_saved']:.1f} ms per call ({rec['estimator_label']})"
-                  if "contribution" in a else "")
-        st.markdown(f"New recommendation: {what[0].lower()}{what[1:]}{saving}")
+    for a in rec["config"]["actions"]:          # any action type, unknown ones shown by their fields
+        what = view(data.describe(a))
+        with st.container(border=True):
+            st.markdown(f"New recommendation: {what[0].lower()}{what[1:]}{saving(a, rec)}")
+            show_evidence(a, rec)
     st.caption(rec["label"])
+
+# RL vs greedy (doc acceptance: compare on overlapping indexes and on drift). Only numbers in
+# the two /ai/rl/run traces; nothing new is computed.
+st.subheader("Q-learning and greedy, before and after the drift re-run")
+st.caption(f"Both picks come from the same /ai/rl/run trace, predicted with the same estimator and weights "
+           f"({estimator}). Only Q-learning's top configurations are re-checked on the twin; greedy's pick is "
+           "predicted only. Before: the last Run search above (each template's share of all logged calls). "
+           "After: the re-run on the drift window's mix.")
+runs = [(label, r) for label, r in (("Run search above (all logged calls)", st.session_state.get("rl")),
+                                    ("drift re-run (drift window mix)", st.session_state.get("drift_rl") if drift["triggered"] else None)) if r]
+if runs:
+    rows = [{"run": label, **data.rl_vs_greedy(r, mined["candidates"])} for label, r in runs]
+    st.dataframe([{**row, "Q-learning pick": view(row["Q-learning pick"]), "greedy pick": view(row["greedy pick"])}
+                  for row in rows], hide_index=True)
+if not st.session_state.get("rl"):
+    st.info("No before row: run the search above first.")
+if not drift["triggered"]:
+    st.info("No after row: drift has not triggered. Run make drift-demo to switch the mix.")
 
 st.header("Candidate indexes from mining")
 st.caption(f"{data.LABELS['miner']}. Support: the share of slow query time in which the candidate's column roles "
