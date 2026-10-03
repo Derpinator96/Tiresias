@@ -73,8 +73,19 @@ def meta_tables():
 
 @app.post("/v1/simulate/hypopg")
 def simulate_hypopg(config: dict = Body(...)):
+    """Config -> {plans: HashedPlan[] (estimated), index_storage_mb}. The size comes from
+    hypopg_relation_size; the doc's table lists only the plans, the size is added so the
+    search can apply its storage penalty without a second round trip."""
     validate("Config", config)
-    _pending(9, "HypoPG simulation")
+    g = gw()
+    snap = g.snapshot()
+    try:
+        out = g.simulate_hypopg(snap, config)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, f"cannot simulate this config: {type(e).__name__}") from None
+    for p in out["plans"]:
+        validate("HashedPlan", p)
+    return _to_ai(None, out)
 
 
 @app.post("/v1/simulate/twin")

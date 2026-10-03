@@ -105,8 +105,14 @@ rl:
   epsilon_min: 0.02
   episodes: 300
   actions_per_episode: 5
+  # The doc's reward subtracts lambda_write x write ms (ms) from a fractional time drop
+  # (unitless). Kept as is, approved 2026-10-03: with the per-index penalty below it acts as
+  # a flat 0.1 per index, labelled as an assumption. Fix the units once pgbench measures writes.
   lambda_write: 1.0               # per added ms of insert latency
-  lambda_storage: 1.0
+  # Changed from the doc's 1.0, approved by a human 2026-10-03. At 1.0 the 28 MB Q1 index
+  # (budget 23.8 MB) scored storage 1.179 against a 0.641 predicted drop, so the search
+  # recommended nothing, contradicting the doc's RL acceptance criterion.
+  lambda_storage: 0.25
   storage_budget_table_share: 0.25
   configs_verified_on_twin: 3
   # Not in the doc's table: assumed insert cost of one new index during search

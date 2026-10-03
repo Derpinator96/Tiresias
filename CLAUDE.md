@@ -50,11 +50,11 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | Docker Compose services and networks | infra/ | REAL (gateway uses the postgres superuser; SIMPLIFIED until least-privilege roles exist) | infra/tests/run.sh: test_isolation.py (6), test_private_no_internet.py (2), test_postgres.py (8) |
 | Egress for ai | infra/ | SIMPLIFIED: unrestricted internet, no allowlist of the LLM API host | test_isolation.py::test_llm_api_host_is_reachable proves the route exists, not that other hosts are blocked |
 | QuickMart schema, generator, canaries, Q1 runner | db/ | REAL at 1,000,000 sales rows (not the doc's 50M; Q1 median 24.9 ms, so slow_query_ms is a PROPOSED 10 ms pending approval) | db/tests/test_quickmart.py (33 passed) |
-| Gateway: hashing, stripping, ingestion, ledger, canary scan, resolver, API | gateway/ | REAL for the Q1 flow (simulate and checksum endpoints return 501 until steps 9, 10, 12; approve out of scope) | gateway/tests/test_units.py, gateway/tests/test_api.py (47 passed) |
+| Gateway: hashing, stripping, ingestion, ledger, canary scan, resolver, API | gateway/ | REAL for the Q1 flow (twin simulate and checksum return 501 until steps 10 and 12; approve out of scope) | gateway/tests/test_units.py, gateway/tests/test_api.py (47 passed) |
 | FP-Growth miner | miner/, agent/api.py /ai/mine | REAL (covered-index check SIMPLIFIED: only primary keys are known as existing indexes; drift MISSING) | miner/tests/test_fpgrowth.py (8), miner/tests/test_q1_candidate.py (1) |
 | Runtime predictor | models/gnn/predictor.py, agent/api.py /ai/gnn/predict | SIMPLIFIED: Postgres cost x a ratio measured from the baseline plan; label "estimator: Postgres cost x calibration (GNN pending)" | models/gnn/tests/test_predictor.py (4) |
-| Configuration search | rl/ | MISSING (planned SIMPLIFIED: greedy, RL pending) | untested: step 9 |
-| HypoPG what-if | db/sandbox/ | MISSING | untested: step 10 |
+| Configuration search | rl/search.py, agent/api.py /ai/rl/run | SIMPLIFIED: greedy over miner candidates scored by HypoPG plus the predictor; label "search: greedy (RL pending)". lambda_storage 0.25 (human-approved change from the doc's 1.0) | rl/tests/test_search.py (5) |
+| HypoPG what-if | db/sandbox/hypopg.py, gateway /v1/simulate/hypopg | REAL | db/sandbox/tests/test_hypopg.py (5) |
 | Statistical twin | db/twin/ | MISSING (planned SIMPLIFIED: no correlations) | untested: step 10 |
 | LLM agent and number checker | agent/ | MISSING | untested: step 11 |
 | Checksum verification | verify/ | MISSING | untested: step 12 |
