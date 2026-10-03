@@ -64,8 +64,11 @@ def _read_stats(conn) -> dict:
         SELECT con.conrelid::regclass::text, a.attname, con.contype, con.confrelid::regclass::text
         FROM pg_constraint con JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = ANY (con.conkey)
         WHERE con.connamespace = 'public'::regnamespace AND con.contype IN ('p', 'f')""").fetchall()
-    rows = dict(conn.execute("""SELECT relname, reltuples::bigint FROM pg_class
-                                WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'""").fetchall())
+    # Exact counts, not pg_class.reltuples: that is an estimate (10,000,220 for 10,000,000 sales
+    # rows), and the hero table must match production exactly. One count(*) per table is cheap.
+    names = [r[0] for r in conn.execute("""SELECT relname FROM pg_class
+                                          WHERE relnamespace = 'public'::regnamespace AND relkind = 'r'""")]
+    rows = {t: conn.execute(f'SELECT count(*) FROM "{t}"').fetchone()[0] for t in names}
     tables: dict[str, list] = {}
     for t, a, typ, _ in cols:
         tables.setdefault(t, []).append((a, typ, stats.get((t, a))))
