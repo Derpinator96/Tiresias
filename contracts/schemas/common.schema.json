@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/common.schema.json",
+  "title": "Shared definitions",
+  "description": "Code formats and shared types. Every identifier that crosses the trust boundary is a prefix plus 8 lowercase hex characters (architecture doc, Interface contracts; decision H in PLAN.md).",
+  "$defs": {
+    "table_code": {"type": "string", "pattern": "^t_[0-9a-f]{8}$"},
+    "col_code": {"type": "string", "pattern": "^c_[0-9a-f]{8}$"},
+    "index_code": {"type": "string", "pattern": "^i_[0-9a-f]{8}$"},
+    "template_id": {"type": "string", "pattern": "^q_[0-9a-f]{8}$"},
+    "plan_id": {"type": "string", "pattern": "^p_[0-9a-f]{8}$"},
+    "setup_id": {"type": "string", "pattern": "^s_[a-z0-9_]{1,32}$"},
+    "cand_id": {"type": "string", "pattern": "^cand_[0-9a-f]{8}$"},
+    "config_id": {"type": "string", "pattern": "^cfg_[0-9a-f]{8}$"},
+    "question_id": {"type": "string", "pattern": "^qn_[0-9a-f]{8}$"},
+    "payload_id": {"type": "string", "pattern": "^pay_[0-9a-f]{8}$"},
+    "rewrite_id": {"type": "string", "pattern": "^rw_[0-9a-f]{8}$"},
+    "tool_call_id": {"type": "string", "pattern": "^tc_[0-9a-f]{8}$"},
+    "canary_id": {"type": "string", "pattern": "^cn_[0-9a-f]{8}$"},
+    "hashed_sql": {
+      "description": "SQL or a plan filter expression after hashing and literal stripping. Outside of codes, only uppercase keywords, operators, punctuation and ? placeholders are allowed. No lowercase word, digit, quote or $ may appear outside a code, and comments are rejected. Limitation: an unquoted uppercase identifier cannot be told apart from a keyword here; the gateway's own tests must cover that.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:[tcqi]_[0-9a-f]{8}|[A-Z_ \\t\\n(),.*=<>!?+\\-/%|:;\\[\\]])*$",
+      "not": {"pattern": "--|/\\*"}
+    },
+    "basket_item": {
+      "type": "string",
+      "pattern": "^c_[0-9a-f]{8}:(EQ|RANGE|JOIN|GROUP|ORDER|SELECT)$"
+    },
+    "role": {"enum": ["EQ", "RANGE", "JOIN", "GROUP", "ORDER", "SELECT"]},
+    "ms": {"type": "number", "minimum": 0},
+    "share": {"type": "number", "minimum": 0, "maximum": 1},
+    "count": {
+      "description": "A row or distinct count, already rounded to the configured significant figures by the gateway.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "plan_node_type": {
+      "description": "PostgreSQL 16 plan node names, as written to EXPLAIN (FORMAT JSON) \"Node Type\". Taken from the sname values in src/backend/commands/explain.c on REL_16_STABLE, checked 2026-10-03.",
+      "enum": [
+        "Aggregate", "Append", "Bitmap Heap Scan", "Bitmap Index Scan", "BitmapAnd", "BitmapOr",
+        "CTE Scan", "Custom Scan", "Foreign Scan", "Function Scan", "Gather", "Gather Merge",
+        "Group", "Hash", "Hash Join", "Incremental Sort", "Index Only Scan", "Index Scan",
+        "Limit", "LockRows", "Materialize", "Memoize", "Merge Append", "Merge Join",
+        "ModifyTable", "Named Tuplestore Scan", "Nested Loop", "ProjectSet", "Recursive Union",
+        "Result", "Sample Scan", "Seq Scan", "SetOp", "Sort", "Subquery Scan",
+        "Table Function Scan", "Tid Range Scan", "Tid Scan", "Unique", "Values Scan",
+        "WindowAgg", "WorkTable Scan"
+      ]
+    }
+  }
+}

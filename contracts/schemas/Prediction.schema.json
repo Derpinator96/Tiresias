@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/Prediction.schema.json",
+  "title": "Prediction",
+  "description": "Predicted runtime for one plan, per node. estimator names the model so a simplified one is labelled on screen. GNN to RL and LLM.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "$ref": "common.schema.json#/$defs/plan_id"
+    },
+    "estimator": {
+      "enum": [
+        "postgres_cost_calibrated",
+        "gnn"
+      ]
+    },
+    "total_ms": {
+      "$ref": "common.schema.json#/$defs/ms"
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "self_ms": {
+            "$ref": "common.schema.json#/$defs/ms"
+          },
+          "share": {
+            "$ref": "common.schema.json#/$defs/share"
+          }
+        },
+        "required": [
+          "node_id",
+          "self_ms",
+          "share"
+        ]
+      }
+    }
+  },
+  "required": [
+    "plan_id",
+    "estimator",
+    "total_ms",
+    "nodes"
+  ]
+}

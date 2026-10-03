@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/Answer.schema.json",
+  "title": "Answer",
+  "description": "The LLM's answer in hashed names. Each number cites the tool call it came from. Real names are added only inside the private network. LLM to gateway to dashboard.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "question_id": {
+      "$ref": "common.schema.json#/$defs/question_id"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "numbers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "type": "number"
+          },
+          "tool_call_id": {
+            "$ref": "common.schema.json#/$defs/tool_call_id"
+          }
+        },
+        "required": [
+          "value",
+          "tool_call_id"
+        ]
+      }
+    }
+  },
+  "required": [
+    "question_id",
+    "text",
+    "numbers"
+  ]
+}

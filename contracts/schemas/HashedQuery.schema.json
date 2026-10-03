@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/HashedQuery.schema.json",
+  "title": "HashedQuery",
+  "description": "One query template from pg_stat_statements, hashed. Gateway to miner and LLM.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "template_id": {
+      "$ref": "common.schema.json#/$defs/template_id"
+    },
+    "sql": {
+      "$ref": "common.schema.json#/$defs/hashed_sql"
+    },
+    "calls": {
+      "$ref": "common.schema.json#/$defs/count"
+    },
+    "mean_ms": {
+      "$ref": "common.schema.json#/$defs/ms"
+    },
+    "total_ms": {
+      "$ref": "common.schema.json#/$defs/ms"
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "table": {
+            "$ref": "common.schema.json#/$defs/table_code"
+          },
+          "col": {
+            "$ref": "common.schema.json#/$defs/col_code"
+          },
+          "role": {
+            "$ref": "common.schema.json#/$defs/role"
+          }
+        },
+        "required": [
+          "table",
+          "col",
+          "role"
+        ]
+      }
+    }
+  },
+  "required": [
+    "template_id",
+    "sql",
+    "calls",
+    "mean_ms",
+    "total_ms",
+    "columns"
+  ]
+}

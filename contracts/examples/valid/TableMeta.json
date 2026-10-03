@@ -1,0 +1,8 @@
+[
+  {
+    "table": "t_7a3f91c2",
+    "rows": 1000000,
+    "size_mb": 73,
+    "writes_per_s": 200
+  }
+]

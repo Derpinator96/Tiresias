@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/ColumnMeta.schema.json",
+  "title": "ColumnMeta",
+  "description": "Per-column metadata. pg_stats value lists never appear; skew is the sum of the top 5 most-common-value frequencies. Gateway to miner, GNN and LLM.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "table": {
+      "$ref": "common.schema.json#/$defs/table_code"
+    },
+    "col": {
+      "$ref": "common.schema.json#/$defs/col_code"
+    },
+    "type_class": {
+      "enum": [
+        "date",
+        "number",
+        "text",
+        "id"
+      ]
+    },
+    "bits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pk": {
+          "type": "boolean"
+        },
+        "fk": {
+          "type": "boolean"
+        },
+        "indexed": {
+          "type": "boolean"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "join": {
+          "type": "boolean"
+        },
+        "range": {
+          "type": "boolean"
+        },
+        "eq": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pk",
+        "fk",
+        "indexed",
+        "nullable",
+        "join",
+        "range",
+        "eq"
+      ]
+    },
+    "n_distinct": {
+      "$ref": "common.schema.json#/$defs/count"
+    },
+    "null_frac": {
+      "$ref": "common.schema.json#/$defs/share"
+    },
+    "skew": {
+      "$ref": "common.schema.json#/$defs/share"
+    }
+  },
+  "required": [
+    "table",
+    "col",
+    "type_class",
+    "bits",
+    "n_distinct",
+    "null_frac",
+    "skew"
+  ]
+}

@@ -1,0 +1,61 @@
+[
+  {
+    "why": "share above 1",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "estimator": "postgres_cost_calibrated",
+      "total_ms": 402.0,
+      "nodes": [
+        {
+          "node_id": 0,
+          "self_ms": 1.6,
+          "share": 1.5
+        },
+        {
+          "node_id": 1,
+          "self_ms": 400.4,
+          "share": 0.996
+        }
+      ]
+    }
+  },
+  {
+    "why": "unknown estimator",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "estimator": "magic",
+      "total_ms": 402.0,
+      "nodes": [
+        {
+          "node_id": 0,
+          "self_ms": 1.6,
+          "share": 0.004
+        },
+        {
+          "node_id": 1,
+          "self_ms": 400.4,
+          "share": 0.996
+        }
+      ]
+    }
+  },
+  {
+    "why": "missing total_ms",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "estimator": "postgres_cost_calibrated",
+      "nodes": [
+        {
+          "node_id": 0,
+          "self_ms": 1.6,
+          "share": 0.004
+        },
+        {
+          "node_id": 1,
+          "self_ms": 400.4,
+          "share": 0.996
+        }
+      ]
+    }
+  }
+]

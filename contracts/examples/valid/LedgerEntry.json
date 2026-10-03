@@ -1,0 +1,25 @@
+[
+  {
+    "payload_id": "pay_5f6e7d8c",
+    "time": "2026-10-03T10:15:00Z",
+    "destination": "ai",
+    "bytes": 1834,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "canary_hits": [],
+    "verdict": "allow"
+  },
+  {
+    "payload_id": "pay_5f6e7d8d",
+    "time": "2026-10-03T10:15:00Z",
+    "destination": "local_scanner",
+    "bytes": 1834,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "canary_hits": [
+      {
+        "canary_id": "cn_00000001",
+        "match": "exact"
+      }
+    ],
+    "verdict": "block"
+  }
+]

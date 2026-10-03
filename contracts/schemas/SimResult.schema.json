@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/SimResult.schema.json",
+  "title": "SimResult",
+  "description": "Result of simulating a config. source twin means measured; hypopg means estimated. write_ms_delta is null when write cost was not measured. Sandbox to RL, LLM and dashboard.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "config_id": {
+      "$ref": "common.schema.json#/$defs/config_id"
+    },
+    "source": {
+      "enum": [
+        "hypopg",
+        "twin"
+      ]
+    },
+    "templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "template_id": {
+            "$ref": "common.schema.json#/$defs/template_id"
+          },
+          "before_ms": {
+            "$ref": "common.schema.json#/$defs/ms"
+          },
+          "after_ms": {
+            "$ref": "common.schema.json#/$defs/ms"
+          }
+        },
+        "required": [
+          "template_id",
+          "before_ms",
+          "after_ms"
+        ]
+      }
+    },
+    "write_ms_delta": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "storage_mb_delta": {
+      "type": "number"
+    },
+    "runs": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "config_id",
+    "source",
+    "templates",
+    "write_ms_delta",
+    "storage_mb_delta",
+    "runs"
+  ]
+}
