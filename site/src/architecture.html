@@ -1,0 +1,57 @@
+<h1>Two networks, one gateway between them</h1>
+<p>Everything that touches raw data runs on a private network. The AI components run on a second network that reaches only the gateway. The gateway is the one component on both, and it lets through hashed metadata only.</p>
+
+<figure>
+<svg viewBox="0 0 720 330" role="img" aria-labelledby="arch-title">
+<title id="arch-title">Private network with production database, statistical twin, gateway and operator dashboard; AI network with miner, cost model, search and LLM agent; the gateway sits on both.</title>
+<rect class="diagram-zone" x="10" y="20" width="330" height="290" rx="6"/>
+<text class="diagram-label" x="24" y="44">PRIVATE NETWORK: RAW DATA ALLOWED</text>
+<rect class="diagram-zone" x="430" y="20" width="280" height="290" rx="6"/>
+<text class="diagram-label" x="444" y="44">AI NETWORK: HASHED METADATA ONLY</text>
+<rect class="diagram-box" x="30" y="64" width="140" height="56" rx="4"/>
+<text class="diagram-text" x="44" y="88">Production</text><text class="diagram-text" x="44" y="106">PostgreSQL 16</text>
+<rect class="diagram-box" x="30" y="140" width="140" height="56" rx="4"/>
+<text class="diagram-text" x="44" y="164">Statistical twin</text><text class="diagram-text" x="44" y="182">synthetic rows</text>
+<rect class="diagram-box" x="30" y="216" width="140" height="56" rx="4"/>
+<text class="diagram-text" x="44" y="240">Operator</text><text class="diagram-text" x="44" y="258">dashboard (local)</text>
+<rect class="diagram-box" x="230" y="128" width="240" height="80" rx="4"/>
+<text class="diagram-text" x="246" y="152">Gateway</text>
+<text class="diagram-text" x="246" y="172">HMAC codes, literal stripping,</text>
+<text class="diagram-text" x="246" y="190">canary scan, payload ledger</text>
+<rect class="diagram-box" x="530" y="64" width="160" height="44" rx="4"/><text class="diagram-text" x="544" y="91">Pattern miner</text>
+<rect class="diagram-box" x="530" y="122" width="160" height="44" rx="4"/><text class="diagram-text" x="544" y="149">Cost model</text>
+<rect class="diagram-box" x="530" y="180" width="160" height="44" rx="4"/><text class="diagram-text" x="544" y="207">Index search</text>
+<rect class="diagram-box" x="530" y="238" width="160" height="44" rx="4"/><text class="diagram-text" x="544" y="265">LLM agent</text>
+<path class="diagram-line" d="M170 92 L230 150 M170 168 L230 168 M170 244 L230 188"/>
+<path class="diagram-line" d="M470 168 L530 86 M470 168 L530 144 M470 168 L530 202 M470 168 L530 260"/>
+<text class="diagram-accent" x="246" y="228">only codes cross to the AI network</text>
+</svg>
+<figcaption>The gateway sits on both networks; nothing on the AI side has a route to either database.</figcaption>
+</figure>
+
+<h2>Request flow for one slow query</h2>
+<ol>
+<li>PostgreSQL logs the slow query's shape in <code>pg_stat_statements</code> and its executed plan through <code>auto_explain</code>.</li>
+<li>The gateway parses both with sqlglot, replaces names with codes, replaces values with <code>?</code>, and drops comments. Anything it cannot parse is withheld, not sent.</li>
+<li>The miner runs FP-Growth over the hashed workload, weighted by time, and proposes composite index candidates in column order.</li>
+<li>The search scores candidates with HypoPG, which plans each query as if the index existed without building it, and a cost model that turns the plan into milliseconds.</li>
+<li>The gateway builds the chosen index on the statistical twin and measures the query before and after, then checks that the result rows are unchanged.</li>
+<li>The LLM agent calls these steps as tools and explains the result in hashed names. A checker blocks any answer containing a number that is not in a tool result.</li>
+<li>The gateway translates the codes back to real names for the DBA, on the private side only.</li>
+</ol>
+
+<h2>The AI cannot reach the database, by construction</h2>
+<p>The services run under Docker Compose. Both databases sit only on an internal network. The AI container sits on a second internal network shared with the gateway, plus one outbound network for the LLM API. An automated test inside the AI container tries to connect to both databases, by name and by IP address, and passes only when every attempt fails.</p>
+
+<h2>What this build simplifies</h2>
+<div class="table-wrap"><table>
+<thead><tr><th scope="col">Component</th><th scope="col">In this build</th></tr></thead>
+<tbody>
+<tr><th scope="row">Cost model</th><td>PostgreSQL's own cost estimates, converted to milliseconds with a ratio measured from the slow query's real run. The planned graph neural network is not built.</td></tr>
+<tr><th scope="row">Index search</th><td>Greedy: add the best candidate until nothing improves. The planned reinforcement learning agent is not built.</td></tr>
+<tr><th scope="row">Statistical twin</th><td>Each column generated on its own from the production statistics. Correlations between columns are not preserved yet.</td></tr>
+<tr><th scope="row">Verification</th><td>Result checksums on the twin. SQL equivalence checking is not built.</td></tr>
+<tr><th scope="row">Write cost</th><td>Not measured. Search uses an assumed penalty per index.</td></tr>
+<tr><th scope="row">AI network egress</th><td>Open internet access for the LLM call. Restricting it to the LLM host is not built.</td></tr>
+<tr><th scope="row">Scope</th><td>One hero query on a 1,000,000-row demo table. Join, partitioning and workload-drift queries are not built.</td></tr>
+</tbody></table></div>
