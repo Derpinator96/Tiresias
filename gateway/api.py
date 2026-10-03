@@ -108,7 +108,33 @@ def simulate_twin(config: dict = Body(...)):
 
 @app.post("/v1/twin/checksum")
 def twin_checksum(body: dict = Body(...)):
-    _pending(12, "twin checksum")
+    """{template_id, config} -> {template_id, config_id, match, rows}: does building the
+    config's indexes on the twin leave the template's result rows unchanged?
+    Original-vs-rewritten SQL is not supported yet (rewrites are out of scope)."""
+    from db.sandbox import checksum, twin_measure
+    if "rewritten_sql" in body:
+        raise HTTPException(501, "rewrite equivalence: not built yet (rewrites are out of scope this session)")
+    config = body.get("config")
+    if not isinstance(config, dict):
+        raise HTTPException(400, "body needs template_id and config")
+    validate("Config", config)
+    g = gw()
+    snap = g.snapshot()
+    tid = body.get("template_id")
+    if snap.template(tid) is None:
+        raise HTTPException(404, "unknown template")
+    try:
+        indexes = g.decode_config(config)
+    except (KeyError, ValueError) as e:
+        raise HTTPException(400, f"cannot check this config: {type(e).__name__}") from None
+    query, generic = g.sample_queries(snap, [tid])[tid]
+    if generic:
+        raise HTTPException(409, "template has no logged query to replay")
+    twin_q = twin_measure.map_query(query, twin_measure.load_map())
+    r = checksum.index_preserves_results(os.environ["TWIN_DSN"], indexes, twin_q)
+    from gateway.rounding import round_count
+    return _to_ai(None, {"template_id": tid, "config_id": config["config_id"], "match": r["match"],
+                         "rows": round_count(r["rows"])})
 
 
 @app.post("/v1/ledger/outbound")
