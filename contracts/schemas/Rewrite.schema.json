@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/Rewrite.schema.json",
+  "title": "Rewrite",
+  "description": "A rule-based rewrite of one template and its verification status. Rewriter to verifier and dashboard.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "rewrite_id": {
+      "$ref": "common.schema.json#/$defs/rewrite_id"
+    },
+    "template_id": {
+      "$ref": "common.schema.json#/$defs/template_id"
+    },
+    "rule_id": {
+      "$ref": "#/$defs/rule_id"
+    },
+    "sql": {
+      "$ref": "common.schema.json#/$defs/hashed_sql"
+    },
+    "status": {
+      "enum": [
+        "Verified",
+        "TestedOnly",
+        "Rejected"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "verieql": {
+          "enum": [
+            "pass",
+            "fail",
+            "unsupported",
+            "not_run"
+          ]
+        },
+        "checksum": {
+          "enum": [
+            "match",
+            "mismatch",
+            "not_run"
+          ]
+        }
+      },
+      "required": [
+        "verieql",
+        "checksum"
+      ]
+    }
+  },
+  "required": [
+    "rewrite_id",
+    "template_id",
+    "rule_id",
+    "sql",
+    "status",
+    "checks"
+  ],
+  "$defs": {
+    "rule_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,63}$"
+    }
+  }
+}

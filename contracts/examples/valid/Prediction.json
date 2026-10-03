@@ -1,0 +1,19 @@
+[
+  {
+    "plan_id": "p_0004120a",
+    "estimator": "postgres_cost_calibrated",
+    "total_ms": 402.0,
+    "nodes": [
+      {
+        "node_id": 0,
+        "self_ms": 1.6,
+        "share": 0.004
+      },
+      {
+        "node_id": 1,
+        "self_ms": 400.4,
+        "share": 0.996
+      }
+    ]
+  }
+]

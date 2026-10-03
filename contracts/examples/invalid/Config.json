@@ -1,0 +1,124 @@
+[
+  {
+    "why": "add_index with no columns",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "greedy",
+      "actions": [
+        {
+          "type": "add_index",
+          "table": "t_7a3f91c2",
+          "columns": [],
+          "cand_id": "cand_9e01ab34",
+          "contribution": {
+            "predicted_ms_saved": 395.0,
+            "estimator": "postgres_cost_calibrated"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "why": "unknown action type",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "greedy",
+      "actions": [
+        {
+          "type": "create_table",
+          "table": "t_7a3f91c2"
+        }
+      ]
+    }
+  },
+  {
+    "why": "more than 5 actions",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "greedy",
+      "actions": [
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        },
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        },
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        },
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        },
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        },
+        {
+          "type": "drop_index",
+          "index": "i_3b7c2a90"
+        }
+      ]
+    }
+  },
+  {
+    "why": "drop_index given a column code",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "greedy",
+      "actions": [
+        {
+          "type": "drop_index",
+          "index": "c_19c2d04e"
+        }
+      ]
+    }
+  },
+  {
+    "why": "real column names in add_index",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "greedy",
+      "actions": [
+        {
+          "type": "add_index",
+          "table": "t_7a3f91c2",
+          "columns": [
+            "region_id",
+            "transaction_date"
+          ],
+          "cand_id": "cand_9e01ab34",
+          "contribution": {
+            "predicted_ms_saved": 395.0,
+            "estimator": "postgres_cost_calibrated"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "why": "unknown search",
+    "instance": {
+      "config_id": "cfg_1a2b3c4d",
+      "search": "random",
+      "actions": [
+        {
+          "type": "add_index",
+          "table": "t_7a3f91c2",
+          "columns": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "cand_id": "cand_9e01ab34",
+          "contribution": {
+            "predicted_ms_saved": 395.0,
+            "estimator": "postgres_cost_calibrated"
+          }
+        }
+      ]
+    }
+  }
+]

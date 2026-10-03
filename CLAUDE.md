@@ -45,7 +45,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | What | Where | Status | Tested |
 | --- | --- | --- | --- |
 | Repo layout and NOTES.md per folder | all folders | REAL | untested: no code yet; `ls` output in PR for step 1 |
-| Interface contracts (JSON Schemas) | contracts/ | MISSING | untested: step 2 |
+| Interface contracts (JSON Schemas), 11 from the doc plus OutboundPayload | contracts/ | REAL | contracts/tests/test_contracts.py (119 passed) |
 | config.yaml and loader | config.yaml, common/ | MISSING | untested: step 3 |
 | Docker Compose services and networks | infra/ | MISSING | untested: step 4 |
 | Egress for ai | infra/ | MISSING (planned SIMPLIFIED: unrestricted internet, no allowlist) | untested: step 4 |

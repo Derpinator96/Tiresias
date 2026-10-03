@@ -1,0 +1,72 @@
+[
+  {
+    "plan_id": "p_0004120a",
+    "template_id": "q_5c1e09ab",
+    "setup_id": "s_baseline",
+    "source": "auto_explain",
+    "nodes": [
+      {
+        "node_id": 0,
+        "parent_id": null,
+        "op": "Aggregate",
+        "est_rows": 1,
+        "est_cost": 25000,
+        "width": 32,
+        "actual_rows": 1,
+        "self_ms": 2
+      },
+      {
+        "node_id": 1,
+        "parent_id": 0,
+        "op": "Seq Scan",
+        "relation": "t_7a3f91c2",
+        "filter_cols": [
+          "c_19c2d04e",
+          "c_88b1a7f3"
+        ],
+        "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+        "est_rows": 1800,
+        "est_cost": 24900,
+        "width": 8,
+        "actual_rows": 2000,
+        "rows_removed": 1000000,
+        "self_ms": 400
+      }
+    ]
+  },
+  {
+    "plan_id": "p_0004120b",
+    "template_id": "q_5c1e09ab",
+    "setup_id": "s_hypo_1",
+    "source": "hypopg",
+    "nodes": [
+      {
+        "node_id": 0,
+        "parent_id": null,
+        "op": "Aggregate",
+        "est_rows": 1,
+        "est_cost": 900,
+        "width": 32
+      },
+      {
+        "node_id": 1,
+        "parent_id": 0,
+        "op": "Bitmap Heap Scan",
+        "relation": "t_7a3f91c2",
+        "est_rows": 1800,
+        "est_cost": 880,
+        "width": 8
+      },
+      {
+        "node_id": 2,
+        "parent_id": 1,
+        "op": "Bitmap Index Scan",
+        "index": "i_3b7c2a90",
+        "filter_redacted": true,
+        "est_rows": 1800,
+        "est_cost": 40,
+        "width": 0
+      }
+    ]
+  }
+]

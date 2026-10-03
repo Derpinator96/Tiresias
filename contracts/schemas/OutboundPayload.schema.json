@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/OutboundPayload.schema.json",
+  "title": "OutboundPayload",
+  "description": "Request body for POST /v1/ledger/outbound (decision I, approved 2026-10-03). ai submits the exact bytes it is about to send to the LLM; the gateway scans them and replies with a LedgerEntry whose verdict decides whether ai may send.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "destination": {
+      "const": "llm"
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "destination",
+    "body"
+  ]
+}

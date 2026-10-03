@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/HashedPlan.schema.json",
+  "title": "HashedPlan",
+  "description": "One plan tree, hashed. actual_rows, rows_removed and self_ms appear only on plans that ran; hypopg and explain plans carry estimates only. Gateway to GNN and LLM.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "$ref": "common.schema.json#/$defs/plan_id"
+    },
+    "template_id": {
+      "$ref": "common.schema.json#/$defs/template_id"
+    },
+    "setup_id": {
+      "$ref": "common.schema.json#/$defs/setup_id"
+    },
+    "source": {
+      "enum": [
+        "auto_explain",
+        "explain",
+        "hypopg"
+      ]
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    }
+  },
+  "required": [
+    "plan_id",
+    "template_id",
+    "setup_id",
+    "source",
+    "nodes"
+  ],
+  "if": {
+    "properties": {
+      "source": {
+        "enum": [
+          "explain",
+          "hypopg"
+        ]
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "nodes": {
+        "items": {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "actual_rows"
+                ]
+              },
+              {
+                "required": [
+                  "rows_removed"
+                ]
+              },
+              {
+                "required": [
+                  "self_ms"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "op": {
+          "$ref": "common.schema.json#/$defs/plan_node_type"
+        },
+        "relation": {
+          "$ref": "common.schema.json#/$defs/table_code"
+        },
+        "index": {
+          "$ref": "common.schema.json#/$defs/index_code"
+        },
+        "filter_cols": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/col_code"
+          }
+        },
+        "filter": {
+          "$ref": "common.schema.json#/$defs/hashed_sql"
+        },
+        "filter_redacted": {
+          "type": "boolean",
+          "description": "True when a filter string would not parse and was dropped (fail closed)."
+        },
+        "est_rows": {
+          "type": "number",
+          "minimum": 0
+        },
+        "est_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actual_rows": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rows_removed": {
+          "type": "number",
+          "minimum": 0
+        },
+        "self_ms": {
+          "$ref": "common.schema.json#/$defs/ms"
+        }
+      },
+      "required": [
+        "node_id",
+        "parent_id",
+        "op",
+        "est_rows",
+        "est_cost",
+        "width"
+      ]
+    }
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "config_id": "cfg_1a2b3c4d",
+    "search": "greedy",
+    "actions": [
+      {
+        "type": "add_index",
+        "table": "t_7a3f91c2",
+        "columns": [
+          "c_19c2d04e",
+          "c_88b1a7f3"
+        ],
+        "cand_id": "cand_9e01ab34",
+        "contribution": {
+          "predicted_ms_saved": 395.0,
+          "estimator": "postgres_cost_calibrated"
+        }
+      }
+    ]
+  },
+  {
+    "config_id": "cfg_1a2b3c4e",
+    "search": "q_learning",
+    "actions": [
+      {
+        "type": "add_index",
+        "table": "t_7a3f91c2",
+        "columns": [
+          "c_19c2d04e",
+          "c_88b1a7f3"
+        ]
+      },
+      {
+        "type": "drop_index",
+        "index": "i_3b7c2a90"
+      },
+      {
+        "type": "partition",
+        "table": "t_7a3f91c2",
+        "column": "c_88b1a7f3",
+        "scheme": "range_month"
+      },
+      {
+        "type": "rewrite",
+        "template_id": "q_5c1e09ab",
+        "rule_id": "date_trunc_to_range"
+      }
+    ]
+  }
+]

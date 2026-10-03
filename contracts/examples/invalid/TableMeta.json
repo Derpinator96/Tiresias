@@ -1,0 +1,20 @@
+[
+  {
+    "why": "real table name",
+    "instance": {
+      "table": "sales",
+      "rows": 1000000,
+      "size_mb": 73,
+      "writes_per_s": 200
+    }
+  },
+  {
+    "why": "negative rows",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "rows": -1,
+      "size_mb": 73,
+      "writes_per_s": 200
+    }
+  }
+]

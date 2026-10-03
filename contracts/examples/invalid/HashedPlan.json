@@ -1,0 +1,393 @@
+[
+  {
+    "why": "real relation name",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "sales",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "op is not a PostgreSQL node type",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Raipur",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "literal in filter",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "(c_19c2d04e = 7)",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "string literal in filter",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "(c_88b1a7f3 >= '2026-09-26'::date)",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "doc example plan_id does not follow the 8-hex rule",
+    "instance": {
+      "plan_id": "p_000412",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "empty nodes",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": []
+    }
+  },
+  {
+    "why": "hypopg plan carries a measured time",
+    "instance": {
+      "plan_id": "p_0004120b",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_hypo_1",
+      "source": "hypopg",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 900,
+          "width": 32,
+          "self_ms": 5
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Bitmap Heap Scan",
+          "relation": "t_7a3f91c2",
+          "est_rows": 1800,
+          "est_cost": 880,
+          "width": 8
+        },
+        {
+          "node_id": 2,
+          "parent_id": 1,
+          "op": "Bitmap Index Scan",
+          "index": "i_3b7c2a90",
+          "filter_redacted": true,
+          "est_rows": 1800,
+          "est_cost": 40,
+          "width": 0
+        }
+      ]
+    }
+  },
+  {
+    "why": "hypopg plan carries actual rows",
+    "instance": {
+      "plan_id": "p_0004120b",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_hypo_1",
+      "source": "hypopg",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 900,
+          "width": 32
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Bitmap Heap Scan",
+          "relation": "t_7a3f91c2",
+          "est_rows": 1800,
+          "est_cost": 880,
+          "width": 8,
+          "actual_rows": 10
+        },
+        {
+          "node_id": 2,
+          "parent_id": 1,
+          "op": "Bitmap Index Scan",
+          "index": "i_3b7c2a90",
+          "filter_redacted": true,
+          "est_rows": 1800,
+          "est_cost": 40,
+          "width": 0
+        }
+      ]
+    }
+  },
+  {
+    "why": "unknown source",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "production",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "setup_id with uppercase",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_Baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_rows": 1,
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  },
+  {
+    "why": "missing est_rows",
+    "instance": {
+      "plan_id": "p_0004120a",
+      "template_id": "q_5c1e09ab",
+      "setup_id": "s_baseline",
+      "source": "auto_explain",
+      "nodes": [
+        {
+          "node_id": 0,
+          "parent_id": null,
+          "op": "Aggregate",
+          "est_cost": 25000,
+          "width": 32,
+          "actual_rows": 1,
+          "self_ms": 2
+        },
+        {
+          "node_id": 1,
+          "parent_id": 0,
+          "op": "Seq Scan",
+          "relation": "t_7a3f91c2",
+          "filter_cols": [
+            "c_19c2d04e",
+            "c_88b1a7f3"
+          ],
+          "filter": "((c_19c2d04e = ?) AND (c_88b1a7f3 >= ?))",
+          "est_rows": 1800,
+          "est_cost": 24900,
+          "width": 8,
+          "actual_rows": 2000,
+          "rows_removed": 1000000,
+          "self_ms": 400
+        }
+      ]
+    }
+  }
+]

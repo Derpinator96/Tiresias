@@ -1,0 +1,353 @@
+[
+  {
+    "why": "real table and column names in sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(amount) FROM sales WHERE region_id = ? AND transaction_date >= ?",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "numeric literal left in sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = 7",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "string literal left in sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_88b1a7f3 >= '2026-09-26'",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "comment left in sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 /* CANARY */",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "line comment left in sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 -- note",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "pg_stat_statements placeholder not converted",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = $1",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "4-hex code is too short",
+    "instance": {
+      "template_id": "q_5c1e",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = ? AND c_88b1a7f3 >= ?",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "4-hex code inside sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e) FROM t_7a3f",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "missing total_ms",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = ? AND c_88b1a7f3 >= ?",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "unknown role",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = ? AND c_88b1a7f3 >= ?",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "LIKE"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "extra field carrying raw sql",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = ? AND c_88b1a7f3 >= ?",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ],
+      "raw_sql": "SELECT 1"
+    }
+  },
+  {
+    "why": "calls is not an integer",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_19c2d04e = ? AND c_88b1a7f3 >= ?",
+      "calls": 120.5,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  },
+  {
+    "why": "aliased column left unresolved",
+    "instance": {
+      "template_id": "q_5c1e09ab",
+      "sql": "SELECT SUM(s.c_4d2e6b10) FROM t_7a3f91c2 s",
+      "calls": 120,
+      "mean_ms": 410.0,
+      "total_ms": 49200.0,
+      "columns": [
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_4d2e6b10",
+          "role": "SELECT"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_19c2d04e",
+          "role": "EQ"
+        },
+        {
+          "table": "t_7a3f91c2",
+          "col": "c_88b1a7f3",
+          "role": "RANGE"
+        }
+      ]
+    }
+  }
+]

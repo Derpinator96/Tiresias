@@ -1,0 +1,20 @@
+[
+  {
+    "cand_id": "cand_9e01ab34",
+    "table": "t_7a3f91c2",
+    "columns": [
+      "c_19c2d04e",
+      "c_88b1a7f3"
+    ],
+    "support": 0.97,
+    "evidence": {
+      "items": [
+        "c_19c2d04e:EQ",
+        "c_88b1a7f3:RANGE"
+      ],
+      "templates": [
+        "q_5c1e09ab"
+      ]
+    }
+  }
+]

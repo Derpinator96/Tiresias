@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.blind-tuner.invalid/Config.schema.json",
+  "title": "Config",
+  "description": "A set of physical design and rewrite actions chosen by the search. RL to sandbox. maxItems is the structural ceiling; the episode length the search uses is config.yaml rl.actions_per_episode.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "config_id": {
+      "$ref": "common.schema.json#/$defs/config_id"
+    },
+    "search": {
+      "enum": [
+        "greedy",
+        "q_learning"
+      ],
+      "description": "Which search produced this config, so the dashboard can label it."
+    },
+    "actions": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "add_index"
+              },
+              "table": {
+                "$ref": "common.schema.json#/$defs/table_code"
+              },
+              "columns": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {
+                  "$ref": "common.schema.json#/$defs/col_code"
+                },
+                "uniqueItems": true
+              },
+              "cand_id": {
+                "$ref": "common.schema.json#/$defs/cand_id"
+              },
+              "contribution": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "predicted_ms_saved": {
+                    "type": "number"
+                  },
+                  "estimator": {
+                    "enum": [
+                      "postgres_cost_calibrated",
+                      "gnn"
+                    ]
+                  }
+                },
+                "required": [
+                  "predicted_ms_saved",
+                  "estimator"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "table",
+              "columns"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "drop_index"
+              },
+              "index": {
+                "$ref": "common.schema.json#/$defs/index_code"
+              },
+              "contribution": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "predicted_ms_saved": {
+                    "type": "number"
+                  },
+                  "estimator": {
+                    "enum": [
+                      "postgres_cost_calibrated",
+                      "gnn"
+                    ]
+                  }
+                },
+                "required": [
+                  "predicted_ms_saved",
+                  "estimator"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "index"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "partition"
+              },
+              "table": {
+                "$ref": "common.schema.json#/$defs/table_code"
+              },
+              "column": {
+                "$ref": "common.schema.json#/$defs/col_code"
+              },
+              "scheme": {
+                "enum": [
+                  "range_month"
+                ]
+              },
+              "contribution": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "predicted_ms_saved": {
+                    "type": "number"
+                  },
+                  "estimator": {
+                    "enum": [
+                      "postgres_cost_calibrated",
+                      "gnn"
+                    ]
+                  }
+                },
+                "required": [
+                  "predicted_ms_saved",
+                  "estimator"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "table",
+              "column",
+              "scheme"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "rewrite"
+              },
+              "template_id": {
+                "$ref": "common.schema.json#/$defs/template_id"
+              },
+              "rule_id": {
+                "$ref": "Rewrite.schema.json#/$defs/rule_id"
+              },
+              "contribution": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "predicted_ms_saved": {
+                    "type": "number"
+                  },
+                  "estimator": {
+                    "enum": [
+                      "postgres_cost_calibrated",
+                      "gnn"
+                    ]
+                  }
+                },
+                "required": [
+                  "predicted_ms_saved",
+                  "estimator"
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "template_id",
+              "rule_id"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "config_id",
+    "search",
+    "actions"
+  ]
+}

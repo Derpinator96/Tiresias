@@ -1,0 +1,19 @@
+[
+  {
+    "table": "t_7a3f91c2",
+    "col": "c_19c2d04e",
+    "type_class": "id",
+    "bits": {
+      "pk": false,
+      "fk": true,
+      "indexed": false,
+      "nullable": false,
+      "join": false,
+      "range": false,
+      "eq": true
+    },
+    "n_distinct": 12,
+    "null_frac": 0.0,
+    "skew": 0.51
+  }
+]

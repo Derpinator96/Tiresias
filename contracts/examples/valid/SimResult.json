@@ -1,0 +1,16 @@
+[
+  {
+    "config_id": "cfg_1a2b3c4d",
+    "source": "twin",
+    "templates": [
+      {
+        "template_id": "q_5c1e09ab",
+        "before_ms": 405.0,
+        "after_ms": 3.1
+      }
+    ],
+    "write_ms_delta": null,
+    "storage_mb_delta": 30.0,
+    "runs": 5
+  }
+]

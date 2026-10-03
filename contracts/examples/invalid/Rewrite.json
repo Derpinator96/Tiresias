@@ -1,0 +1,44 @@
+[
+  {
+    "why": "status outside the three labels",
+    "instance": {
+      "rewrite_id": "rw_00aa11bb",
+      "template_id": "q_5c1e09ab",
+      "rule_id": "date_trunc_to_range",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_88b1a7f3 >= ? AND c_88b1a7f3 < ?",
+      "status": "Correct",
+      "checks": {
+        "verieql": "unsupported",
+        "checksum": "match"
+      }
+    }
+  },
+  {
+    "why": "literal in rewritten sql",
+    "instance": {
+      "rewrite_id": "rw_00aa11bb",
+      "template_id": "q_5c1e09ab",
+      "rule_id": "date_trunc_to_range",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_88b1a7f3 >= '2026-09-01'",
+      "status": "TestedOnly",
+      "checks": {
+        "verieql": "unsupported",
+        "checksum": "match"
+      }
+    }
+  },
+  {
+    "why": "rule_id with spaces",
+    "instance": {
+      "rewrite_id": "rw_00aa11bb",
+      "template_id": "q_5c1e09ab",
+      "rule_id": "date trunc",
+      "sql": "SELECT SUM(c_4d2e6b10) FROM t_7a3f91c2 WHERE c_88b1a7f3 >= ? AND c_88b1a7f3 < ?",
+      "status": "TestedOnly",
+      "checks": {
+        "verieql": "unsupported",
+        "checksum": "match"
+      }
+    }
+  }
+]

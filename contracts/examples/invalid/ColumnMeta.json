@@ -1,0 +1,125 @@
+[
+  {
+    "why": "pg_stats value list included",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "c_19c2d04e",
+      "type_class": "id",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "indexed": false,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12,
+      "null_frac": 0.0,
+      "skew": 0.51,
+      "most_common_vals": [
+        "7",
+        "3"
+      ]
+    }
+  },
+  {
+    "why": "skew above 1",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "c_19c2d04e",
+      "type_class": "id",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "indexed": false,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12,
+      "null_frac": 0.0,
+      "skew": 1.5
+    }
+  },
+  {
+    "why": "n_distinct not a whole count",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "c_19c2d04e",
+      "type_class": "id",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "indexed": false,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12.4,
+      "null_frac": 0.0,
+      "skew": 0.51
+    }
+  },
+  {
+    "why": "type_class outside the four classes",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "c_19c2d04e",
+      "type_class": "email",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "indexed": false,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12,
+      "null_frac": 0.0,
+      "skew": 0.51
+    }
+  },
+  {
+    "why": "missing bit",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "c_19c2d04e",
+      "type_class": "id",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12,
+      "null_frac": 0.0,
+      "skew": 0.51
+    }
+  },
+  {
+    "why": "real column name",
+    "instance": {
+      "table": "t_7a3f91c2",
+      "col": "region_id",
+      "type_class": "id",
+      "bits": {
+        "pk": false,
+        "fk": true,
+        "indexed": false,
+        "nullable": false,
+        "join": false,
+        "range": false,
+        "eq": true
+      },
+      "n_distinct": 12,
+      "null_frac": 0.0,
+      "skew": 0.51
+    }
+  }
+]

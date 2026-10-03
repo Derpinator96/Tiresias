@@ -1,0 +1,16 @@
+[
+  {
+    "why": "destination is not llm",
+    "instance": {
+      "destination": "ai",
+      "body": "{\"contents\": [{\"role\": \"user\", \"parts\": [{\"text\": \"q_5c1e09ab\"}]}]}"
+    }
+  },
+  {
+    "why": "empty body",
+    "instance": {
+      "destination": "llm",
+      "body": ""
+    }
+  }
+]
