@@ -19,6 +19,16 @@ LABELS = {
 }
 
 
+def estimator_label() -> str:
+    """The label of the estimator the ai service is serving right now (GNN or the calibrated
+    Postgres baseline). Falls back to the baseline's label if ai cannot say."""
+    try:
+        r = ai("/ai/gnn/estimator")
+        return r.json()["label"] if r.status_code == 200 else LABELS["estimator"]
+    except httpx.HTTPError:
+        return LABELS["estimator"]
+
+
 def gateway(path: str, body=None, method: str | None = None):
     url = os.environ["GATEWAY_URL"].rstrip("/") + path
     r = httpx.request(method or ("POST" if body is not None else "GET"), url, json=body, timeout=TIMEOUT_S)

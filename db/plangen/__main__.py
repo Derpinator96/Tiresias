@@ -4,6 +4,7 @@
     python -m db.plangen sample           the early sample (plan_generation.early_sample_size)
     python -m db.plangen run              every template x parameter set x index setup
     python -m db.plangen dedupe           plans_raw.jsonl -> plans.jsonl and summary.json
+    python -m db.plangen export [sample]  plans.jsonl (or the sample) -> data/gnn/ dataset + split
 """
 from __future__ import annotations
 
@@ -26,6 +27,11 @@ def main(argv: list[str]) -> None:
     if cmd == "dedupe":
         d = run.out_dir()
         run.dedupe(d / "plans_raw.jsonl", d / "plans.jsonl", d / "summary.json", log=log)
+        return
+    if cmd == "export":
+        from db.plangen import export
+        n = int(cfg("plan_generation.early_sample_size"))
+        export.export(*export.default_paths(f"sample_{n}.jsonl" if "sample" in argv else "plans.jsonl"), log=log)
         return
     if cmd not in ("sample", "run"):
         sys.exit(__doc__)

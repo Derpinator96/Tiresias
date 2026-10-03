@@ -48,7 +48,7 @@ class Trace:
 
 class GreedySearch:
     def __init__(self, templates: list[dict], column_meta: list[dict], table_meta: list[dict],
-                 model: pred.CostPredictor, weights: dict[str, float] | None = None):
+                 model, weights: dict[str, float] | None = None):
         self.templates = templates
         calls = {t["template_id"]: t["calls"] for t in templates}
         total = sum(calls.values()) or 1
@@ -99,7 +99,7 @@ class GreedySearch:
             reward, c, ms, mb = best
             chosen.append(c)
             actions.append({"type": "add_index", "table": c["table"], "columns": c["columns"], "cand_id": c["cand_id"],
-                            "contribution": {"predicted_ms_saved": round(cur_ms - ms, 3), "estimator": pred.ESTIMATOR}})
+                            "contribution": {"predicted_ms_saved": round(cur_ms - ms, 3), "estimator": self.model.estimator}})
             self.trace.steps.append({"cand_id": c["cand_id"], "reward": round(reward, 4),
                                      "predicted_ms_before": round(cur_ms, 3), "predicted_ms_after": round(ms, 3),
                                      "index_storage_mb": round(mb - cur_mb, 3)})
@@ -117,6 +117,6 @@ def run(weights: dict[str, float] | None = None) -> tuple[dict, Trace]:
     existing = [(c["table"], [c["col"]]) for c in column_meta if c["bits"]["pk"]]
     candidates = fpgrowth.candidates(templates, column_meta, existing)
     measured = [p for t in templates for p in gw.get(f"/v1/templates/{t['template_id']}/plans")]
-    model = pred.CostPredictor().fit(measured)
+    model = pred.load_predictor().fit(measured)
     search = GreedySearch(templates, column_meta, table_meta, model, weights)
     return search.run(candidates), search.trace

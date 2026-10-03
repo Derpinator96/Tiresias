@@ -1,6 +1,6 @@
-"""The LLM's tools for the walking skeleton: five of the doc's eight. Each is a thin wrapper
-over one endpoint and returns hashed data only. gnn_explain, rewrite_candidates and verify
-are MISSING (TODO: add them here when /ai/rewrite/candidates and /ai/verify/equivalence exist).
+"""The LLM's tools: six of the doc's eight. Each is a thin wrapper over one endpoint and
+returns hashed data only. rewrite_candidates and verify are MISSING (TODO: add them here
+when /ai/rewrite/candidates and /ai/verify/equivalence exist).
 
 Each call gets an ID tc_ plus 8 hex; the result is kept under that ID so the number checker
 can trace every number in the answer back to it.
@@ -11,6 +11,7 @@ import secrets
 from typing import Callable
 
 from agent import gateway_client as gw
+from common.config import cfg
 
 DECLARATIONS = [
     {"name": "get_slow_templates", "description": "Top query templates by total time, hashed.",
@@ -21,6 +22,10 @@ DECLARATIONS = [
      "parameters": {"type": "object", "properties": {}}},
     {"name": "run_rl", "description": "Search for the best index configuration. Returns a config_id, its actions and predicted times.",
      "parameters": {"type": "object", "properties": {"template_ids": {"type": "array", "items": {"type": "string"}}}}},
+    {"name": "gnn_explain", "description": "Why one template's latest plan is slow: the plan nodes with the largest "
+     "predicted share of time (from the serving runtime estimator), and nodes where Postgres's row estimate was off "
+     "by the alert ratio or more, with an ANALYZE recommendation.",
+     "parameters": {"type": "object", "properties": {"template_id": {"type": "string"}}, "required": ["template_id"]}},
     {"name": "simulate", "description": "Measure a configuration on the statistical twin: before and after ms, storage MB.",
      "parameters": {"type": "object", "properties": {"config_id": {"type": "string"}}, "required": ["config_id"]}},
 ]
@@ -49,6 +54,31 @@ class Toolbox:
         self.configs[config["config_id"]] = config
         return {"config": config, "label": search.LABEL,
                 "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3)}
+
+    def gnn_explain(self, template_id: str) -> object:
+        from agent.api import calibrated_predictor
+        plan = self.get_plan(template_id)
+        if "error" in plan:
+            return plan
+        model = calibrated_predictor([plan])
+        p = model.predict(plan)
+        nodes = {n["node_id"]: n for n in plan["nodes"]}
+        top = sorted(p["nodes"], key=lambda n: -n["share"])[:3]
+        alert = float(cfg("gnn.misestimate_ratio_alert"))
+        mis = []
+        for n in plan["nodes"]:
+            if "actual_rows" in n:
+                lo, hi = sorted((max(n["est_rows"], 1), max(n["actual_rows"], 1)))
+                if hi / lo >= alert:
+                    mis.append({"node_id": n["node_id"], "op": n["op"], "relation": n.get("relation"),
+                                "est_rows": n["est_rows"], "actual_rows": n["actual_rows"],
+                                "ratio": round(hi / lo, 1), "recommend": "ANALYZE the relation to refresh its statistics"})
+        return {"estimator": p["estimator"], "label": model.label, "predicted_total_ms": p["total_ms"],
+                "top_nodes": [{"node_id": n["node_id"], "op": nodes[n["node_id"]]["op"],
+                               "relation": nodes[n["node_id"]].get("relation"),
+                               "predicted_share_pct": round(100 * n["share"], 1),
+                               "predicted_self_ms": n["self_ms"]} for n in top],
+                "misestimate_alert_ratio": alert, "misestimates": mis}
 
     def simulate(self, config_id: str) -> object:
         config = self.configs.get(config_id)

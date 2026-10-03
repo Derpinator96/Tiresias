@@ -40,6 +40,7 @@ REQUIRED = {
     "miner.drift_window_demo_s": int, "miner.drift_js_threshold": float, "miner.drift_windows_required": int,
     "gnn.layers": int, "gnn.hidden_size": int, "gnn.dropout": float, "gnn.learning_rate": float,
     "gnn.batch_size": int, "gnn.max_epochs": int, "gnn.patience": int, "gnn.template_split": list,
+    "gnn.dataset_dir": str, "gnn.misestimate_ratio_alert": numbers.Real,
     "rl.alpha": float, "rl.gamma": float, "rl.epsilon_start": float, "rl.epsilon_min": float,
     "rl.episodes": int, "rl.actions_per_episode": int, "rl.lambda_write": float,
     "rl.lambda_storage": float, "rl.storage_budget_table_share": float, "rl.configs_verified_on_twin": int,
@@ -87,6 +88,8 @@ GOVERNED: dict[str, list[str]] = {
     "db/plangen/load.py": ["plan_generation.quickmart_sales_rows"],
     "db/plangen/quickmart_templates.py": ["plan_generation.quickmart_sales_rows", "dataset.regions_rows",
                                           "dataset.stores_rows"],
+    "models/gnn/train.py": ["gnn.learning_rate", "gnn.batch_size", "gnn.max_epochs", "gnn.patience",
+                            "gnn.hidden_size", "gnn.layers", "gnn.dropout"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
                            "gateway.dehash_query_chars", "workload.slow_query_ms"],
 }

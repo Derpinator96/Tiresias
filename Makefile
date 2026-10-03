@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin demo e2e export site plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -71,6 +71,22 @@ plans:
 ## Rebuild data/plans/plans.jsonl and summary.json from plans_raw.jsonl.
 plans-dedupe:
 	$(BENCH) python -m db.plangen dedupe
+
+## GNN training export (numbers only, may leave the machine) and split into data/gnn/.
+gnn-export:
+	$(BENCH) python -m db.plangen export
+
+## The same export from the 200-plan sample (handoff H1 to the trainer).
+gnn-export-sample:
+	$(BENCH) python -m db.plangen export sample
+
+## REFERENCE training loop (the trainer delivers the real weights) into models/gnn/weights/.
+gnn-train-ref:
+	$(TOOLS) python -m models.gnn.train
+
+## Score the GNN weights and both baselines on unseen templates -> models/gnn/results.json.
+gnn-eval:
+	$(TOOLS) python -m models.gnn.evaluate
 
 ## Plan generation unit and component tests (component tests need make plans-load).
 test-plangen:

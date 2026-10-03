@@ -35,7 +35,8 @@ def app():
 
 def test_every_simplified_component_is_labelled(app):
     text = text_of(app)
-    for label in data.LABELS.values():
+    # The estimator label names whichever estimator ai is serving (GNN or the baseline).
+    for label in [data.estimator_label()] + [v for k, v in data.LABELS.items() if k != "estimator"]:
         assert label in text, label
 
 

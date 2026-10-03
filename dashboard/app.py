@@ -30,9 +30,11 @@ st.title("Blind Tuner operator dashboard")
 st.caption("Runs on 127.0.0.1 inside the private network. This page shows real table and column names, "
            "so it is never hosted publicly.")
 
+estimator = data.estimator_label()   # names the estimator the ai service is serving now
 with st.container(border=True):
     st.markdown("**Simplified components in this build**")
-    for key in ("estimator", "search", "twin", "verify", "write_cost", "egress"):
+    st.markdown(f"- {estimator}")
+    for key in ("search", "twin", "verify", "write_cost", "egress"):
         st.markdown(f"- {data.LABELS[key]}")
 
 st.toggle("Show what the AI sees (hashed codes) instead of what the DBA sees (real names)", key="ai_view")
@@ -105,7 +107,7 @@ else:
         pr = data.ai("/ai/gnn/predict", [plans[0]])
         prediction = pr.json()[0] if pr.status_code == 200 else None
         st.graphviz_chart(data.plan_dot(plans[0], prediction, view))
-        st.caption(f"Measured self times from the auto_explain log. Predicted shares from the {data.LABELS['estimator']}. "
+        st.caption(f"Measured self times from the auto_explain log. Predicted shares from the {estimator}. "
                    "Node colour: grey (small predicted share) to red (large).")
 
 # ---- Recommendation, twin, verification -----------------------------------------------------
@@ -121,7 +123,7 @@ if rl:
     for a in rl["config"]["actions"]:
         cols = ", ".join(view(c) for c in a["columns"])
         st.markdown(f"Add index on **{view(a['table'])} ({cols})**: predicted saving "
-                    f"{a['contribution']['predicted_ms_saved']:.1f} ms per call ({data.LABELS['estimator']})")
+                    f"{a['contribution']['predicted_ms_saved']:.1f} ms per call ({rl.get('estimator_label', estimator)})")
     st.caption(f"Predicted workload time {rl['baseline_predicted_ms']:.1f} ms before, {rl['final_predicted_ms']:.1f} ms after. "
                "Predictions rank candidates; the twin measurement below is the reported result.")
 

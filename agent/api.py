@@ -35,14 +35,18 @@ def ai_mine() -> dict:
     return mine()
 
 
-def calibrated_predictor(plans: list[dict]) -> pred.CostPredictor:
-    """Calibrate on measured plans in the request, else on the gateway's measured
-    auto_explain plans for the same templates."""
+def calibrated_predictor(plans: list[dict]):
+    """The serving predictor (pred.load_predictor). The calibrated baseline is calibrated on
+    measured plans in the request, else on the gateway's measured auto_explain plans for the
+    same templates; the GNN needs no calibration."""
+    model = pred.load_predictor()
+    if not model.needs_calibration:
+        return model
     measured = [p for p in plans if p["source"] == "auto_explain"]
     if not measured:
         for tid in sorted({p["template_id"] for p in plans}):
             measured += gw.get(f"/v1/templates/{tid}/plans")
-    return pred.CostPredictor().fit(measured)
+    return model.fit(measured)
 
 
 def predict_plans(plans: list[dict]) -> list[dict]:
@@ -92,9 +96,16 @@ def ai_rl_run(body: dict | None = Body(None)) -> dict:
     from rl import search
     config, trace = search.run((body or {}).get("weights"))
     validate("Config", config)
-    return {"config": config, "label": search.LABEL, "estimator_label": pred.LABEL,
+    return {"config": config, "label": search.LABEL, "estimator_label": pred.load_predictor().label,
             "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
             "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits}
+
+
+@app.get("/ai/gnn/estimator")
+def ai_gnn_estimator() -> dict:
+    """Which runtime estimator is serving, so every on-screen label names the real one."""
+    model = pred.load_predictor()
+    return {"estimator": model.estimator, "label": model.label}
 
 
 @app.post("/ai/gnn/predict")

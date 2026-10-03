@@ -112,6 +112,12 @@ gnn:
   max_epochs: 150
   patience: 15
   template_split: [0.70, 0.15, 0.15]
+  # Doc, Component 3 Use B: a 100x or larger gap between Postgres's row estimate and the actual
+  # rows makes gnn_explain recommend ANALYZE.
+  misestimate_ratio_alert: 100
+  # Not in the doc's table: where the training export and split are written (repo-relative,
+  # gitignored). The export holds numbers only and may be shared with the trainer.
+  dataset_dir: data/gnn
 
 rl:
   alpha: 0.1

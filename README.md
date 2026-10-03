@@ -63,6 +63,9 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make plans` | every template x parameter set x index setup into `data/plans/`, then dedupe; rerun to resume | `$DC --profile bench run --rm -T bench python -m db.plangen run` |
 | `make plans-dedupe` | rebuild `plans.jsonl` and `summary.json` from `plans_raw.jsonl` | `$DC --profile bench run --rm -T bench python -m db.plangen dedupe` |
 | `make test-plangen` | plan generation unit and component tests | `$DC --profile bench run --rm -T bench python -m pytest -p no:cacheprovider db/plangen/tests` |
+| `make gnn-export` / `make gnn-export-sample` | write the numbers-only GNN dataset and the template split to `data/gnn/` (from all plans, or from the 200-plan sample) | `$DC --profile bench run --rm -T bench python -m db.plangen export` (add `sample`) |
+| `make gnn-train-ref` | reference training loop into `models/gnn/weights/` (the trainer delivers the real weights) | `$DC run --rm -T tools python -m models.gnn.train` |
+| `make gnn-eval` | score the GNN and both baselines on unseen templates into `models/gnn/results.json` | `$DC run --rm -T tools python -m models.gnn.evaluate` |
 
 Targets still to come:
 
