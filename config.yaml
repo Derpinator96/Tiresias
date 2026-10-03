@@ -25,18 +25,27 @@ dataset:
   return_lag_days_min: 1
   return_lag_days_max: 30
   random_seed: 20261003
+  # Not in the doc's table: ranges for generated values the doc leaves open.
+  store_opened_days_before_start: [30, 3000]
+  unit_price_range: [20.0, 2000.0]
+  quantity_range: [1, 5]
 
 canaries:
   planted_target: 20
 
 workload:
   # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e
-  # "Q1 is slow" check both read this. PENDING: the doc's 500 ms is kept until Q1 is
-  # measured after seeding; a measured value will be proposed for human approval.
-  slow_query_ms: 500
+  # "Q1 is slow" check both read this. The doc's 500 ms would never log Q1 at 1,000,000
+  # sales rows: measured 2026-10-03 after seeding, Q1 median 24.9 ms over 5 runs
+  # (32.6, 24.5, 24.8, 24.9, 25.7). PROPOSED value, pending human approval: 10 ms.
+  slow_query_ms: 10
   # Not in the doc's table: how many times run_q1 executes Q1 so it appears in
   # pg_stat_statements and auto_explain.
   q1_runs: 5
+  # Q1's parameters, from the doc's "Demo queries": region_id = 7 AND transaction_date >= this.
+  q1_since: "2026-09-26"
+  # Not in the doc's table: rows per COPY batch when loading sales.
+  copy_batch_rows: 250000
 
 postgres:
   pg_stat_statements_track: all

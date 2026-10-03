@@ -19,3 +19,9 @@ Record every decision here with its date, so a fresh session can pick up without
 - Twin correlations for column pairs the miner flags (MISSING).
 - pgbench write-cost scripts (MISSING).
 - Q2 to Q4 (MISSING).
+- 2026-10-03: Q1 measured after seeding at 1,000,000 sales rows: median 24.9 ms (runs 32.6, 24.5, 24.8, 24.9, 25.7), and 28.9 ms on a reseed. The doc's 500 ms auto_explain threshold would never log it. Proposed `workload.slow_query_ms: 10` (decision A), applied so the auto_explain path is exercised, pending human approval.
+- 2026-10-03: Q1 matches 2,407 rows; region 7 holds 30.01% of sales; sales is 73 MB on disk.
+- 2026-10-03: generation choices the doc leaves open, all in config.yaml: day weights grow linearly from 1 to `recent_density_ratio` (4.0); region is drawn first (hero at 30%, others uniform), then a store in that region; 20% of products (random choice) supply 80% of sales, so they earn about 80% of revenue; store opening dates, unit prices and quantities come from config ranges.
+- 2026-10-03: canaries. 18 distinct values in db/canaries.py, 20 placements: 5 emails, 3 names, 2 phones, 3 sale amounts, 2 product names, 2 query comments, 2 filter queries (reusing a planted email and name), 1 DBA-question canary. Each has ID `cn_` plus the first 8 hex of SHA-256 of its value, so the ledger records hits without values.
+- 2026-10-03: auto_explain plans are read from jsonlog lines whose `message` starts `duration: ... plan:` followed by the plan JSON. Each line also carries `query_id`, which equals pg_stat_statements' `queryid`; the gateway uses it to tie plans to templates.
+- 2026-10-03: `make seed` drops and recreates every QuickMart table, then resets pg_stat_statements before running the workload, so stats reflect only the seeded workload.
