@@ -87,3 +87,12 @@ def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(a
     assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
     app.toggle[0].set_value(True).run()
     assert not any(REAL.search(c.value) for c in app.code)
+
+
+def test_twin_panel_shows_measured_write_cost(app):
+    next(b for b in app.button if b.label == "Run search").click().run()
+    next(b for b in app.button if b.label == "Measure on twin").click().run()
+    assert not app.exception, app.exception
+    added = {m.label: m.value for m in app.metric}["Insert latency added (measured)"]
+    assert re.fullmatch(r"[+-]\d+\.\d{3} ms per insert", added), added
+    assert any(data.LABELS["write_cost"] in m.value for m in app.markdown)
