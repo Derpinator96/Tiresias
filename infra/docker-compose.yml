@@ -1,0 +1,161 @@
+# Blind Tuner services. Run from the repo root:
+#   docker compose -f infra/docker-compose.yml --project-directory . up -d --build
+# Relative paths below resolve against the repo root (--project-directory .).
+#
+# Networks (architecture doc, "Services, APIs and network isolation"; decision D):
+#   private   internal: pg-prod, pg-twin, gateway, dashboard, tools. No internet.
+#   boundary  internal: gateway, ai, dashboard, tools. No internet.
+#   egress    ai only, for the LLM API. SIMPLIFIED: unrestricted internet, not an
+#             allowlist of the LLM API host (allowlist proxy pending).
+#   operator  dashboard only, so the host browser can reach it. Port bound to 127.0.0.1.
+#             SIMPLIFIED: a non-internal Docker network also gives the dashboard an
+#             internet route; it makes no outbound calls of its own.
+#
+# The ai container has no route to either Postgres: it is not on `private`.
+# infra/tests/test_isolation.py proves it.
+
+name: blind-tuner
+
+x-python: &python
+  build:
+    context: infra/python
+  image: blind-tuner-python:local
+  restart: unless-stopped
+
+x-pg-env: &pg-env
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?run make keygen first}
+
+services:
+  pg-prod:
+    build:
+      context: infra/postgres
+    image: blind-tuner-postgres:local
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: quickmart
+    volumes:
+      - pgprod-data:/var/lib/postgresql/data
+      - pgprod-log:/var/log/pglog
+    networks: [private]
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quickmart"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  pg-twin:
+    image: blind-tuner-postgres:local
+    pull_policy: never
+    depends_on:
+      pg-prod:
+        condition: service_started   # ensures the shared image is built first
+    # The twin needs HypoPG but not auto_explain, whose log_analyze would slow the timed runs.
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf",
+              "-c", "shared_preload_libraries=pg_stat_statements"]
+    environment:
+      <<: *pg-env
+      POSTGRES_DB: quickmart_twin
+    volumes:
+      - pgtwin-data:/var/lib/postgresql/data
+    networks: [private]
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d quickmart_twin"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+    restart: unless-stopped
+
+  gateway:
+    <<: *python
+    command: ["uvicorn", "gateway.api:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      PROD_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-prod:5432/quickmart
+      TWIN_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-twin:5432/quickmart_twin
+      BT_HMAC_KEY: ${BT_HMAC_KEY:?run make keygen first}
+      PGLOG_DIR: /var/log/pglog
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./contracts:/app/contracts:ro
+      - ./common:/app/common:ro
+      - ./gateway:/app/gateway:ro
+      - ./db:/app/db:ro
+      - ./infra/tests:/app/infra/tests:ro
+      - gateway-ledger:/var/lib/blind-tuner
+      - pgprod-log:/var/log/pglog:ro
+    networks: [private, boundary]
+    depends_on:
+      pg-prod: {condition: service_healthy}
+      pg-twin: {condition: service_healthy}
+
+  ai:
+    <<: *python
+    command: ["uvicorn", "agent.api:app", "--host", "0.0.0.0", "--port", "8100"]
+    environment:
+      GATEWAY_URL: http://gateway:8000
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    # Only hashed-side code is mounted. No db/, no gateway/, no .env.
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./contracts:/app/contracts:ro
+      - ./common:/app/common:ro
+      - ./miner:/app/miner:ro
+      - ./models:/app/models:ro
+      - ./rl:/app/rl:ro
+      - ./agent:/app/agent:ro
+      - ./verify:/app/verify:ro
+      - ./infra/tests:/app/infra/tests:ro
+    networks: [boundary, egress]
+    depends_on: [gateway]
+
+  dashboard:
+    <<: *python
+    command: ["streamlit", "run", "dashboard/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    environment:
+      GATEWAY_URL: http://gateway:8000
+      AI_URL: http://ai:8100
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./contracts:/app/contracts:ro
+      - ./common:/app/common:ro
+      - ./dashboard:/app/dashboard:ro
+    ports:
+      - "127.0.0.1:8501:8501"
+    networks: [private, boundary, operator]
+    depends_on: [gateway, ai]
+
+  # Private-side runner for seeding, exports and tests. Not part of the product.
+  # Started on demand: docker compose ... run --rm tools <command>
+  tools:
+    <<: *python
+    restart: "no"
+    profiles: ["tools"]
+    command: ["python", "-c", "print('tools: pass a command')"]
+    environment:
+      PROD_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-prod:5432/quickmart
+      TWIN_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@pg-twin:5432/quickmart_twin
+      GATEWAY_URL: http://gateway:8000
+      AI_URL: http://ai:8100
+      PGLOG_DIR: /var/log/pglog
+      GEMINI_API_KEY_PRESENT: ${GEMINI_API_KEY:+yes}
+    volumes:
+      - ./:/app
+      - pgprod-log:/var/log/pglog:ro
+    networks: [private, boundary]
+
+networks:
+  private:
+    internal: true
+  boundary:
+    internal: true
+  egress: {}
+  operator: {}
+
+volumes:
+  pgprod-data:
+  pgprod-log:
+  pgtwin-data:
+  gateway-ledger:

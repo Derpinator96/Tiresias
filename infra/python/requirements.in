@@ -1,0 +1,16 @@
+# One shared image for gateway, ai, dashboard and the tools runner (doc: "one Docker image").
+# Compiled to requirements.lock with uv for Python 3.11 on Linux. Edit this file, then recompile.
+fastapi
+uvicorn
+httpx
+psycopg[binary]
+sqlglot
+mlxtend
+pandas
+numpy
+pyyaml
+jsonschema
+referencing
+pytest
+streamlit
+google-genai

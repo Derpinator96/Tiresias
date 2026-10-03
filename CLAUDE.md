@@ -47,8 +47,8 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | Repo layout and NOTES.md per folder | all folders | REAL | untested: no code yet; `ls` output in PR for step 1 |
 | Interface contracts (JSON Schemas), 11 from the doc plus OutboundPayload | contracts/ | REAL | contracts/tests/test_contracts.py (119 passed) |
 | config.yaml and loader | config.yaml, common/ | REAL (slow_query_ms is PLACEHOLDER 500 until Q1 is measured; llm.model not yet confirmed against the API) | common/tests/test_config.py (73 passed, governed-module check skipped until modules exist) |
-| Docker Compose services and networks | infra/ | MISSING | untested: step 4 |
-| Egress for ai | infra/ | MISSING (planned SIMPLIFIED: unrestricted internet, no allowlist) | untested: step 4 |
+| Docker Compose services and networks | infra/ | REAL (gateway uses the postgres superuser; SIMPLIFIED until least-privilege roles exist) | infra/tests/run.sh: test_isolation.py (6), test_private_no_internet.py (2), test_postgres.py (8) |
+| Egress for ai | infra/ | SIMPLIFIED: unrestricted internet, no allowlist of the LLM API host | test_isolation.py::test_llm_api_host_is_reachable proves the route exists, not that other hosts are blocked |
 | QuickMart schema, generator, canaries, Q1 runner | db/ | MISSING | untested: step 5 |
 | Gateway: hashing, stripping, ingestion, ledger, canary scan, resolver, API | gateway/ | MISSING | untested: step 6 |
 | FP-Growth miner | miner/ | MISSING | untested: step 7 |
@@ -71,3 +71,4 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | VeriEQL | verify/ | MISSING (out of scope this session) | untested |
 | Approve, migration and rollback scripts | gateway/, dashboard/ | MISSING (out of scope this session) | untested |
 | Twin correlations | db/twin/ | MISSING (out of scope this session) | untested |
+| Gateway, ai and dashboard apps | gateway/api.py, agent/api.py, dashboard/app.py | PLACEHOLDER: /healthz only and a dashboard page saying so | test_isolation.py::test_gateway_is_reachable |

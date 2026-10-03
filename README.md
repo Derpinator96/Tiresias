@@ -28,11 +28,24 @@ Each folder has a `NOTES.md` recording its decisions.
 
 ## Commands
 
-Not built yet. Each target arrives in its own build step. All Python runs inside a pinned Python 3.11 image, so the host needs only Docker and GNU make (`winget install ezwinports.make` on Windows).
+All Python runs inside a pinned Python 3.11 image, so the host needs only Docker and GNU make (`winget install ezwinports.make` on Windows). Without make, run the docker compose line instead. Set `DC` first (Git Bash on Windows also needs `export MSYS_NO_PATHCONV=1`):
+
+```bash
+DC="docker compose -f infra/docker-compose.yml --project-directory ."
+```
+
+| Target | Does | Without make |
+| --- | --- | --- |
+| `make keygen` | create `.env` with the HMAC key and Postgres password (never printed) | see the Makefile `keygen` target |
+| `make up` | build and start every service | `$DC up -d --build` |
+| `make down` | stop every service, keep data | `$DC down` |
+| `make test` | contract and config tests | `$DC run --rm -T tools python -m pytest contracts/tests common/tests` |
+| `make test-infra` | network isolation and Postgres image tests | `bash infra/tests/run.sh` |
+
+Targets still to come:
 
 | Target | Does | Build step |
 | --- | --- | --- |
-| `make up` | start every service | 4 |
 | `make seed` | load QuickMart and build the twin | 5, 10 |
 | `make e2e` | run the Q1 end-to-end test | 14 |
 | `make demo` | open the operator dashboard on 127.0.0.1 | 13 |
