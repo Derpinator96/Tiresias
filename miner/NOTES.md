@@ -19,3 +19,4 @@ Record every decision here with its date, so a fresh session can pick up without
 - 2026-10-03: ranking: support descending, then more columns first, so the composite (region_id, transaction_date) outranks its single-column subsets at equal support.
 - 2026-10-03: `/ai/mine` returns `drift: {state: MISSING}`; drift detection is out of scope this session.
 - 2026-10-03: the component test runs in the tools container, calls the miner on live gateway data, and translates the winning codes through `/v1/answers/dehash`. The miner itself never sees a real name.
+- 2026-10-03: human-approved test change: with Q2 in the workload (step 21) Q2 holds about 70% of slow time and its candidates rank first. miner/tests/test_q1_candidate.py now finds Q1's composite by real name (must be region then date, never reversed, support >= 0.05) instead of taking the first composite; db/sandbox/tests/test_hypopg.py measures Q1's template by its query text, as e2e/test_q1.py does.

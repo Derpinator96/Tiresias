@@ -1,6 +1,6 @@
 # VeriEQL v1.0 requirements.txt minus documentation and plotting packages (sphinx,
-# sphinx-rtd-theme, matplotlib), which the verifier does not import. UNVERIFIED until the
-# image runs its own test: python -m test.test_env.
+# sphinx-rtd-theme, matplotlib), which the verifier does not import. Verified 2026-10-03: the
+# built image passes VeriEQL's own `python -m test.test_env` (one equivalent, one counterexample).
 # Pinned to the z3 release current when VeriEQL patched z3py_libs (August 2024); the
 # patched files are copied over z3 in the Dockerfile, as VeriEQL's README instructs.
 z3-solver==4.13.0.0

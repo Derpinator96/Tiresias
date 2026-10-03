@@ -19,3 +19,4 @@ Record every decision here with its date, so a fresh session can pick up without
 - 2026-10-03: the ledger counter includes the dashboard's own reads of AI-facing endpoints (they are ledgered as destination ai). Over-counting is the safe direction; the caption says so on screen.
 - 2026-10-03: background ask jobs live in an st.cache_resource dict: a module-level dict was reset on every rerun, which left the panel stuck on "Agent working".
 - 2026-10-03: the "rate limited, retrying" warning on screen is not covered by an automated test; agent/tests/test_agent.py proves the events are emitted.
+- 2026-10-03: Rewrites panel (step 21) sits at the end of the page so the existing AppTests' button indices do not shift. It lists /v1/rewrite/candidates and, on "Verify rewrites", each rule's status with both checks; the SQL is shown through view(), so the AI view shows codes only (tests/test_app.py::test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view).
