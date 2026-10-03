@@ -74,9 +74,23 @@ class Toolbox:
         nodes = {n["node_id"]: n for n in plan["nodes"]}
         top = sorted(p["nodes"], key=lambda n: -n["share"])[:3]
         alert = float(cfg("gnn.misestimate_ratio_alert"))
+        # The gateway reports actual_rows summed over loops, est_rows per loop. Nodes on a Nested
+        # Loop's inner side run once per outer row, so the two are not comparable there; skip them.
+        # ponytail: skips rather than corrects; carry loops in HashedPlan (contract change) to compare them.
+        kids: dict[int, list[int]] = {}
+        for n in plan["nodes"]:
+            if n["parent_id"] is not None:
+                kids.setdefault(n["parent_id"], []).append(n["node_id"])
+        looped = [sorted(kids[n["node_id"]])[1] for n in plan["nodes"]
+                  if n["op"] == "Nested Loop" and len(kids.get(n["node_id"], [])) > 1]
+        skip: set[int] = set()
+        while looped:
+            i = looped.pop()
+            skip.add(i)
+            looped += kids.get(i, [])
         mis = []
         for n in plan["nodes"]:
-            if "actual_rows" in n:
+            if "actual_rows" in n and n["node_id"] not in skip:
                 lo, hi = sorted((max(n["est_rows"], 1), max(n["actual_rows"], 1)))
                 if hi / lo >= alert:
                     mis.append({"node_id": n["node_id"], "op": n["op"], "relation": n.get("relation"),

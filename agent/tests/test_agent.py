@@ -220,6 +220,24 @@ def test_gnn_explain_flags_misestimate_and_top_node():
     assert out["estimator"] in ("postgres_cost_calibrated", "gnn") and out["label"]
 
 
+LOOP_PLAN = {**EXPLAIN_PLAN, "nodes": [
+    {"node_id": 0, "parent_id": None, "op": "Nested Loop", "est_rows": 1, "est_cost": 17000, "width": 8, "actual_rows": 1, "self_ms": 1.0},
+    {"node_id": 1, "parent_id": 0, "op": "Seq Scan", "relation": "t_0123abcd", "est_rows": 200, "est_cost": 16000,
+     "width": 10, "actual_rows": 80000, "self_ms": 20.0},
+    {"node_id": 2, "parent_id": 0, "op": "Index Scan", "relation": "t_0456abcd", "est_rows": 1, "est_cost": 8,
+     "width": 10, "actual_rows": 140000, "self_ms": 3.0}]}
+
+
+class LoopTools(FakeTools):
+    def get_plan(self, template_id):
+        return LOOP_PLAN
+
+
+def test_gnn_explain_skips_nested_loop_inner_side():
+    # Node 2 runs once per outer row: its actual_rows is summed over loops, est_rows is per loop.
+    assert [m["node_id"] for m in LoopTools().gnn_explain("q_00000001")["misestimates"]] == [1]
+
+
 def test_gnn_explain_numbers_pass_the_checker():
     def cite(contents):
         resp = contents[-1]["parts"][0]["functionResponse"]["response"]
