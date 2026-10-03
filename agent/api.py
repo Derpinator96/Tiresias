@@ -55,6 +55,36 @@ def predict_plans(plans: list[dict]) -> list[dict]:
     return out
 
 
+EVENTS: dict[str, list[str]] = {}     # question_id -> progress events, polled by the dashboard
+
+
+@app.post("/ai/ask")
+def ai_ask(body: dict = Body(...)) -> dict:
+    """{question_id, template_ids} -> {status, answer (contract Answer, hashed), tool_calls, events}.
+    The DBA's question text is never received here; the gateway resolved it privately."""
+    from agent import agent as agent_mod
+    from agent import llm
+    qid, tids = body["question_id"], list(body.get("template_ids", []))
+    EVENTS[qid] = []
+    try:
+        provider = llm.provider()
+    except llm.MissingKey as e:
+        raise HTTPException(503, str(e)) from None
+    try:
+        r = agent_mod.ask(qid, tids, provider, on_event=EVENTS[qid].append)
+    except llm.RateLimited as e:
+        raise HTTPException(503, {"error": "rate limited", "detail": str(e), "events": EVENTS[qid]}) from None
+    except llm.OutboundBlocked as e:
+        raise HTTPException(403, {"error": "LLM request blocked by canary scan", "payload_id": e.entry["payload_id"]}) from None
+    return {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
+            "tool_calls": r.tool_calls, "events": r.events}
+
+
+@app.get("/ai/ask/{question_id}/events")
+def ai_ask_events(question_id: str) -> dict:
+    return {"question_id": question_id, "events": EVENTS.get(question_id, [])}
+
+
 @app.post("/ai/rl/run")
 def ai_rl_run(body: dict | None = Body(None)) -> dict:
     """Template weights (optional; default share of calls) -> best Config with each action's
