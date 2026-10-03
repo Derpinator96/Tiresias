@@ -266,3 +266,23 @@ def test_adapter_waits_the_retry_delay_in_a_gemini_429_body_and_names_the_quota(
         g.generate("sys", [], [])
     from common.config import cfg
     assert waits == [min(21.0, cfg("llm.retry_max_backoff_s"))] * (cfg("llm.retry_max_attempts") - 1)
+
+
+def test_toolbox_keeps_the_config_and_simulation_behind_the_answer(monkeypatch):
+    """/ai/ask returns these, so the dashboard shows the numbers the answer is about."""
+    from types import SimpleNamespace
+    from rl import search
+    config = {"config_id": "cfg_00000001", "search": "q_learning",
+              "actions": [{"type": "add_index", "table": "t_00000001", "columns": ["c_00000001"]}]}
+    trace = SimpleNamespace(final_choice="best", baseline_ms=40.0, final_ms=2.0, greedy={})
+    sim = {"config_id": "cfg_00000001", "source": "twin", "runs": 5, "storage_mb_delta": 1.0, "write_ms_delta": None,
+           "templates": [{"template_id": "q_00000001", "before_ms": 40.0, "after_ms": 2.0}]}
+    monkeypatch.setattr(search, "run", lambda *a, **k: (config, trace))
+    monkeypatch.setattr(search, "twin", lambda c: (sim, None))
+    tools = Toolbox()
+    assert tools.last_config is None and tools.last_simulation is None
+    tools.call("run_rl", {})
+    assert tools.last_config == config and tools.last_simulation is None
+    tools.call("simulate", {"config_id": "cfg_00000001"})
+    assert tools.last_simulation["templates"][0]["speedup_pct"] == 95.0
+    assert "speedup_pct" not in sim["templates"][0]          # the cached measurement is not changed
