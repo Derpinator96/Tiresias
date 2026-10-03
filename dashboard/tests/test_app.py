@@ -15,7 +15,7 @@ from streamlit.testing.v1 import AppTest
 from dashboard import data
 
 HERE = os.path.dirname(__file__)
-APP = os.path.join(HERE, "..", "app.py")
+APP = os.path.join(HERE, "..", "details.py")   # every panel; the Ask page is home.py
 REAL = re.compile(r"\b(sales|region_id|transaction_date|amount|customers)\b")
 
 
