@@ -46,7 +46,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | --- | --- | --- | --- |
 | Repo layout and NOTES.md per folder | all folders | REAL | clean clone of main on 2026-10-03: keygen, up and seed pass; all tools suites 350 passed, 2 skipped (live LLM); dashboard 5 passed |
 | Interface contracts (JSON Schemas), 11 from the doc plus OutboundPayload | contracts/ | REAL | contracts/tests/test_contracts.py (119 passed) |
-| config.yaml and loader | config.yaml, common/ | REAL (slow_query_ms is a PROPOSED 10 ms pending approval) | common/tests/test_config.py (governed-module check covers db/ and gateway/) |
+| config.yaml and loader | config.yaml, common/ | REAL | common/tests/test_config.py (governed-module check covers db/ and gateway/) |
 | Docker Compose services and networks | infra/ | REAL (gateway uses the postgres superuser; SIMPLIFIED until least-privilege roles exist) | infra/tests/run.sh: test_isolation.py (6), test_private_no_internet.py (2), test_postgres.py (8) |
 | Egress for ai | infra/ | SIMPLIFIED: unrestricted internet, no allowlist of the LLM API host | test_isolation.py::test_llm_api_host_is_reachable proves the route exists, not that other hosts are blocked |
 | QuickMart schema, generator, canaries, Q1 runner | db/ | REAL; config now 50,000,000 sales rows (human-approved 2026-10-03, fallback 10,000,000 if seeding takes over 30 min); generator and twin stream in chunks. NOT YET SEEDED at 50M (Docker not installed on the demo laptop); slow_query_ms re-measured after reseeding | db/tests/test_generate_chunks.py and db/twin/tests/test_sampler.py pass without a database (local Python 3.12, pinned libs); db/tests/test_quickmart.py last passed at 1,000,000 rows, not yet rerun |

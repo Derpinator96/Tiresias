@@ -35,11 +35,10 @@ canaries:
   planted_target: 20
 
 workload:
-  # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e
-  # "Q1 is slow" check both read this. The doc's 500 ms would never log Q1 at 1,000,000
-  # sales rows: measured 2026-10-03 after seeding, Q1 median 24.9 ms over 5 runs
-  # (32.6, 24.5, 24.8, 24.9, 25.7). PROPOSED value, pending human approval: 10 ms.
-  slow_query_ms: 10
+  # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e "Q1 is slow"
+  # check both read this. At 10,000,000 sales rows Q1's median is 185.0 ms (2026-10-03), below
+  # the doc's 500 ms, which would never log it. 100 ms approved by a human on 2026-10-03.
+  slow_query_ms: 100
   # Not in the doc's table: how many times run_q1 executes Q1 so it appears in
   # pg_stat_statements and auto_explain.
   q1_runs: 5
