@@ -48,7 +48,7 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make test-miner` | miner unit tests and the Q1 candidate check | `$DC run --rm -T tools python -m pytest miner/tests` |
 | `make test-predictor` | runtime predictor tests | `$DC run --rm -T tools python -m pytest models/gnn/tests` |
 | `make test-search` | greedy search, HypoPG and twin tests | `$DC run --rm -T tools python -m pytest rl/tests db/sandbox/tests db/twin/tests` |
-| `make test-agent` | number checker, Gemini adapter (mocked) and agent loop | `$DC run --rm -T tools python -m pytest agent/tests/test_agent.py` |
+| `make test-agent` | number checker, Gemini and Ollama adapters (mocked) and agent loop | `$DC run --rm -T tools python -m pytest agent/tests/test_agent.py agent/tests/test_ollama.py` |
 | `make test-llm` | live Gemini checks in the ai container (needs GEMINI_API_KEY) | `$DC exec -T ai python -m pytest -p no:cacheprovider -rs agent/tests/test_live_llm.py` |
 | `make test-verify` | result checksums on the twin | `$DC run --rm -T tools python -m pytest verify/tests` |
 | `make demo` | start the dashboard and open http://127.0.0.1:8501 | `$DC up -d dashboard`, then open the URL |
@@ -66,6 +66,9 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make gnn-export` / `make gnn-export-sample` | write the numbers-only GNN dataset and the template split to `data/gnn/` (from all plans, or from the 200-plan sample) | `$DC --profile bench run --rm -T bench python -m db.plangen export` (add `sample`) |
 | `make gnn-train-ref` | reference training loop into `models/gnn/weights/` (the trainer delivers the real weights) | `$DC run --rm -T tools python -m models.gnn.train` |
 | `make gnn-eval` | score the GNN and both baselines on unseen templates into `models/gnn/results.json` | `$DC run --rm -T tools python -m models.gnn.evaluate` |
+| `make airgap` | recreate `ai` with the local model through Ollama and no internet route (see "Air-gapped mode" below) | `$DC -f infra/docker-compose.airgap.yml up -d --no-deps ai` |
+| `make online` | recreate `ai` with the default provider (Gemini) | `$DC up -d --no-deps ai` |
+| `make test-airgap` | `make airgap`, then the isolation proof inside `ai` and Q1 answered through the local model (skips only if Ollama is unreachable) | see the Makefile `test-airgap` target |
 
 Targets still to come:
 
@@ -73,6 +76,31 @@ Targets still to come:
 | --- | --- | --- |
 
 The equivalent `docker compose` command for each target will be listed here when that target exists.
+
+## Air-gapped mode
+
+The AI side can run on a local model, so not even hashed metadata leaves the machine. Ollama runs natively on the host (Docker here has no GPU runtime) and serves `gemma2:2b` (config `llm.ollama.model`). `make airgap` recreates only the `ai` container: it joins the internal networks `boundary` (the gateway) and `llm-local` (the host's Ollama at 10.31.31.1:11434), loses its internet network, and gets no Gemini key. `make online` puts it back. `make up` also puts it back, since it recreates `ai` from the base file.
+
+One-time host setup, by a human (official docs: https://docs.ollama.com/linux and https://docs.ollama.com/faq):
+
+1. Install Ollama: `curl -fsSL https://ollama.com/install.sh | sh`. For the GPU, the NVIDIA driver must already work (`nvidia-smi`).
+2. Pull the model while Ollama still listens on its default 127.0.0.1:11434: `ollama pull gemma2:2b` (about 1.6 GB).
+3. Make Ollama listen on the `llm-local` gateway address instead, and turn off its cloud features: run `sudo systemctl edit ollama` and add
+
+   ```ini
+   [Unit]
+   After=docker.service
+
+   [Service]
+   Environment="OLLAMA_HOST=10.31.31.1:11434"
+   Environment="OLLAMA_NO_CLOUD=1"
+   ```
+
+   then `sudo systemctl daemon-reload && sudo systemctl restart ollama`. The address 10.31.31.1 exists only while the `llm-local` Docker network exists, so run `make airgap` once first; until the address exists Ollama fails to bind and systemd retries every 3 seconds (the official unit has `Restart=always`, `RestartSec=3`). The CLI now needs the address too: `OLLAMA_HOST=10.31.31.1:11434 ollama list`.
+4. Check from the host: `curl http://10.31.31.1:11434/api/tags` lists `gemma2:2b`.
+5. `make test-airgap`. It proves `ai` cannot reach the Gemini API host, the internet by IP, or either Postgres, then asks the Q1 question through the local model and fails unless the answer passes the number checker. `make online` afterwards to return to Gemini.
+
+Do not bind Ollama to 0.0.0.0: that serves the model to the LAN and to the laptop's hotspot.
 
 ## Secrets
 

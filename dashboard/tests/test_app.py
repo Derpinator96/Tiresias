@@ -87,3 +87,9 @@ def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(a
     assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
     app.toggle[0].set_value(True).run()
     assert not any(REAL.search(c.value) for c in app.code)
+
+
+def test_llm_in_use_is_named_on_screen(app):
+    info = data.llm_info()
+    assert info["label"].startswith("LLM: ") and info["label"] != data.LLM_UNKNOWN
+    assert info["label"] in text_of(app)

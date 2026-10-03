@@ -2,9 +2,11 @@
 /ai/mine (step 7), /ai/gnn/predict (step 8), /ai/rl/run (step 9), /ai/ask (step 11)."""
 from __future__ import annotations
 
+import httpx
 from fastapi import Body, FastAPI, HTTPException
 
 from agent import gateway_client as gw
+from common.config import cfg
 from contracts.validate import validate
 from miner import fpgrowth
 from models.gnn import predictor as pred
@@ -80,8 +82,23 @@ def ai_ask(body: dict = Body(...)) -> dict:
         raise HTTPException(503, {"error": "rate limited", "detail": str(e), "events": EVENTS[qid]}) from None
     except llm.OutboundBlocked as e:
         raise HTTPException(403, {"error": "LLM request blocked by canary scan", "payload_id": e.entry["payload_id"]}) from None
+    except (llm.ContextOverflow, llm.MalformedReply, httpx.TransportError) as e:
+        raise HTTPException(503, {"error": type(e).__name__, "detail": str(e), "events": EVENTS[qid]}) from None
+    except httpx.HTTPStatusError as e:   # e.g. Ollama 404 when the model is not pulled
+        raise HTTPException(502, {"error": "LLM HTTP error", "detail": f"{e.response.status_code}: {e.response.text[:300]}",
+                                  "events": EVENTS[qid]}) from None
     return {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
             "tool_calls": r.tool_calls, "events": r.events}
+
+
+@app.get("/ai/llm")
+def ai_llm() -> dict:
+    """Which LLM answers /ai/ask, so the dashboard names it (and, for the local model, whether
+    ai can still reach the LLM API host)."""
+    from agent import llm
+    name, label = llm.provider_name(), llm.label()
+    return {"provider": name, "model": cfg("llm.ollama.model") if name == "ollama" else cfg("llm.model"),
+            "label": label, "air_gapped": label.endswith(llm.ROUTE_NONE)}
 
 
 @app.get("/ai/ask/{question_id}/events")

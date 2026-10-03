@@ -32,6 +32,19 @@ def estimator_label() -> str:
         return LABELS["estimator"]
 
 
+LLM_UNKNOWN = "LLM: unknown (the ai service did not say which model answers)"
+
+
+def llm_info() -> dict:
+    """Which LLM the ai service uses now: its label (agent/llm.py) and whether ai checked that
+    it cannot reach the LLM API host (air-gapped mode)."""
+    try:
+        r = ai("/ai/llm")
+        return r.json() if r.status_code == 200 else {"label": LLM_UNKNOWN}
+    except httpx.HTTPError:
+        return {"label": LLM_UNKNOWN}
+
+
 def gateway(path: str, body=None, method: str | None = None):
     url = os.environ["GATEWAY_URL"].rstrip("/") + path
     r = httpx.request(method or ("POST" if body is not None else "GET"), url, json=body, timeout=TIMEOUT_S)

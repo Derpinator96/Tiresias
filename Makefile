@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search
+.PHONY: keygen up down seed twin demo e2e export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -118,7 +118,7 @@ test-search:
 
 ## LLM agent tests that need no key (number checker, adapter, loop).
 test-agent:
-	$(TOOLS) python -m pytest agent/tests/test_agent.py
+	$(TOOLS) python -m pytest agent/tests/test_agent.py agent/tests/test_ollama.py
 
 ## Live Gemini tests, run in the ai container (needs GEMINI_API_KEY in .env, then make up).
 test-llm:
@@ -143,3 +143,21 @@ test-site:
 ## Network isolation and Postgres image tests, each in its own container.
 test-infra:
 	bash infra/tests/run.sh
+
+## Air-gapped mode: recreate ai with the local model (Ollama on the host, llm.ollama.* in
+## config.yaml) and no internet route. Needs Ollama listening on 10.31.31.1:11434 (README.md).
+AIRGAP := $(DC) -f infra/docker-compose.airgap.yml
+airgap:
+	$(AIRGAP) up -d --no-deps ai
+
+## Back to the default provider (Gemini): recreate ai from the base compose file.
+online:
+	$(DC) up -d --no-deps ai
+
+## Air-gapped acceptance: isolation proof inside ai, then Q1 answered through the local model.
+## The Q1 test skips only when ai cannot reach Ollama. Leaves ai in air-gapped mode.
+test-airgap: airgap
+	$(AIRGAP) exec -T -e PG_PROD_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $$($(DC) ps -q pg-prod)) \
+		-e PG_TWIN_IP=$$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $$($(DC) ps -q pg-twin)) \
+		ai python -m pytest -p no:cacheprovider -rs -v infra/tests/test_airgap_network.py
+	$(TOOLS) python -m pytest -p no:cacheprovider -rs -s infra/tests/test_airgap_q1.py

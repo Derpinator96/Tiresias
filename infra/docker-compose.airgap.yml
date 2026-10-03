@@ -1,0 +1,27 @@
+# Air-gapped mode (step 31), layered over docker-compose.yml by `make airgap`; `make online`
+# recreates ai from the base file alone. Only the ai service changes:
+#   - its networks are replaced (not merged: `!override`, Docker Compose v2.24 or later;
+#     checked with v5.6.0) by boundary, to reach the gateway, and llm-local, to reach the
+#     host's Ollama. Both are internal: no default route, so no internet and no LAN.
+#   - BT_LLM_PROVIDER=ollama makes agent/llm.py use the local model (llm.ollama.* in
+#     config.yaml), and the Gemini key is not passed in at all.
+# Ollama runs natively on the host and must listen on llm-local's gateway, 10.31.31.1:11434
+# (OLLAMA_HOST, see README.md). The fixed subnet means one stack at a time can be air-gapped.
+# Proven by infra/tests/test_airgap_network.py (make test-airgap).
+
+services:
+  ai:
+    networks: !override [boundary, llm-local]
+    environment:
+      BT_LLM_PROVIDER: ollama
+      GEMINI_API_KEY: ""
+
+networks:
+  llm-local:
+    internal: true
+    ipam:
+      config:
+        # Outside Docker's default address pools (172.17.0.0/12 and 192.168.0.0/16), so it
+        # never collides with an automatically created network.
+        - subnet: 10.31.31.0/29
+          gateway: 10.31.31.1

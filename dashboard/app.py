@@ -190,3 +190,11 @@ for c in cands:
     st.markdown(f"**{c['rule_id']}** on {view(c['template_id'])}: **{status}**"
                 + (f" (VeriEQL: {rw['checks']['verieql']}, twin checksum: {rw['checks']['checksum']})" if rw else ""))
     st.code(view(c["sql"]), language="sql")
+
+# ---- LLM in use (step 31) --------------------------------------------------------------------
+st.header("LLM in use")
+llm_info = data.llm_info()
+st.markdown(f"- {llm_info['label']}")
+if llm_info.get("air_gapped"):
+    st.caption("Air-gapped mode: ai is on internal networks only, so the AI egress line at the top of the page "
+               "describes online mode, not this one.")
