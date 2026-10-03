@@ -53,7 +53,8 @@ class Toolbox:
         config, trace = search.run()
         self.configs[config["config_id"]] = config
         return {"config": config, "label": search.LABEL,
-                "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3)}
+                "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
+                "greedy_baseline": trace.greedy}
 
     def gnn_explain(self, template_id: str) -> object:
         from agent.api import calibrated_predictor

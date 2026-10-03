@@ -98,7 +98,8 @@ def ai_rl_run(body: dict | None = Body(None)) -> dict:
     validate("Config", config)
     return {"config": config, "label": search.LABEL, "estimator_label": pred.load_predictor().label,
             "baseline_predicted_ms": round(trace.baseline_ms, 3), "final_predicted_ms": round(trace.final_ms, 3),
-            "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits}
+            "steps": trace.steps, "configs_costed": trace.evaluated, "cache_hits": trace.cache_hits,
+            "episodes": trace.episodes, "top_configs": trace.top_configs, "greedy": trace.greedy}
 
 
 @app.get("/ai/gnn/estimator")

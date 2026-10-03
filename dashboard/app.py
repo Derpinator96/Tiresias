@@ -126,6 +126,11 @@ if rl:
                     f"{a['contribution']['predicted_ms_saved']:.1f} ms per call ({rl.get('estimator_label', estimator)})")
     st.caption(f"Predicted workload time {rl['baseline_predicted_ms']:.1f} ms before, {rl['final_predicted_ms']:.1f} ms after. "
                "Predictions rank candidates; the twin measurement below is the reported result.")
+    g = rl.get("greedy") or {}
+    if g:
+        st.caption(f"Greedy baseline on the same predictions: {g['predicted_ms']:.1f} ms after, "
+                   + ("the same configuration as Q-learning." if g["same_as_rl"] else "a different configuration from Q-learning.")
+                   + f" Q-learning ran {rl['episodes']} episodes.")
 
     st.header("Measured on the twin")
     if st.button("Measure on twin"):

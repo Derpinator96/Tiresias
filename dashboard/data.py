@@ -11,7 +11,7 @@ TIMEOUT_S = 300.0
 # On-screen labels for simplified or missing parts. The text matches the modules that own them.
 LABELS = {
     "estimator": "estimator: Postgres cost x calibration (GNN pending)",
-    "search": "search: greedy (RL pending)",
+    "search": "search: Q-learning, index actions only (rewrite, partition and top-3 twin re-check pending)",
     "twin": "twin: synthetic from pg_stats, no column correlations yet",
     "verify": "verification: result checksum on the twin only (VeriEQL pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",

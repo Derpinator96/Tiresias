@@ -124,6 +124,9 @@ rl:
   epsilon_start: 0.1
   epsilon_min: 0.02
   episodes: 300
+  # Not in the doc's table: initial Q for unseen (state, action) pairs. Optimistic (above any
+  # single-step reward, which is at most 1) so every option is explored; see rl/NOTES.md.
+  q_init: 1.0
   actions_per_episode: 5
   # The doc's reward subtracts lambda_write x write ms (ms) from a fractional time drop
   # (unitless). Kept as is, approved 2026-10-03: with the per-index penalty below it acts as
