@@ -24,7 +24,11 @@ def read(conn: psycopg.Connection) -> Catalog:
     cat = Catalog()
     for t, c, typ, nul in conn.execute("""
             SELECT table_name, column_name, data_type, is_nullable
-            FROM information_schema.columns WHERE table_schema = 'public'
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              -- Base tables only: HypoPG and pg_stat_statements install views in public.
+              AND table_name IN (SELECT table_name FROM information_schema.tables
+                                 WHERE table_schema = 'public' AND table_type = 'BASE TABLE')
             ORDER BY table_name, ordinal_position"""):
         cat.columns.setdefault(t, {})[c] = typ
         if nul == "YES":

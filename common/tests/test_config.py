@@ -68,6 +68,8 @@ GOVERNED: dict[str, list[str]] = {
     "gateway/ingest/stats.py": ["gateway.skew_top_mcv_count"],
     "miner/fpgrowth.py": ["miner.unweighted_min_support", "miner.min_weighted_support",
                           "miner.max_index_columns", "miner.min_leading_distinct", "miner.candidates_kept"],
+    "db/twin/build.py": ["sandbox.twin_hero_table_scale", "sandbox.twin_other_tables_scale", "dataset.random_seed"],
+    "db/sandbox/twin_measure.py": ["sandbox.timing_runs", "sandbox.warmup_runs"],
     "rl/search.py": ["rl.lambda_write", "rl.lambda_storage", "rl.write_penalty_ms_per_index",
                      "rl.storage_budget_table_share", "rl.actions_per_episode"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",

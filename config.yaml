@@ -125,6 +125,9 @@ sandbox:
   timing_runs: 5                  # median of 5 warm runs
   # Not in the doc's table: untimed runs before the timed ones, so the timed runs are warm.
   warmup_runs: 1
+  # Not in the doc's table: private file holding the twin's frequency-rank map (real
+  # most-common values -> twin values). Lives in the gateway's volume; never sent.
+  twin_map_path: /var/lib/blind-tuner/twin_map.json
   pgbench_insert_rate_per_s: 200
 
 verify:

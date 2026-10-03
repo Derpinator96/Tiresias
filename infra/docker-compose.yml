@@ -144,6 +144,8 @@ services:
     volumes:
       - ./:/app
       - pgprod-log:/var/log/pglog:ro
+      # The twin builder writes its private frequency-rank map here for the gateway.
+      - gateway-ledger:/var/lib/blind-tuner
     networks: [private, boundary]
 
 networks:

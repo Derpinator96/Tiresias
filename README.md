@@ -41,18 +41,18 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make down` | stop every service, keep data | `$DC down` |
 | `make test` | contract and config tests | `$DC run --rm -T tools python -m pytest contracts/tests common/tests` |
 | `make test-infra` | network isolation and Postgres image tests | `bash infra/tests/run.sh` |
-| `make seed` | load QuickMart into pg-prod and run the Q1 workload (about 30 s) | `$DC run --rm -T tools python -m db.seed` |
+| `make seed` | load QuickMart into pg-prod, run the Q1 workload, build the twin (about 1 minute) | `$DC run --rm -T tools python -m db.seed`, then the `twin` lines |
+| `make twin` | rebuild only the twin from pg-prod's schema and pg_stats | see the Makefile `twin` target (pg_dump inside pg-twin, then `$DC run --rm -T tools python -m db.twin.build`) |
 | `make test-gateway` | gateway unit and component tests | `$DC run --rm -T tools python -m pytest gateway/tests` |
 | `make test-miner` | miner unit tests and the Q1 candidate check | `$DC run --rm -T tools python -m pytest miner/tests` |
 | `make test-predictor` | runtime predictor tests | `$DC run --rm -T tools python -m pytest models/gnn/tests` |
-| `make test-search` | greedy search and HypoPG tests | `$DC run --rm -T tools python -m pytest rl/tests db/sandbox/tests` |
+| `make test-search` | greedy search, HypoPG and twin tests | `$DC run --rm -T tools python -m pytest rl/tests db/sandbox/tests db/twin/tests` |
 | `make test-db` | data generation checks against the seeded pg-prod | `$DC run --rm -T tools python -m pytest db/tests` |
 
 Targets still to come:
 
 | Target | Does | Build step |
 | --- | --- | --- |
-| `make seed` (twin part) | build the twin | 10 |
 | `make e2e` | run the Q1 end-to-end test | 14 |
 | `make demo` | open the operator dashboard on 127.0.0.1 | 13 |
 | `make export` | write results.json from the latest e2e run | 15 |

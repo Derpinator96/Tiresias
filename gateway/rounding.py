@@ -15,3 +15,8 @@ def round_sig(x: float, digits: int | None = None) -> float:
 
 def round_count(x: float) -> int:
     return int(round_sig(float(x)))
+
+
+def round_ms(ms: float) -> float:
+    """Timings are not counts or sizes; they keep microsecond resolution."""
+    return round(float(ms), 3)
