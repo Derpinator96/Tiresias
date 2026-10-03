@@ -1,0 +1,135 @@
+# Blind Tuner configuration. Every tunable value lives here, never in code.
+# Values come from docs/architecture.md "Configuration values" unless marked otherwise.
+# They are starting points to tune, not results.
+
+dataset:
+  # Added by the session brief: sales table size for the walking skeleton.
+  sales_rows: 1000000
+  # Decision B: fixed sizes for small tables.
+  regions_rows: 12
+  stores_rows: 500
+  products_rows: 50000
+  # Decision B: customers and returns scale with sales at the doc's 2M / 50M ratio.
+  customers_per_sale: 0.04
+  returns_per_sale: 0.04
+  # Data generation rules (doc): skew and date range.
+  hero_region_id: 7
+  hero_region_share: 0.30
+  top_product_share: 0.20        # 20% of products ...
+  top_product_revenue_share: 0.80 # ... earn 80% of revenue
+  date_start: "2024-01-01"
+  date_end: "2026-09-30"
+  # Not in the doc's table: how much denser recent months are. Weight of a day grows
+  # linearly from 1 at date_start to this value at date_end.
+  recent_density_ratio: 4.0
+  return_lag_days_min: 1
+  return_lag_days_max: 30
+  random_seed: 20261003
+
+canaries:
+  planted_target: 20
+
+workload:
+  # Decision A: threshold for "slow". auto_explain.log_min_duration and the e2e
+  # "Q1 is slow" check both read this. PENDING: the doc's 500 ms is kept until Q1 is
+  # measured after seeding; a measured value will be proposed for human approval.
+  slow_query_ms: 500
+  # Not in the doc's table: how many times run_q1 executes Q1 so it appears in
+  # pg_stat_statements and auto_explain.
+  q1_runs: 5
+
+postgres:
+  pg_stat_statements_track: all
+  auto_explain_log_analyze: true    # production would sample with auto_explain.sample_rate
+  statement_timeout_plan_generation_s: 10
+
+plan_generation:
+  # Out of scope this session (GNN training); kept so the values have one home.
+  parameter_sets_per_query: 30
+  index_setups_per_query_min: 4
+  index_setups_per_query_max: 5
+  target_plan_count: 10000
+  early_sample_size: 200
+
+gateway:
+  hmac_code_hex_chars: 8
+  hmac_key_bytes: 32
+  round_significant_figures: 2
+  skew_top_mcv_count: 5
+  resolver_top_templates: 3
+  canary_fragment_chars: 6
+
+miner:
+  min_weighted_support: 0.05      # share of total query time
+  # Not in the doc's table: the unweighted FP-Growth pass runs at this low threshold
+  # before support is recomputed by time weight (doc, Detailed component specs).
+  unweighted_min_support: 0.01
+  max_index_columns: 3
+  candidates_kept: 30
+  min_leading_distinct: 3
+  drift_window_production_s: 3600
+  drift_window_demo_s: 120
+  drift_js_threshold: 0.2
+  drift_windows_required: 2
+
+gnn:
+  layers: 3
+  hidden_size: 128
+  dropout: 0.1
+  learning_rate: 0.001
+  batch_size: 64
+  max_epochs: 150
+  patience: 15
+  template_split: [0.70, 0.15, 0.15]
+
+rl:
+  alpha: 0.1
+  gamma: 0.9
+  epsilon_start: 0.1
+  epsilon_min: 0.02
+  episodes: 300
+  actions_per_episode: 5
+  lambda_write: 1.0               # per added ms of insert latency
+  lambda_storage: 1.0
+  storage_budget_table_share: 0.25
+  configs_verified_on_twin: 3
+  # Not in the doc's table: assumed insert cost of one new index during search
+  # (doc: "use a simple per-index penalty in search"). An assumption, not a measurement.
+  write_penalty_ms_per_index: 0.1
+
+sandbox:
+  twin_hero_table_scale: 1.0
+  twin_other_tables_scale: 0.2
+  timing_runs: 5                  # median of 5 warm runs
+  # Not in the doc's table: untimed runs before the timed ones, so the timed runs are warm.
+  warmup_runs: 1
+  pgbench_insert_rate_per_s: 200
+
+verify:
+  verieql_rows_per_table: 5
+  verieql_timeout_s: 60
+
+llm:
+  # Decision C. Model name taken from https://ai.google.dev/gemini-api/docs/models on
+  # 2026-10-03 (newest stable Flash listed). Not yet confirmed against the API's own
+  # model list; step 11 does that once GEMINI_API_KEY exists.
+  provider: gemini
+  model: gemini-3.8-flash
+  api_key_env: GEMINI_API_KEY
+  temperature: 0
+  max_tool_calls: 8
+  # Not in the doc's table: HTTP 429 backoff (decision C).
+  retry_max_attempts: 5
+  retry_initial_backoff_s: 2.0
+  retry_backoff_multiplier: 2.0
+  retry_max_backoff_s: 30.0
+  checker_retries: 1
+
+approve:
+  post_deploy_check_minutes: 10
+  rollback_if_median_worse_by: 0.10
+
+tests:
+  fast_suite_limit_s: 120
+  # e2e acceptance threshold (doc: "Q1 measured on the twin drops by over 50%").
+  q1_min_twin_speedup: 0.50

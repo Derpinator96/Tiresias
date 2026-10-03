@@ -46,7 +46,7 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | --- | --- | --- | --- |
 | Repo layout and NOTES.md per folder | all folders | REAL | untested: no code yet; `ls` output in PR for step 1 |
 | Interface contracts (JSON Schemas), 11 from the doc plus OutboundPayload | contracts/ | REAL | contracts/tests/test_contracts.py (119 passed) |
-| config.yaml and loader | config.yaml, common/ | MISSING | untested: step 3 |
+| config.yaml and loader | config.yaml, common/ | REAL (slow_query_ms is PLACEHOLDER 500 until Q1 is measured; llm.model not yet confirmed against the API) | common/tests/test_config.py (73 passed, governed-module check skipped until modules exist) |
 | Docker Compose services and networks | infra/ | MISSING | untested: step 4 |
 | Egress for ai | infra/ | MISSING (planned SIMPLIFIED: unrestricted internet, no allowlist) | untested: step 4 |
 | QuickMart schema, generator, canaries, Q1 runner | db/ | MISSING | untested: step 5 |
