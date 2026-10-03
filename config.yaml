@@ -256,7 +256,14 @@ llm:
   # Decision C. Model name taken from https://ai.google.dev/gemini-api/docs/models on
   # 2026-10-03 (newest stable Flash listed), confirmed the same day against the API's own
   # model list by agent/tests/test_live_llm.py.
+  # Which LLM answers: gemini, openai, nim or ollama. Switching provider is this one value; each
+  # provider's own settings are below (Gemini's are model and api_key_env, kept at this level).
   provider: gemini
+  # Human decision 2026-10-03: when the provider fails (rate limited after all retries, host
+  # unreachable, timeout, HTTP error such as a revoked key, malformed reply, key or model not
+  # set), the whole answer is asked again of the next provider in this list, in order. A canary
+  # block never fails over (fail closed), and air-gapped mode (BT_LLM_PROVIDER) never does.
+  fallback: [openai, nim]
   model: gemini-3.8-flash
   api_key_env: GEMINI_API_KEY
   temperature: 0
@@ -267,6 +274,49 @@ llm:
   retry_backoff_multiplier: 2.0
   retry_max_backoff_s: 30.0
   checker_retries: 1
+  # NVIDIA NIM (hosted, OpenAI-compatible chat completions with tools), not in the doc's table.
+  # Request bodies go through POST /v1/ledger/outbound like Gemini's.
+  nim:
+    base_url: https://integrate.api.nvidia.com/v1
+    # Chosen by make llm-bench on 2026-10-03. Of about 80 listed models only two returned a tool call
+    # for this key; on the Q1 flow (0 tool-call errors for both) the number checker passed
+    # google/diffusiongemma-26b-a4b-it 1 run in 4 (16.1 s of LLM time on the passing run) and
+    # nvidia/nemotron-3-ultra-550b-a55b 0 runs in 2. A low pass rate: see agent/NOTES.md.
+    model: google/diffusiongemma-26b-a4b-it
+    api_key_env: NVIDIA_API_KEY
+    # Reply token cap, sent under the request field named by max_tokens_field.
+    max_tokens: 1024
+    max_tokens_field: max_tokens
+    # Send llm.temperature with each request.
+    send_temperature: true
+    # HTTP timeout per request.
+    timeout_s: 120
+    # Free tier is about 40 requests per minute per model: at least this many seconds between
+    # two requests from one provider object (60 / 40 = 1.5).
+    min_request_interval_s: 1.5
+    # Candidate selection for make llm-bench: model IDs containing a preferred family are tried
+    # first; IDs containing an excluded pattern are never tried (reasoning-only models such as
+    # DeepSeek-R1 are poor at tool use; the rest cannot chat with tools at all).
+    prefer_families: [nemotron]
+    exclude_patterns: [deepseek-r1, reason, embed, rerank, reward, guard, safety, vision, vlm, -vl-, parse, retriever, clip, ocr]
+    bench_candidates: 3
+  # OpenAI (hosted chat completions with tools, same adapter as NIM), not in the doc's table.
+  # Request bodies go through POST /v1/ledger/outbound like every hosted provider's.
+  openai:
+    base_url: https://api.openai.com/v1
+    # PENDING: not chosen yet (model IDs are not guessed). Until it is set, provider openai
+    # refuses to start and the fallback chain skips it. Choose with
+    # python -m scripts.llm_bench run --provider openai --models <id>.
+    model: ""
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 1024
+    # OpenAI's API reference marks max_tokens deprecated for chat completions in favour of
+    # max_completion_tokens, which reasoning models require. UNVERIFIED live (no key yet).
+    max_tokens_field: max_completion_tokens
+    # Reasoning models accept only the default temperature; set false for those.
+    send_temperature: true
+    timeout_s: 120
+    min_request_interval_s: 0.0
   # Air-gapped mode (step 31), not in the doc's table. make airgap switches the ai service to
   # this provider (env BT_LLM_PROVIDER=ollama) and replaces its networks with an internal one;
   # llm.provider above stays the default. Ollama runs natively on the host (README.md).
@@ -304,8 +354,9 @@ privacy:
 egress:
   # Not in the doc's table (the doc says "only to the LLM API"): what the egress proxy for ai
   # (infra/egress_proxy.py) opens tunnels to. HTTP CONNECT only; every other host, port or
-  # method is denied. The host must match agent/llm.py's GEMINI_URL (a test checks it).
-  allowed_hosts: [generativelanguage.googleapis.com]
+  # method is denied. The hosts must match agent/llm.py's GEMINI_URL, llm.nim.base_url and
+  # llm.openai.base_url (a test checks it).
+  allowed_hosts: [generativelanguage.googleapis.com, integrate.api.nvidia.com, api.openai.com]
   allowed_ports: [443]
   # Not in the doc's table: seconds the proxy waits for a request head and for the upstream
   # connection before giving up.
