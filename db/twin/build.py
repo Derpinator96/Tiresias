@@ -26,6 +26,8 @@ Table sizes: the hero table at sandbox.twin_hero_table_scale, others at
 sandbox.twin_other_tables_scale, but never below the number of distinct values a child
 table's foreign key needs (otherwise 12 regions would shrink to 2).
 
+Tables are generated and copied in chunks of workload.copy_batch_rows.
+
 TODO(correlations): for column pairs the miner flags, sample the second column from a
 bucketed table conditioned on the first (doc, Twin).
 """
@@ -101,13 +103,15 @@ def _target_rows(meta: dict) -> dict[str, int]:
     return out
 
 
-def _gen_column(rng, n, typ, stat, role, parent_n, colname):
-    """Return (values, mapping) where mapping = [[real, twin], ...] for most-common values."""
+def _column_sampler(rng, typ, stat, role, parent_n, colname):
+    """Return (draw, mapping). draw(start, size) gives values for rows start .. start + size - 1;
+    mapping = [[real, twin], ...] for most-common values. Synthetic most-common values are fixed
+    here, once, so every chunk of a table uses the same ones."""
     nd, nf, width, mcv, mcf, hist = stat or (0, 0.0, 8, None, None, None)
     mcv, mcf, hist = list(mcv or []), list(mcf or []), list(hist or [])
     mapping: list[list] = []
     if role == "pk":
-        return np.arange(1, n + 1), mapping
+        return (lambda start, size: np.arange(start + 1, start + size + 1)), mapping
 
     if role == "fk":
         order = np.argsort(mcf)[::-1]
@@ -115,24 +119,24 @@ def _gen_column(rng, n, typ, stat, role, parent_n, colname):
         ids = np.arange(1, k + 1)
         probs = np.array([mcf[i] for i in order[:k]])
         mapping = [[mcv[i], int(j)] for i, j in zip(order[:k], ids)]
-        draw = rng.random(n)
-        out = np.empty(n, dtype=np.int64)
-        in_mcv = np.zeros(n, dtype=bool)
-        if k:
-            cut = np.cumsum(probs)
-            in_mcv = draw < cut[-1]
-            out[in_mcv] = ids[np.minimum(np.searchsorted(cut, draw[in_mcv], side="right"), k - 1)]
+        cut = np.cumsum(probs) if k else None
         # The remaining mass goes to parent IDs no most-common value claimed; if every parent
         # is claimed, it is spread over all of them.
         others = np.arange(k + 1, parent_n + 1) if parent_n > k else np.arange(1, parent_n + 1)
-        out[~in_mcv] = rng.choice(others, int((~in_mcv).sum()))
-        return out, mapping
+
+        def draw_fk(start, size):
+            draw = rng.random(size)
+            out = np.empty(size, dtype=np.int64)
+            in_mcv = np.zeros(size, dtype=bool)
+            if k:
+                in_mcv = draw < cut[-1]
+                out[in_mcv] = ids[np.minimum(np.searchsorted(cut, draw[in_mcv], side="right"), k - 1)]
+            out[~in_mcv] = rng.choice(others, int((~in_mcv).sum()))
+            return out
+        return draw_fk, mapping
 
     numeric = typ in NUMBER_TYPES or typ == "date"
     p_mcv = float(sum(mcf))
-    choice = rng.random(n)
-    vals = np.empty(n, dtype=object)
-
     if numeric:
         anchors = np.unique(np.concatenate([_to_num(mcv, typ), _to_num(hist, typ)])) if (mcv or hist) else np.array([0.0])
         synth = []
@@ -144,63 +148,83 @@ def _gen_column(rng, n, typ, stat, role, parent_n, colname):
         synth_vals = _from_num(np.array(synth), typ) if synth else np.array([])
         mapping = [[m, s.item() if hasattr(s, "item") else s] for m, s in zip(mcv, synth_vals)]
         h = _to_num(hist, typ)
-        n_hist = (choice >= p_mcv).sum()
-        if len(h) >= 2:
-            b = rng.integers(0, len(h) - 1, n_hist)
-            hv = _from_num(rng.uniform(h[b], h[b + 1]), typ)
-        else:
-            hv = _from_num(np.full(n_hist, anchors[0]), typ)
-        vals[choice >= p_mcv] = list(hv)
     else:
         synth_vals = [("v" + str(r + 1)).ljust(len(m), "x") for r, m in enumerate(mcv)]
         mapping = [[m, s] for m, s in zip(mcv, synth_vals)]
-        n_rest = (choice >= p_mcv).sum()
         w = max(4, int(width or 8))
-        vals[choice >= p_mcv] = [f"{colname[:2]}{x:0{w - 2}x}"[:max(w, 6)] for x in rng.integers(0, 16 ** min(w - 2, 12), n_rest)]
+    cut = np.cumsum(mcf) if mcv else None
 
-    if mcv:
-        cut = np.cumsum(mcf)
-        idx = np.searchsorted(cut, choice[choice < p_mcv], side="right")
-        vals[choice < p_mcv] = [synth_vals[i] for i in idx]
-    if nf > 0:
-        vals[rng.random(n) < nf] = None
-    return vals, mapping
+    def draw(start, size):
+        choice = rng.random(size)
+        vals = np.empty(size, dtype=object)
+        rest = choice >= p_mcv
+        n_rest = int(rest.sum())
+        if numeric:
+            if len(h) >= 2:
+                b = rng.integers(0, len(h) - 1, n_rest)
+                hv = _from_num(rng.uniform(h[b], h[b + 1]), typ)
+            else:
+                hv = _from_num(np.full(n_rest, anchors[0]), typ)
+            vals[rest] = list(hv)
+        else:
+            vals[rest] = [f"{colname[:2]}{x:0{w - 2}x}"[:max(w, 6)] for x in rng.integers(0, 16 ** min(w - 2, 12), n_rest)]
+        if mcv:
+            idx = np.searchsorted(cut, choice[~rest], side="right")
+            vals[~rest] = [synth_vals[i] for i in idx]
+        if nf > 0:
+            vals[rng.random(size) < nf] = None
+        return vals
+    return draw, mapping
 
 
-def build(prod_dsn: str, twin_dsn: str) -> dict:
+def build(prod_dsn: str, twin_dsn: str, log=print) -> dict:
+    """Fill the twin table by table, parents first, in chunks of workload.copy_batch_rows so
+    a 50,000,000-row hero table never sits in memory at once."""
     rng = np.random.default_rng(int(cfg("dataset.random_seed")) + 1)
+    batch = int(cfg("workload.copy_batch_rows"))
     with psycopg.connect(prod_dsn) as conn:
         meta = _read_stats(conn)
     sizes = _target_rows(meta)
-    # Parents before children (foreign keys are enforced in the twin).
+    # Parents before children.
     order, pending = [], set(meta["tables"])
     while pending:
         ready = sorted(t for t in pending if all(p in order or p == t for (c, _), p in meta["fk"].items() if c == t))
         order += ready
         pending -= set(ready)
-    frames, maps = {}, {}
-    for t in order:
-        data = {}
-        for col, typ, stat in meta["tables"][t]:
-            role = "pk" if (t, col) in meta["pk"] else ("fk" if (t, col) in meta["fk"] else None)
-            parent_n = sizes[meta["fk"][(t, col)]] if role == "fk" else 0
-            data[col], m = _gen_column(rng, sizes[t], typ, stat, role, parent_n, col)
-            if m:
-                maps[f"{t}.{col}"] = m
-        frames[t] = pd.DataFrame(data)
+    maps = {}
     with psycopg.connect(twin_dsn, autocommit=True) as conn:
         conn.execute("TRUNCATE " + ", ".join(order) + " CASCADE")
+        # Foreign keys stay declared (pg_dump copied them), but their per-row trigger checks are
+        # skipped while loading: every generated foreign key is drawn from 1..parent rows, so it
+        # is valid by construction. Needs a superuser, which the tools container connects as.
+        conn.execute("SET session_replication_role = replica")
         for t in order:
-            buf = io.StringIO()
-            frames[t].to_csv(buf, index=False, header=False)
-            with conn.cursor().copy(f"COPY {t} ({', '.join(frames[t].columns)}) FROM STDIN WITH (FORMAT csv)") as cp:
-                cp.write(buf.getvalue())
+            cols, samplers = [], []
+            for col, typ, stat in meta["tables"][t]:
+                role = "pk" if (t, col) in meta["pk"] else ("fk" if (t, col) in meta["fk"] else None)
+                parent_n = sizes[meta["fk"][(t, col)]] if role == "fk" else 0
+                draw, m = _column_sampler(rng, typ, stat, role, parent_n, col)
+                cols.append(col)
+                samplers.append(draw)
+                if m:
+                    maps[f"{t}.{col}"] = m
+            for start in range(0, sizes[t], batch):
+                size = min(batch, sizes[t] - start)
+                frame = pd.DataFrame({c: d(start, size) for c, d in zip(cols, samplers)})
+                buf = io.StringIO()
+                frame.to_csv(buf, index=False, header=False)
+                with conn.cursor().copy(f"COPY {t} ({', '.join(cols)}) FROM STDIN WITH (FORMAT csv)") as cp:
+                    cp.write(buf.getvalue())
+                done = start + size
+                if done % (batch * 20) == 0 and done < sizes[t]:
+                    log(f"twin {t}: {done:,} of {sizes[t]:,} rows")
+        conn.execute("SET session_replication_role = DEFAULT")
         conn.execute("ANALYZE")
     path = cfg("sandbox.twin_map_path")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(maps, f)
-    return {"rows": {t: len(frames[t]) for t in order}, "mapped_columns": len(maps)}
+    return {"rows": {t: sizes[t] for t in order}, "mapped_columns": len(maps)}
 
 
 if __name__ == "__main__":
