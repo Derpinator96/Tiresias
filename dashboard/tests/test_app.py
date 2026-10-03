@@ -87,3 +87,50 @@ def test_rewrite_panel_shows_each_checked_status_and_hides_real_sql_in_ai_view(a
     assert any(REAL.search(c.value) for c in app.code), "DBA view should show the real rewritten SQL"
     app.toggle[0].set_value(True).run()
     assert not any(REAL.search(c.value) for c in app.code)
+
+
+def test_plan_tree_defaults_to_the_slowest_and_is_selectable(app):
+    box = next(s for s in app.selectbox if s.label == "Template (slowest first)")
+    slow = data.gateway("/v1/templates/slow")
+    assert box.value == 0 and box.options[0].startswith("1. ")       # the slowest, as before
+    first = [json.dumps(e.proto.spec) for e in app.get("graphviz_chart")]
+    other = next(i for i, t in enumerate(slow) if i and data.gateway(f"/v1/templates/{t['template_id']}/plans"))
+    box.set_value(other).run()
+    assert not app.exception
+    assert [json.dumps(e.proto.spec) for e in app.get("graphviz_chart")] not in ([], first)
+
+
+def button(at: AppTest, label: str):
+    return next(b for b in at.button if b.label == label)
+
+
+def test_approve_panel_shows_three_files_in_dba_view_only(app):
+    assert data.LABELS["approve_demo"] in text_of(app)
+    assert not any(b.label == "Approve" for b in app.button)            # needs a search result first
+    button(app, "Run search").click().run()
+    button(app, "Verify rewrites").click().run()
+    button(app, "Approve").click().run()
+    assert not app.exception
+    files = {e.label: e for e in app.expander}
+    assert {"migration.sql", "rollback.sql", "post_deploy_check.py"} <= set(files)
+    assert {d.label for d in app.download_button} >= {"Download migration.sql", "Download rollback.sql",
+                                                       "Download post_deploy_check.py"}
+    code = "\n".join(c.value for c in app.code)
+    assert 'CREATE INDEX CONCURRENTLY "bt_sales_region_id_transaction_date" ON "sales" ("region_id", "transaction_date");' in code
+    assert 'DROP INDEX CONCURRENTLY IF EXISTS "bt_sales_region_id_transaction_date";' in code
+    kept = [k for k, rw in app.session_state["rewrites"].items() if rw["status"] != "Rejected"]
+    assert kept and all(f"rewrite {rule} of template {tid}: a suggested application code change" in code for tid, rule in kept)
+
+    button(app, "Run the post-deploy check on the twin").click().run()
+    assert not app.exception
+    text = text_of(app)
+    assert re.search(r"Post-deploy check on the twin: \*\*(kept|rolled back)\*\*", text)
+    assert "Ran on the twin with a shortened duration" in text
+    assert re.search(r"median [0-9.]+ ms before \(\d+ runs\), [0-9.]+ ms after \(\d+ runs\), measured on the twin", text)
+
+    app.toggle[0].set_value(True).run()                                  # AI view: no file, no real name
+    assert not app.exception
+    assert not any(d.label.startswith("Download ") for d in app.download_button)
+    assert not any(e.label.endswith((".sql", ".py")) for e in app.expander)
+    assert not any(REAL.search(c.value) for c in app.code)
+    assert not REAL.search(text_of(app))

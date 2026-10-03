@@ -52,6 +52,7 @@ REQUIRED = {
     "llm.provider": str, "llm.model": str, "llm.api_key_env": str, "llm.temperature": numbers.Real,
     "llm.max_tool_calls": int, "llm.retry_max_attempts": int,
     "approve.post_deploy_check_minutes": int, "approve.rollback_if_median_worse_by": float,
+    "approve.demo_check_minutes": float,
     "tests.fast_suite_limit_s": int, "tests.q1_min_twin_speedup": float,
 }
 
@@ -93,6 +94,10 @@ GOVERNED: dict[str, list[str]] = {
                             "gnn.hidden_size", "gnn.layers", "gnn.dropout"],
     "gateway/service.py": ["gateway.plans_per_template", "gateway.resolver_top_templates",
                            "gateway.dehash_query_chars", "workload.slow_query_ms"],
+    "gateway/approve.py": ["approve.post_deploy_check_minutes", "approve.rollback_if_median_worse_by",
+                           "approve.demo_check_minutes", "sandbox.warmup_runs"],
+    "gateway/post_deploy_check.py": ["approve.post_deploy_check_minutes", "approve.rollback_if_median_worse_by",
+                                     "sandbox.warmup_runs"],
 }
 
 # Values too generic to flag as hardcoded config (loop starts, booleans, identity).

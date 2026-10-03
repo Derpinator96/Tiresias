@@ -19,6 +19,8 @@ LABELS = {
     "rewrite_rules": "rewrite rules: 3 built-in rules (R-Bot rule retrieval pending)",
     "egress": "AI egress: SIMPLIFIED, unrestricted internet (LLM host allowlist pending)",
     "write_cost": "write cost: not measured (pgbench pending)",
+    "approve_demo": (f"post-deploy check demo: runs on the twin with a shortened replay of {cfg('approve.demo_check_minutes')} "
+                     f"minutes per phase (production: {cfg('approve.post_deploy_check_minutes')} minutes)"),
 }
 
 
