@@ -113,7 +113,9 @@ services:
 
   dashboard:
     <<: *python
-    command: ["streamlit", "run", "dashboard/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+    # Streamlit reads .streamlit/config.toml from the working directory.
+    working_dir: /app/dashboard
+    command: ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
     environment:
       GATEWAY_URL: http://gateway:8000
       AI_URL: http://ai:8100
