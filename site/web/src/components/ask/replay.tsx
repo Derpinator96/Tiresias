@@ -42,7 +42,7 @@ export function AskReplay() {
   if (!replay.recorded) {
     return (
       <div className="glass rounded-xl p-5">
-        <span className="rounded-md border border-slate-300 bg-slate-50/80 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">PLACEHOLDER</span>
+        <span className="rounded-md border border-slate-300 bg-slate-50/80 px-1.5 py-0.5 font-mono text-xs text-slate-700">PLACEHOLDER</span>
         <p className="mt-2 text-sm text-slate-700">No session recorded yet: <code className="font-mono">make record-ask</code> writes one, hashed names only.</p>
       </div>
     );
@@ -60,13 +60,13 @@ export function AskReplay() {
       <div className="glass rounded-xl p-5">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-slate-900">Agent events</h3>
-          <button onClick={() => { if (shown >= events.length) setShown(0); setPlaying(!playing); }} className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-xs text-white hover:bg-slate-800">
+          <button onClick={() => { if (shown >= events.length) setShown(0); setPlaying(!playing); }} className="inline-flex h-7 items-center gap-1 rounded-md bg-ink px-2 text-xs text-white hover:bg-slate-800">
             {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} {playing ? "Pause" : shown >= events.length && shown > 0 ? "Replay again" : "Play"}
           </button>
-          <button onClick={() => { setPlaying(false); setShown(events.length); }} className="h-7 rounded-md border border-slate-200 bg-white/70 px-2 text-xs text-slate-700 hover:bg-white">Show all</button>
+          <button onClick={() => { setPlaying(false); setShown(events.length); }} className="glass-subtle h-7 rounded-md px-2 text-xs text-ink hover:bg-white/70">Show all</button>
           <span className="text-xs text-slate-600">{shown} of {events.length}</span>
         </div>
-        <ol className="inset-field max-h-64 space-y-1 overflow-auto p-3 font-mono text-[11px] text-slate-800">
+        <ol className="inset-field max-h-64 space-y-1 overflow-auto p-3 font-mono text-xs text-slate-800">
           {events.slice(0, shown).map((e, i) => <li key={i}><span className="text-slate-400">{i + 1}</span> {e}</li>)}
           {shown === 0 && <li className="text-slate-500">press Play to step through the {events.length} events</li>}
         </ol>
@@ -79,7 +79,7 @@ export function AskReplay() {
           <Pip tone={r.status === "ok" ? "ok" : "bad"} /> <span className="text-xs text-slate-700">number checker: {r.status}</span>
         </div>
         <p className="inset-field whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{r.answer.text}</p>
-        {r.unmatched.length > 0 && <p className="mt-2 text-xs text-red-800">Unmatched numbers: {r.unmatched.join(", ")}</p>}
+        {r.unmatched.length > 0 && <p className="mt-2 text-xs font-medium text-signal">Unmatched numbers: {r.unmatched.join(", ")}</p>}
         {r.answer.numbers.length > 0 && (
           <table className="inset-field mt-2 w-full text-xs">
             <thead className="text-slate-600"><tr><th className="px-3 py-1 text-left font-medium">number</th><th className="px-3 text-left font-medium">from tool call</th></tr></thead>

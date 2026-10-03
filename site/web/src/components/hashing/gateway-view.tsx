@@ -14,7 +14,7 @@ export function HashingLab() {
     <div className="space-y-6">
       {b && (
         <section className="space-y-4">
-          <h2 className="text-base font-semibold text-slate-900">Your question&apos;s queries, as hashed</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Your question&apos;s queries, as hashed</h2>
           <Source>bundle {b.id}; gateway codes use the .env HMAC key, the visualizer a demo key made in this tab, so codes differ</Source>
           {b.template_ids.map((tid) => {
             const q = b.slow.find((t) => t.template_id === tid);
@@ -25,7 +25,7 @@ export function HashingLab() {
                   <span className="font-mono text-xs text-slate-900">{tid}</span>
                   {q && <span className="text-xs text-slate-600">{q.calls} calls, mean {q.mean_ms.toFixed(1)} ms</span>}
                   {real && (
-                    <button onClick={() => setLoad({ sql: real, n: (load?.n ?? 0) + 1 })} className="ml-auto inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-xs text-white hover:bg-slate-800">
+                    <button onClick={() => setLoad({ sql: real, n: (load?.n ?? 0) + 1 })} className="ml-auto inline-flex h-7 items-center gap-1 rounded-md bg-ink px-2 text-xs text-white hover:bg-slate-800">
                       <ArrowDown className="size-3.5" /> Load into the visualizer
                     </button>
                   )}

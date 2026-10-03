@@ -20,8 +20,8 @@ export function StageDetails({ c }: { c: StageCopy }) {
           <AccordionTrigger>What crosses to the AI side</AccordionTrigger>
           <AccordionContent>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ul className="space-y-1 text-slate-700">{c.sent.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />{x}</li>)}</ul>
-              <ul className="space-y-1 text-slate-700">{c.never.map((x) => <li key={x} className="flex gap-2"><X className="mt-0.5 size-4 shrink-0 text-red-600" />{x}</li>)}</ul>
+              <ul className="space-y-1 text-slate-700">{c.sent.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-accent" />{x}</li>)}</ul>
+              <ul className="space-y-1 text-slate-700">{c.never.map((x) => <li key={x} className="flex gap-2"><X className="mt-0.5 size-4 shrink-0 text-signal" />{x}</li>)}</ul>
             </div>
           </AccordionContent>
         </AccordionItem>

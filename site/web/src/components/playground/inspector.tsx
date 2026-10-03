@@ -12,7 +12,7 @@ import { useView } from "@/lib/view";
 import { CopyButton, Pip, Source, SqlBlock, Stat, save } from "./bits";
 
 const H = ({ children }: { children: React.ReactNode }) => <h3 className="mb-2 mt-5 text-sm font-semibold text-slate-900 first:mt-0">{children}</h3>;
-const seg = (on: boolean) => cn("h-7 rounded px-2.5 text-xs", on ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100");
+const seg = (on: boolean) => cn("h-7 rounded px-2.5 text-xs", on ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100");
 const NA = "not in bundle";
 const n = (x: number | null, unit = " ms", digits = 1) => (x === null ? NA : `${x.toFixed(digits)}${unit}`);
 
@@ -55,8 +55,8 @@ function GatewaySheet() {
       <div className="grid grid-cols-4 gap-1.5">
         {CANARIES.map(([id], i) => (
           <button key={i} onClick={() => setCanary(i === canary ? null : i)}
-            className={cn("flex items-center gap-1 rounded-md border px-1.5 py-1 font-mono text-[10.5px]",
-              i === canary ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white")}>
+            className={cn("flex items-center gap-1 rounded-md border px-1.5 py-1 font-mono text-xs",
+              i === canary ? "border-ink bg-ink text-white" : "glass-subtle text-ink hover:bg-white/80")}>
             <Pip tone="ok" /> {id.slice(3)}
           </button>
         ))}
@@ -66,7 +66,7 @@ function GatewaySheet() {
           <div className="font-mono text-slate-900">{c[0]}</div>
           <div>kind: <span className="font-mono">{c[1]}</span></div>
           <div>placement: {c[2]}</div>
-          <div className="flex items-center gap-1.5 text-emerald-700"><ShieldCheck className="size-3.5" /> {v.canaryHits} hits in {v.payloads} outbound payloads of {v.id}</div>
+          <div className="flex items-center gap-1.5 text-accent"><ShieldCheck className="size-3.5" /> {v.canaryHits} hits in {v.payloads} outbound payloads of {v.id}</div>
           <Source>id: first 8 hex of SHA-256 of the planted value (db/canaries.py); value never shown; any 6-character fragment also blocked; placements from db/canaries.py</Source>
         </div>
       ) : (
@@ -77,14 +77,14 @@ function GatewaySheet() {
       <SqlBlock text={v.templateSql} />
       <Source>
         {v.live ? v.src.sql : CODES_LABEL}; codes: t_ or c_ plus the first {CONFIG.hexChars} hex of HMAC-SHA256 under the .env key; values become ?.{" "}
-        <Link href="/hashing" className="text-blue-700 underline">Hash your own SQL</Link>
+        <Link href="/hashing" className="text-accent underline">Hash your own SQL</Link>
       </Source>
 
       <H>Outbound ledger</H>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search id, destination or sha256"
-          className="inset-field h-8 flex-1 px-2 text-xs outline-none focus:border-blue-500" />
-        <div className="flex rounded-md border border-slate-200 bg-white/70 p-0.5">
+          className="inset-field h-8 flex-1 px-2 text-xs outline-none focus:border-accent" />
+        <div className="flex rounded-md glass-subtle p-0.5">
           {(["all", "ai", "llm"] as const).map((d) => <button key={d} className={seg(dest === d)} onClick={() => setDest(d)}>{d}</button>)}
         </div>
       </div>
@@ -141,7 +141,7 @@ function GnnSheet() {
   const v = useView();
   return (
     <>
-      <div className="rounded-md border border-amber-300/70 bg-amber-50/80 px-3 py-2 font-mono text-xs text-amber-900">{v.estimatorLabel}</div>
+      <div className="rounded-md border border-slate-300 bg-slate-100/80 px-3 py-2 font-mono text-xs text-slate-700">{v.estimatorLabel}</div>
       <H>Predicted times used by the search</H>
       <div className="grid grid-cols-2 gap-2">
         <Stat label="predicted before" value={n(v.predictedBefore)} note={v.src.predicted} />
@@ -190,7 +190,7 @@ function RlSheet() {
   const slider = (label: string, x: number, set: (y: number) => void, min: number, max: number, note: string) => (
     <label className="block text-xs text-slate-600">
       <span className="flex justify-between"><span>{label}</span><span className="font-mono text-slate-900">{x.toFixed(2)}</span></span>
-      <input type="range" min={min} max={max} step={0.01} value={x} onChange={(e) => set(Number(e.target.value))} className="w-full accent-blue-600" />
+      <input type="range" min={min} max={max} step={0.01} value={x} onChange={(e) => set(Number(e.target.value))} className="w-full accent-accent" />
       <Source>{note}</Source>
     </label>
   );
@@ -205,7 +205,7 @@ function RlSheet() {
       <H>Q-table sandbox</H>
       <Source>cells start at config.yaml rl.q_init {CONFIG.qInit.toFixed(1)}; only your updates change them; darker is higher</Source>
       <div className="mt-2 overflow-x-auto">
-        <table className="w-full border-separate border-spacing-0.5 text-[11px]">
+        <table className="w-full border-separate border-spacing-0.5 text-xs">
           <thead><tr><th className="text-left font-medium text-slate-500">state</th>{ACTIONS.map((x) => <th key={x} className="font-mono font-medium text-slate-500">{x}</th>)}</tr></thead>
           <tbody>
             {STATES.map((st, i) => (
@@ -218,8 +218,8 @@ function RlSheet() {
                   return (
                     <td key={x}>
                       <button disabled={!ok} onClick={() => setCell([i, j])}
-                        style={ok ? { backgroundColor: `rgba(15,23,42,${sh})`, color: sh > 0.45 ? "white" : "#0F172A" } : undefined}
-                        className={cn("h-7 w-full rounded font-mono", !ok && "cursor-not-allowed bg-slate-100 text-slate-300", si === i && ai === j && "ring-2 ring-blue-600")}>
+                        style={ok ? { backgroundColor: `rgba(37,99,235,${sh})`, color: sh > 0.45 ? "white" : "#0f172a" } : undefined}
+                        className={cn("h-7 w-full rounded font-mono", !ok && "cursor-not-allowed bg-slate-100 text-slate-300", si === i && ai === j && "ring-2 ring-accent")}>
                         {ok ? val.toFixed(3) : "n/a"}
                       </button>
                     </td>
@@ -244,7 +244,7 @@ function RlSheet() {
       </div>
       <div className="mt-2 flex gap-2">
         <button className="h-8 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800" onClick={() => setQ({ ...q, [`${key(s)}|${a}`]: updated })}>Apply update</button>
-        <button className="h-8 rounded-md border border-slate-200 bg-white/70 px-3 text-xs text-slate-700 hover:bg-white" onClick={() => setQ(fresh())}>Reset table</button>
+        <button className="h-8 rounded-md glass-subtle px-3 text-xs text-ink hover:bg-white/80" onClick={() => setQ(fresh())}>Reset table</button>
       </div>
     </>
   );
@@ -272,7 +272,7 @@ function LlmSheet() {
       {v.answer && (
         <>
           <H>The answer</H>
-          <div className="mb-1 flex rounded-md border border-slate-200 bg-white/70 p-0.5 w-fit">
+          <div className="mb-1 flex rounded-md glass-subtle p-0.5 w-fit">
             <button className={seg(!hashed)} onClick={() => setHashed(false)}>dehashed (DBA view)</button>
             <button className={seg(hashed)} onClick={() => setHashed(true)}>hashed (as the LLM wrote it)</button>
           </div>
@@ -283,7 +283,7 @@ function LlmSheet() {
       {v.live && (
         <>
           <H>{v.events.length} events from /ai/ask</H>
-          <ol className="inset-field max-h-56 space-y-0.5 overflow-y-auto p-3 font-mono text-[11px] text-slate-700">
+          <ol className="inset-field max-h-56 space-y-0.5 overflow-y-auto p-3 font-mono text-xs text-slate-700">
             {v.events.map((e, i) => <li key={i}><span className="text-slate-400">{i + 1}</span> {e}</li>)}
             {v.events.length === 0 && <li className="text-slate-400">the ai service recorded no events for this question</li>}
           </ol>
@@ -296,14 +296,14 @@ function LlmSheet() {
         {TOOLS.map((t, i) => (
           <div key={t.name} className="inset-field">
             <button className="flex w-full items-center gap-2 px-3 py-2 text-left" onClick={() => setOpen(open === t.name ? null : t.name)} aria-expanded={open === t.name}>
-              <span className="font-mono text-[11px] text-slate-400">{i + 1}</span>
+              <span className="font-mono text-xs text-slate-400">{i + 1}</span>
               <span className="font-mono text-xs text-slate-900">{t.name}</span>
               <ChevronDown className={cn("ml-auto size-3.5 text-slate-400 transition-transform", open === t.name && "rotate-180")} />
             </button>
             {open === t.name && (
               <div className="border-t border-slate-200/80 px-3 py-2">
                 <p className="mb-2 text-xs text-slate-600">{t.description}</p>
-                <pre className="overflow-x-auto font-mono text-[11px] text-slate-800">{JSON.stringify(t.parameters, null, 2)}</pre>
+                <pre className="overflow-x-auto font-mono text-xs text-slate-800">{JSON.stringify(t.parameters, null, 2)}</pre>
               </div>
             )}
           </div>
@@ -317,7 +317,7 @@ function LlmSheet() {
             <tr key={k} className="border-t border-slate-200/70 align-top first:border-0">
               <td className="px-3 py-1.5 text-slate-600">{k}</td>
               <td className="px-2 py-1.5 font-mono text-slate-900">{x}</td>
-              <td className="px-2 py-1.5 text-[11px] text-slate-500">{src}</td>
+              <td className="px-2 py-1.5 text-xs text-slate-500">{src}</td>
               <td className="px-2 py-1.5"><Pip tone={ok ? "ok" : "bad"} /></td>
             </tr>
           ))}
@@ -332,10 +332,10 @@ function TwinSheet() {
   const v = useView();
   const spans = [
     { k: "prod mean, before", v: v.meanBefore, c: "bg-slate-400", d: `${v.src.prod}; measured on pg-prod` },
-    { k: "twin before", v: v.twinBefore, c: "bg-amber-500", d: v.src.twin },
-    { k: "twin after", v: v.twinAfter, c: "bg-emerald-500", d: `${v.src.twin}, with ${v.actions.join("; ") || "no actions"}. ${v.speedupPct === null ? "" : `${v.speedupPct.toFixed(1)}% faster than twin before.`}` },
-    { k: "predicted before", v: v.predictedBefore, c: "bg-blue-300", d: v.src.predicted },
-    { k: "predicted after", v: v.predictedAfter, c: "bg-blue-600", d: v.src.predicted },
+    { k: "twin before", v: v.twinBefore, c: "bg-signal", d: v.src.twin },
+    { k: "twin after", v: v.twinAfter, c: "bg-accent", d: `${v.src.twin}, with ${v.actions.join("; ") || "no actions"}. ${v.speedupPct === null ? "" : `${v.speedupPct.toFixed(1)}% faster than twin before.`}` },
+    { k: "predicted before", v: v.predictedBefore, c: "bg-signal/40", d: v.src.predicted },
+    { k: "predicted after", v: v.predictedAfter, c: "bg-accent/40", d: v.src.predicted },
   ].filter((s): s is typeof s & { v: number } => s.v !== null);
   const [hover, setHover] = useState(1);
   const ticks = niceTicks(Math.max(1, ...spans.map((s) => s.v)));
@@ -345,7 +345,7 @@ function TwinSheet() {
     <>
       <H>{v.twinBefore === null ? "No twin measurement in this bundle" : `${v.live ? v.templateId : "Q1"} drops from ${ms(v.twinBefore)} to ${ms(v.twinAfter!)} on the twin`}</H>
       <div className="inset-field p-3">
-        <div className="mb-1 flex gap-2 font-mono text-[10px] text-slate-400">
+        <div className="mb-1 flex gap-2 font-mono text-xs text-slate-400">
           <span className="w-[36%]">ms</span>
           <div className="flex flex-1 justify-between">{ticks.map((t) => <span key={t}>{t}</span>)}</div>
           <span className="w-16" />
@@ -353,11 +353,11 @@ function TwinSheet() {
         {spans.map((s, i) => (
           <div key={s.k} className={cn("flex cursor-default items-center gap-2 rounded py-1", hover === i && "bg-white/80")}
             onMouseEnter={() => setHover(i)} onClick={() => setHover(i)}>
-            <span className="w-[36%] truncate text-[11px] text-slate-600">{s.k}</span>
+            <span className="w-[36%] truncate text-xs text-slate-600">{s.k}</span>
             <div className="relative h-4 flex-1 rounded bg-slate-200/50">
               <div className={cn("h-full rounded", s.c)} style={{ width: `${(s.v / max) * 100}%` }} />
             </div>
-            <span className="w-16 text-right font-mono text-[11px] text-slate-800">{ms(s.v)}</span>
+            <span className="w-16 text-right font-mono text-xs text-slate-800">{ms(s.v)}</span>
           </div>
         ))}
         {cur && (
@@ -374,7 +374,7 @@ function TwinSheet() {
       </div>
       <H>Result checksum</H>
       <div className="inset-field flex items-start gap-3 p-3">
-        <span className={cn("mt-0.5 grid size-6 place-items-center rounded-full text-white", v.checksumMatch ? "bg-emerald-500" : "bg-red-500")}>
+        <span className={cn("mt-0.5 grid size-6 place-items-center rounded-full text-white", v.checksumMatch ? "bg-accent" : "bg-signal")}>
           <ShieldCheck className="size-3.5" />
         </span>
         <div className="text-xs text-slate-700">
@@ -385,8 +385,8 @@ function TwinSheet() {
       <H>Rewrite diff</H>
       <Source>Q1&apos;s fix is an index, so its SQL is unchanged; shown: the two-region rewrite, Verified by VeriEQL (5 rows per table); rule or_same_column_to_in rendered by hand; {CODES_LABEL}</Source>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <div className="min-w-0"><div className="mb-1 text-[11px] text-slate-500">original</div><SqlBlock text={QOR_SQL} tone="del" /></div>
-        <div className="min-w-0"><div className="mb-1 text-[11px] text-slate-500">rewritten</div><SqlBlock text={QOR_REWRITTEN} tone="add" /></div>
+        <div className="min-w-0"><div className="mb-1 text-xs text-slate-500">original</div><SqlBlock text={QOR_SQL} tone="del" /></div>
+        <div className="min-w-0"><div className="mb-1 text-xs text-slate-500">rewritten</div><SqlBlock text={QOR_REWRITTEN} tone="add" /></div>
       </div>
     </>
   );
@@ -405,7 +405,7 @@ function DbaSheet() {
   const v = useView();
   const { gates, toggleGate, authorize, authorizedAt } = useRun();
   const ready = gates.every(Boolean);
-  const btn = "inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white/80 px-3 text-xs text-slate-700 hover:bg-white";
+  const btn = "inline-flex h-8 items-center gap-1.5 rounded-md glass-subtle px-3 text-xs text-ink hover:bg-white/80";
   return (
     <>
       <Source>{v.live ? `bundle ${v.id}: files from POST /v1/approve, real names, local only; comments stripped (dashboard/data.py)` : `rendered from gateway/approve.py's template; config_id not in the run record; ${CODES_LABEL}`}</Source>
@@ -424,13 +424,13 @@ function DbaSheet() {
       <div className="space-y-1.5">
         {gatesOf(v).map(([k, ev], i) => (
           <label key={k} className="inset-field flex cursor-pointer items-start gap-2.5 p-2.5">
-            <input type="checkbox" checked={gates[i]} onChange={() => toggleGate(i)} className="mt-0.5 size-4 accent-emerald-600" />
+            <input type="checkbox" checked={gates[i]} onChange={() => toggleGate(i)} className="mt-0.5 size-4 accent-accent" />
             <span className="text-xs"><span className="font-medium text-slate-900">{k}</span><br /><span className="text-slate-500">{ev}</span></span>
           </label>
         ))}
       </div>
       <button disabled={!ready} onClick={authorize}
-        className="mt-3 h-9 w-full rounded-md bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+        className="mt-3 h-9 w-full rounded-md bg-ink text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
         {authorizedAt ? `Authorized at ${authorizedAt}` : ready ? "Authorize deployment" : `Tick all 4 gates (${gates.filter(Boolean).length} of 4)`}
       </button>
       <Source>recorded in this browser only; nothing is sent; the DBA runs migration.sql with psql</Source>
@@ -468,9 +468,9 @@ export function Inspector() {
     >
       <header className="flex h-11 shrink-0 items-center gap-3 border-b border-slate-200/70 px-3">
         <div className="flex gap-1.5">
-          <button className={cn(light, "bg-[#EF4444]")} onClick={toggleDrawer} title="Close" aria-label="Close inspector" />
-          <button className={cn(light, "bg-[#F59E0B]")} onClick={() => setMin(!min)} title={min ? "Restore" : "Minimize"} aria-label="Minimize inspector" />
-          <button className={cn(light, "bg-[#10B981]")} onClick={() => setWide(!wide)} title={wide ? "Narrow" : "Widen"} aria-label="Widen inspector" />
+          <button className={cn(light, "bg-signal")} onClick={toggleDrawer} title="Close" aria-label="Close inspector" />
+          <button className={cn(light, "bg-slate-400")} onClick={() => setMin(!min)} title={min ? "Restore" : "Minimize"} aria-label="Minimize inspector" />
+          <button className={cn(light, "bg-accent")} onClick={() => setWide(!wide)} title={wide ? "Narrow" : "Widen"} aria-label="Widen inspector" />
         </div>
         <div className="flex-1 truncate text-center text-sm font-semibold text-slate-900">
           <span className="mr-1.5 font-mono text-xs font-normal text-slate-400">{Math.max(i, 0) + 1}/8</span>
@@ -484,7 +484,7 @@ export function Inspector() {
       {!min && (
         <div className="flex-1 overflow-y-auto p-4">
           <Sheet key={id} />
-          <Link href={`/stages/${id}`} className="mt-6 flex items-center justify-between rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-sm font-medium text-slate-900 hover:bg-white">
+          <Link href={`/stages/${id}`} className="mt-6 flex items-center justify-between rounded-lg glass-subtle px-3 py-2 text-sm font-medium text-slate-900 hover:bg-white">
             {STAGES[Math.max(i, 0)].title} page <ArrowRight className="size-4" />
           </Link>
         </div>

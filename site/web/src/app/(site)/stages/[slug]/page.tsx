@@ -24,10 +24,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 const STATE_STYLE = {
-  REAL: "border-emerald-300 bg-emerald-50/80 text-emerald-800",
-  SIMPLIFIED: "border-amber-300 bg-amber-50/80 text-amber-900",
+  REAL: "border-accent/40 bg-accent-soft text-accent",
+  SIMPLIFIED: "border-slate-300 bg-slate-100/80 text-slate-700",
   PLACEHOLDER: "border-slate-300 bg-slate-50/80 text-slate-700",
-  MISSING: "border-red-300 bg-red-50/80 text-red-800",
+  MISSING: "border-signal/40 bg-signal-soft text-signal",
 };
 
 export default async function StagePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -46,7 +46,7 @@ export default async function StagePage({ params }: { params: Promise<{ slug: st
       <ul className="mt-4 flex flex-wrap gap-2">
         {c.status.map((s) => (
           <li key={s.text} className="glass-subtle flex max-w-full items-start gap-2 rounded-lg px-2.5 py-1.5 text-xs text-slate-700" title={s.text}>
-            <span className={cn("shrink-0 rounded border px-1 font-mono text-[10px]", STATE_STYLE[s.state])}>{s.state}</span>
+            <span className={cn("shrink-0 rounded border px-1 font-mono text-xs", STATE_STYLE[s.state])}>{s.state}</span>
             {s.state !== "REAL" && <span className="[overflow-wrap:anywhere]">{s.text}</span>}
           </li>
         ))}

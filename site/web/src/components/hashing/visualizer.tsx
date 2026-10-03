@@ -66,7 +66,7 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
           <div className="text-xs text-slate-600">Demo key (32 random bytes, made in this tab, never sent)</div>
           <div className="truncate font-mono text-xs text-slate-900">{key ? `${toHex(key).slice(0, 24)}...` : "generating"}</div>
         </div>
-        <button onClick={regenerate} className="h-8 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800">New demo key</button>
+        <button onClick={regenerate} className="h-8 rounded-md bg-ink px-3 text-xs font-medium text-white hover:bg-slate-800">New demo key</button>
         {changed !== null && <span className="text-xs text-slate-700">{changed} of {names.length} codes changed with the new key</span>}
       </div>
 
@@ -74,7 +74,7 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-slate-900">Your SQL</span>
           {Object.entries(EXAMPLES).map(([k, v]) => (
-            <button key={k} onClick={() => edit(v)} className={cn("h-7 rounded-md border px-2 text-xs", sql === v ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white/70 text-slate-700 hover:bg-white")}>
+            <button key={k} onClick={() => edit(v)} className={cn("h-7 rounded-md border px-2 text-xs", sql === v ? "border-ink bg-ink text-white" : "glass-subtle text-ink hover:bg-white/70")}>
               Example: {k}
             </button>
           ))}
@@ -85,7 +85,7 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
           <div className="min-w-0">
             <div className="mb-1 text-xs text-slate-600">What the AI side would receive</div>
             {err ? (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/80 p-3 text-xs text-red-800"><ShieldX className="size-4 shrink-0" /> Not sent (fail closed): {err}</div>
+              <div className="flex items-start gap-2 rounded-lg bg-signal-soft p-3 text-xs font-medium text-signal"><ShieldX className="size-4 shrink-0" /> Not sent (fail closed): {err}</div>
             ) : <SqlBlock text={res?.sql ?? ""} />}
           </div>
         </div>
@@ -101,7 +101,7 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
                 <thead className="sticky top-0 bg-slate-50 text-slate-600"><tr><th className="px-2 py-1.5 font-medium">hashed text</th><th className="px-2 font-medium">code</th><th className="px-2 font-medium">roles</th></tr></thead>
                 <tbody className="font-mono">
                   {names.map((n) => (
-                    <tr key={n.text} onClick={() => setPick(n.text)} className={cn("cursor-pointer border-t border-slate-200/70 hover:bg-white/80", sel?.text === n.text && "bg-blue-50/80")}>
+                    <tr key={n.text} onClick={() => setPick(n.text)} className={cn("cursor-pointer border-t border-slate-200/70 hover:bg-white/80", sel?.text === n.text && "bg-accent-soft/80")}>
                       <td className="px-2 py-1.5 text-slate-800">{n.text}</td>
                       <td className="px-2 text-slate-900">{n.code}</td>
                       <td className="px-2 text-slate-600">{n.roles.join(", ") || (n.kind === "table" ? "table" : "none")}</td>
@@ -119,8 +119,8 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
               <ol className="space-y-2 text-xs text-slate-700">
                 <li><span className="text-slate-500">1. text:</span> <span className="font-mono text-slate-900">{sel.text}</span></li>
                 <li><span className="text-slate-500">2. HMAC-SHA256(key, text):</span>
-                  <div className="inset-field mt-1 break-all p-2 font-mono text-[11px]">
-                    <span className="bg-blue-100 text-blue-900">{digest?.slice(0, HEX_CHARS)}</span><span className="text-slate-500">{digest?.slice(HEX_CHARS)}</span>
+                  <div className="inset-field mt-1 break-all p-2 font-mono text-xs">
+                    <span className="bg-accent-soft text-ink">{digest?.slice(0, HEX_CHARS)}</span><span className="text-slate-500">{digest?.slice(HEX_CHARS)}</span>
                   </div>
                 </li>
                 <li><span className="text-slate-500">3. keep the first {HEX_CHARS} hex characters</span> (config.yaml hashing.hmac_code_hex_chars)</li>

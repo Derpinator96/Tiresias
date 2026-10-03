@@ -50,7 +50,7 @@ function Gateway() {
       </ChartCard>
       <ChartCard title="Canary leaks" caption={`${v.canariesPlanted} planted canaries scanned per payload; ${runLine(v)}`}>
         <div className="flex items-center gap-3">
-          <ShieldCheck className="size-8 text-emerald-600" />
+          <ShieldCheck className="size-8 text-accent" />
           <BigNumber value={`${v.canaryHits} of ${v.canariesPlanted}`} label="canaries found outside the private network" tone={v.canaryHits ? "default" : "good"} />
         </div>
       </ChartCard>
@@ -78,9 +78,9 @@ function Gnn() {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <ChartCard title="Prediction error by model" caption={m.gnn.source}>
-        <div className="mb-2 flex w-fit rounded-md border border-slate-200 bg-white/70 p-0.5 text-xs">
+        <div className="mb-2 flex w-fit rounded-md glass-subtle p-0.5 text-xs">
           {m.gnn.metrics.map((x) => (
-            <button key={x.id} onClick={() => setMetric(x.id)} aria-pressed={metric === x.id} className={`h-6 rounded px-2 ${metric === x.id ? "bg-slate-900 text-white" : "text-slate-600"}`}>{x.label}</button>
+            <button key={x.id} onClick={() => setMetric(x.id)} aria-pressed={metric === x.id} className={`h-6 rounded px-2 ${metric === x.id ? "bg-ink text-white" : "text-slate-600"}`}>{x.label}</button>
           ))}
         </div>
         <HBars digits={3} bars={m.gnn.models.map((x) => ({ label: x.label, value: x[key], color: slot(x.slot) }))} />

@@ -23,7 +23,7 @@ export function HomeResults() {
         </ChartCard>
         <ChartCard title={v.canaryHits ? "Canary hits" : "Nothing leaked"} caption={`${v.canariesPlanted} planted canaries scanned per payload; ${line}`}>
           <div className="flex items-center gap-3">
-            <ShieldCheck className="size-8 text-emerald-600" />
+            <ShieldCheck className="size-8 text-accent" />
             <BigNumber value={`${v.canaryHits} of ${v.canariesPlanted}`} label={`canaries found in ${v.payloads} payloads`} tone={v.canaryHits ? "default" : "good"} />
           </div>
           <div className="mt-4">

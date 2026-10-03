@@ -14,6 +14,7 @@ import { CONFIG } from "@/lib/facts";
 import type { RunView } from "@/lib/run-view";
 import { useView } from "@/lib/view";
 import { RunBanner } from "@/components/viz/run-banner";
+import { SERIES } from "@/components/viz/charts";
 import { STAGES, stageState, useRun, type StageId } from "@/lib/store";
 import { Pip } from "./bits";
 
@@ -47,20 +48,20 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
       <Handle type="target" position={data.tgt} className="!size-2 !border-slate-300 !bg-white" />
       <div className="mb-2 flex items-center gap-2">
         <span className="grid size-7 place-items-center rounded-md border border-slate-200/80 bg-slate-50 text-slate-700">
-          {state === "processing" ? <Activity className="size-4 animate-pulse text-blue-600" /> : <Icon className="size-4" />}
+          {state === "processing" ? <Activity className="size-4 animate-pulse text-accent" /> : <Icon className="size-4" />}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">Stage {data.i + 1}</div>
+          <div className="text-xs uppercase tracking-wide text-slate-400">Stage {data.i + 1}</div>
           <div className="truncate text-sm font-semibold text-slate-900">{STAGES[data.i].title}</div>
         </div>
         {state === "done" ? (
-          <span className="grid size-5 place-items-center rounded-full bg-emerald-500 text-white"><Check className="size-3" /></span>
+          <span className="grid size-5 place-items-center rounded-full bg-accent text-white"><Check className="size-3" /></span>
         ) : (
           <Pip tone={state === "processing" ? "busy" : "idle"} />
         )}
       </div>
       {id === "gnn" && (
-        <div className="mb-2 rounded-md border border-amber-300/70 bg-amber-50/80 px-2 py-1 font-mono text-[10.5px] leading-tight text-amber-900">
+        <div className="mb-2 rounded-md border border-slate-300 bg-slate-100/80 px-2 py-1 font-mono text-xs leading-tight text-slate-700">
           {v.estimatorLabel}
         </div>
       )}
@@ -78,8 +79,8 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
           </div>
         )}
       </dl>
-      {id !== "gnn" && <p className="mt-1.5 line-clamp-2 text-[10.5px] leading-snug text-slate-500">{b.note}</p>}
-      <div className="mt-1.5 h-4 text-[10.5px] text-emerald-700">{completedAt[data.i] && `replayed ${completedAt[data.i]}`}</div>
+      {id !== "gnn" && <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-slate-500">{b.note}</p>}
+      <div className="mt-1.5 h-4 text-xs text-accent">{completedAt[data.i] && `replayed ${completedAt[data.i]}`}</div>
       <Handle type="source" position={data.src} className="!size-2 !border-slate-300 !bg-white" />
     </div>
   );
@@ -89,10 +90,10 @@ function ZoneNode({ data }: NodeProps<Node<{ label: string; sub: string; w: numb
   return (
     <div
       style={{ width: data.w, height: data.h }}
-      className={cn("rounded-2xl border border-dashed p-3", data.ai ? "border-blue-300/80 bg-blue-50/30" : "border-slate-300/80 bg-white/20")}
+      className={cn("rounded-2xl border border-dashed p-3", data.ai ? "border-accent/40 bg-accent-soft/40" : "border-slate-300/80 bg-white/20")}
     >
       <div className="text-xs font-semibold text-slate-700">{data.label}</div>
-      <div className="text-[11px] text-slate-500">{data.sub}</div>
+      <div className="text-xs text-slate-500">{data.sub}</div>
     </div>
   );
 }
@@ -105,10 +106,10 @@ function FlowEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPo
   const [path] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 12 });
   return (
     <>
-      <BaseEdge path={path} style={{ stroke: active ? "#2563EB" : done ? "#10B981" : "#CBD5E1", strokeWidth: active ? 2.5 : 1.75 }} />
+      <BaseEdge path={path} style={{ stroke: active ? SERIES.blue : done ? SERIES.blue : SERIES.aqua, strokeWidth: active ? 2.5 : 1.75 }} />
       {active &&
         [0, 0.4].map((delay) => (
-          <circle key={delay} r={4} fill="#2563EB">
+          <circle key={delay} r={4} fill={SERIES.blue}>
             <animateMotion dur="0.8s" begin={`${delay}s`} repeatCount="indefinite" path={path} />
           </circle>
         ))}
@@ -155,24 +156,24 @@ function Toolbar() {
   return (
     <div className="glass-bar pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 px-3 py-2">
       <div className="flex items-center gap-2">
-        <span className="rounded-md border border-slate-200 bg-white/60 px-1.5 py-0.5 text-[11px] text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
-        <span className="font-mono text-[11px] text-slate-500">{v.id}</span>
+        <span className="rounded-md glass-subtle px-1.5 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
+        <span className="font-mono text-xs text-slate-500">{v.id}</span>
       </div>
       <div className="mx-auto flex flex-wrap items-center gap-1">
         {status === "running" ? (
-          <button className={cn(btn, "bg-slate-900 text-white hover:bg-slate-800")} onClick={pause}><Pause className="size-3.5" /> Pause</button>
+          <button className={cn(btn, "bg-ink text-white hover:bg-slate-800")} onClick={pause}><Pause className="size-3.5" /> Pause</button>
         ) : (
-          <button className={cn(btn, "bg-slate-900 text-white hover:bg-slate-800")} onClick={play}>
+          <button className={cn(btn, "bg-ink text-white hover:bg-slate-800")} onClick={play}>
             <Play className="size-3.5" /> {status === "completed" ? "Replay again" : step > 0 ? "Resume" : "Run pipeline"}
           </button>
         )}
         <button className={btn} onClick={back} disabled={step === 0} title="Step back"><SkipBack className="size-3.5" /> Back</button>
         <button className={btn} onClick={forward} disabled={step === STAGES.length} title="Step forward"><SkipForward className="size-3.5" /> Forward</button>
         <button className={btn} onClick={reset} disabled={step === 0 && status === "idle"} title="Reset"><RotateCcw className="size-3.5" /> Reset</button>
-        <div className="ml-1 flex rounded-md border border-slate-200 bg-white/70 p-0.5" role="group" aria-label="Playback speed">
+        <div className="ml-1 flex rounded-md glass-subtle p-0.5" role="group" aria-label="Playback speed">
           {([1, 2, 5] as const).map((s) => (
             <button key={s} onClick={() => setSpeed(s)} aria-pressed={speed === s}
-              className={cn("h-6 rounded px-2 font-mono text-[11px]", speed === s ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100")}>
+              className={cn("h-6 rounded px-2 font-mono text-xs", speed === s ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100")}>
               {s}x
             </button>
           ))}
@@ -183,15 +184,15 @@ function Toolbar() {
         </span>
       </div>
       <div className="flex items-center gap-1">
-        <span className="flex items-center gap-1.5 text-[11px] text-slate-500" title="Where the figures come from">
+        <span className="flex items-center gap-1.5 text-xs text-slate-500" title="Where the figures come from">
           <Pip tone={v.live ? "ok" : "idle"} /> {v.live ? "bundle" : "run record"}
         </span>
-        <span className="ml-1 rounded-md border border-slate-200 bg-white/70 px-1.5 py-0.5 font-mono text-[11px] text-slate-700">{Math.round(zoom * 100)}%</span>
+        <span className="ml-1 rounded-md glass-subtle px-1.5 py-0.5 font-mono text-xs text-slate-700">{Math.round(zoom * 100)}%</span>
         <button className={btn} onClick={() => fitView({ padding: 0.12, duration: 300 })}><Maximize className="size-3.5" /> Fit</button>
         <button className={cn(btn, drawerOpen && "bg-slate-900/5")} onClick={toggleDrawer} aria-pressed={drawerOpen}><PanelRight className="size-3.5" /> Inspector</button>
       </div>
       <div className="absolute inset-x-3 bottom-0 h-0.5 overflow-hidden rounded bg-slate-200/70">
-        <div className="h-full bg-blue-600 transition-[width] duration-300" style={{ width: `${(step / STAGES.length) * 100}%` }} />
+        <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${(step / STAGES.length) * 100}%` }} />
       </div>
     </div>
   );
@@ -203,8 +204,8 @@ function EventLog() {
   return (
     <div className="glass pointer-events-auto absolute bottom-3 left-14 z-10 w-[min(340px,calc(100%-68px))] rounded-xl p-3">
       <div className="mb-1 text-xs font-semibold text-slate-900">Replay log</div>
-      <p className="mb-2 text-[11px] leading-snug text-slate-500">{v.id}: figures from the {v.live ? "bundle" : "run record"}; pacing is not real timing</p>
-      <ol className="max-h-32 space-y-0.5 overflow-y-auto font-mono text-[11px] text-slate-700">
+      <p className="mb-2 text-xs leading-snug text-slate-500">{v.id}: figures from the {v.live ? "bundle" : "run record"}; pacing is not real timing</p>
+      <ol className="max-h-32 space-y-0.5 overflow-y-auto font-mono text-xs text-slate-700">
         {log.length === 0 && <li className="text-slate-400">no events yet: press Run pipeline or Forward</li>}
         {[...log].reverse().map((e, i) => (
           <li key={log.length - i}><span className="text-slate-400">{e.t}</span> {e.msg}</li>
@@ -234,7 +235,7 @@ function Flow() {
       onPaneClick={() => select(null)}
       attributionPosition="bottom-right"
     >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#94A3B8" />
+      <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color={SERIES.aqua} />
       <Controls position="bottom-left" className="!rounded-lg !border !border-white/70 !shadow-[0_14px_34px_rgba(15,23,42,0.08)]" />
     </ReactFlow>
   );

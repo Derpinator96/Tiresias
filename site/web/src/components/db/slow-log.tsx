@@ -22,7 +22,7 @@ type Pick = Drawn & { pool: { "pg-prod": number; bench: number } };
 const BENCH_LABEL = "plan generation workload (data/plans), not pg-prod's log";
 const KEEP = 5;
 
-const SlowBadge = ({ on }: { on: boolean }) => (on ? <Badge className="bg-orange-600 text-white">slow</Badge> : <Badge variant="outline">ok</Badge>);
+const SlowBadge = ({ on }: { on: boolean }) => (on ? <Badge className="bg-signal text-white">slow</Badge> : <Badge variant="outline" className="border-slate-300 text-slate-600">ok</Badge>);
 
 function BenchCard({ e, className }: { e: Bench; className?: string }) {
   return (
@@ -31,7 +31,7 @@ function BenchCard({ e, className }: { e: Bench; className?: string }) {
         <Badge variant="secondary" className="font-mono">{e.database}</Badge>
         <span className="font-mono text-sm font-semibold text-slate-900">{e.template_id}</span>
         {e.demo && <Badge variant="outline">demo query</Badge>}
-        <span className="text-[11px] text-slate-500">{BENCH_LABEL}</span>
+        <span className="text-xs text-slate-500">{BENCH_LABEL}</span>
       </header>
       {e.sql ? <SqlBlock text={e.sql} /> : <p className="text-xs text-slate-500">no query text for this template</p>}
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -53,7 +53,7 @@ function ProdCard({ e, threshold, className }: { e: Prod; threshold: number | nu
         <Badge variant="secondary" className="font-mono">pg-prod</Badge>
         <span className="font-mono text-sm font-semibold text-slate-900">{e.template_id}</span>
         <SlowBadge on={e.slow} />
-        {threshold !== null && <span className="text-[11px] text-slate-500">slow means mean above {threshold} ms</span>}
+        {threshold !== null && <span className="text-xs text-slate-500">slow means mean above {threshold} ms</span>}
       </header>
       <SqlBlock text={e.example ?? e.sql} />
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -93,7 +93,7 @@ export function SlowLog() {
   return (
     <div className="mt-6 space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="lg" onClick={draw} disabled={busy}><Dices /> Generate one</Button>
+        <Button size="lg" onClick={draw} disabled={busy} className="bg-ink text-white hover:bg-slate-800"><Dices /> Generate one</Button>
         <span className="text-sm text-slate-700">
           slow threshold: <span className="font-mono font-semibold text-slate-900">{threshold === null ? "n/a" : `${threshold} ms`}</span>
           {data && <span className="text-xs text-slate-500"> ({prod.length} pg-prod templates, {data.bench.length} benchmark templates listed)</span>}
@@ -107,8 +107,8 @@ export function SlowLog() {
             drawn from {latest.source}; pools: {latest.pool["pg-prod"]} pg-prod, {latest.pool.bench} benchmark; pick proportional to pool size
           </p>
           {latest.source === "pg-prod"
-            ? <ProdCard e={latest} threshold={threshold} className="glass-strong ring-2 ring-blue-500" />
-            : <BenchCard e={latest} className="glass-strong ring-2 ring-blue-500" />}
+            ? <ProdCard e={latest} threshold={threshold} className="glass-strong ring-2 ring-accent" />
+            : <BenchCard e={latest} className="glass-strong ring-2 ring-accent" />}
           {older.length > 0 && (
             <div className="mt-3 space-y-3 opacity-80">
               {older.map((d, i) => (d.source === "pg-prod" ? <ProdCard key={i} e={d} threshold={threshold} /> : <BenchCard key={i} e={d} />))}
@@ -141,7 +141,7 @@ export function SlowLog() {
               {prod.map((t) => (
                 <TableRow key={t.template_id}>
                   <TableCell className="align-top font-mono text-xs">{t.template_id}</TableCell>
-                  <TableCell className="min-w-72 max-w-2xl align-top"><pre className="whitespace-pre-wrap font-mono text-[11px] leading-snug text-slate-800 [overflow-wrap:anywhere]">{t.sql}</pre></TableCell>
+                  <TableCell className="min-w-72 max-w-2xl align-top"><pre className="whitespace-pre-wrap font-mono text-xs leading-snug text-slate-800 [overflow-wrap:anywhere]">{t.sql}</pre></TableCell>
                   <TableCell className="text-right align-top font-mono text-xs">{t.calls.toLocaleString()}</TableCell>
                   <TableCell className="text-right align-top font-mono text-xs">{ms(t.mean_ms)}</TableCell>
                   <TableCell className="text-right align-top font-mono text-xs">{ms(t.total_ms)}</TableCell>

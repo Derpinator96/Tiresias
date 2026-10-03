@@ -1,5 +1,6 @@
 "use client";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Pause, Play, TriangleAlert } from "lucide-react";
 import { BigNumber, ChartCard, HBars, SERIES } from "@/components/viz/charts";
 import { layout, misestimate, numericFeatures, opIndex, planOptions, predictedShares, reach, serves, shares, type PlanNode } from "@/lib/gnn";
@@ -11,13 +12,16 @@ import spec from "@/data/gnn_spec.json";
 import m from "@/data/measurements.json";
 import { cn } from "@/lib/utils";
 
-const seg = (on: boolean) => cn("h-7 rounded px-2.5 text-xs", on ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-white");
-const Seg = ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={cn("flex w-fit rounded-md border border-slate-200 bg-white/70 p-0.5", className)}>{children}</div>;
+const seg = (on: boolean) => cn("h-7 whitespace-nowrap rounded px-2.5 text-xs", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
+const Seg = ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={cn("glass-subtle flex w-fit flex-wrap rounded-md p-0.5", className)}>{children}</div>;
 const nFeatures = spec.ops.length + spec.numeric.length;
 
 // Tree geometry in pixels: layout() gives x in leaf units and y in depth levels.
-const BOX_W = 140, BOX_H = 58, COL = 164, ROW = 100, PAD = 12, TIP_W = 200;
-const EDGE = { idle: "#cbd5e1", reach: SERIES.blue, hot: "#0f172a" } as const;
+// Boxes hold two 13px lines (20px line height each) plus padding; the tooltip rows are 20px.
+const BOX_W = 168, BOX_H = 64, COL = 192, ROW = 112, PAD = 12, TIP_W = 224, TIP_ROW = 20;
+// SVG strokes: slate-300, accent, ink (CSS classes cannot colour an SVG marker here)
+const EDGE = { idle: "rgb(203 213 225)", reach: SERIES.blue, hot: "rgb(15 23 42)" } as const;
+const heat = (s: number) => `rgb(37 99 235 / ${(0.5 * s).toFixed(3)})`;   // accent at an alpha proportional to the share
 const pct = (s: number) => `${(s * 100).toFixed(1)}%`;
 const int = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
@@ -49,6 +53,8 @@ function Lab({ b }: { b: Bundle | null }) {
   const [sel, setSel] = useState(0);
   const [hl, setHl] = useState<number | null>(null);   // hovered node id, from the tree or the explain bars
   const [playing, setPlaying] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);   // the hovered box on screen: the tooltip is fixed beside it
   const opt = opts.find((p) => p.id === planId) ?? opts[0];
   const nodes = variant === "hypopg" && opt.hypopg ? opt.hypopg : opt.nodes;
   const gnnMode = variant === "baseline" && !!opt.prediction;   // predictions exist for plans[tid][0] only
@@ -72,6 +78,7 @@ function Lab({ b }: { b: Bundle | null }) {
   const treeW = PAD * 2 + Math.max(...pos.map((p) => p.x)) * COL + BOX_W;
   const treeH = PAD * 2 + Math.max(...pos.map((p) => p.y)) * ROW + BOX_H;
   const hot = hl === null ? null : nodes.findIndex((n) => n.node_id === hl);
+  const hover = (id: number) => { setAnchor(wrap.current?.querySelector(`[data-node="${id}"]`)?.getBoundingClientRect() ?? null); setHl(id); };
 
   useEffect(() => {
     if (!playing) return;
@@ -117,7 +124,7 @@ function Lab({ b }: { b: Bundle | null }) {
         <ChartCard title={variant === "hypopg" ? "Plan tree with the recommended index" : "Plan tree"} caption={b
           ? <>Logged auto_explain plan, newest first, bundle {b.id}.{mode === "gnn" ? ` Predicted share: ${b.estimator?.label ?? opt.prediction?.estimator}.` : ""}{variant === "hypopg" ? " HypoPG plan: EXPLAIN with a hypothetical index, no actual rows or times." : ""} Codes under &quot;what the AI sees&quot; are the gateway&apos;s HMAC codes.</>
           : <>Illustrative plans, not from {run.run_id}: {plans._source}</>}>
-          <div className="inset-field overflow-x-auto rounded-lg" onMouseLeave={() => setHl(null)}>
+          <div ref={wrap} className="inset-field overflow-x-auto rounded-lg" onMouseLeave={() => setHl(null)}>
             <div className="relative mx-auto" style={{ width: treeW, height: treeH }}>
               <svg className="absolute inset-0" width={treeW} height={treeH} aria-hidden>
                 <defs>
@@ -146,35 +153,38 @@ function Lab({ b }: { b: Bundle | null }) {
                 const s = share[i];
                 const isHot = hl === n.node_id;
                 return (
-                  <button key={n.node_id} onClick={() => setSel(i)} onMouseEnter={() => setHl(n.node_id)} onMouseLeave={() => setHl(null)} onFocus={() => setHl(n.node_id)} onBlur={() => setHl(null)} aria-pressed={sel === i}
-                    className={cn("absolute overflow-hidden rounded-lg border bg-white/85 px-2 py-1.5 text-left shadow-sm transition-[transform,box-shadow,opacity,border-color] duration-150",
-                      sel === i ? "border-slate-900 ring-2 ring-slate-900/30" : "border-slate-200",
-                      isHot && "-translate-y-0.5 border-blue-500 shadow-lg", !seen.has(n.node_id) && "opacity-40")}
-                    style={{ left: cx - BOX_W / 2, top, width: BOX_W, height: BOX_H }}>
+                  <button key={n.node_id} onClick={() => setSel(i)} onMouseEnter={() => hover(n.node_id)} onMouseLeave={() => setHl(null)} onFocus={() => hover(n.node_id)} onBlur={() => setHl(null)} aria-pressed={sel === i} data-node={n.node_id}
+                    className={cn("inset-field absolute overflow-hidden px-2 py-1.5 text-left shadow-sm transition-[transform,box-shadow,opacity,border-color] duration-150",
+                      sel === i && "border-ink ring-2 ring-ink/30", isHot && "-translate-y-0.5 border-accent shadow-lg", !seen.has(n.node_id) && "opacity-40")}
+                    style={{ left: cx - BOX_W / 2, top, width: BOX_W, height: BOX_H, backgroundColor: heat(s) }}>
                     <div className="truncate text-xs font-medium text-slate-900">{n.op}</div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate font-mono text-[10px] text-slate-600" title={label(n.relation)}>{label(n.relation)}</span>
-                      <span className="font-mono text-[11px] text-slate-800">{pct(s)}</span>
+                      <span className="truncate font-mono text-xs text-slate-600" title={label(n.relation)}>{label(n.relation)}</span>
+                      <span className="font-mono text-xs text-slate-800">{pct(s)}</span>
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-100"><div className="h-full transition-[width]" style={{ width: pct(s), background: SERIES.blue }} /></div>
                   </button>
                 );
               })}
-              {hot !== null && hot >= 0 && (() => {
-                const n = nodes[hot], { cx, top } = at(n.node_id);
-                const left = cx + BOX_W / 2 + TIP_W + 8 <= treeW ? cx + BOX_W / 2 + 8 : cx - BOX_W / 2 - TIP_W - 8;
+              {hot !== null && hot >= 0 && anchor && (() => {
+                const n = nodes[hot];
                 const rows: [string, string][] = [
                   ["est rows", int(n.est_rows)], ["actual rows", n.actual_rows === undefined ? "n/a" : int(n.actual_rows)], ["est cost", int(n.est_cost)], ["width", String(n.width)],
                   ["self ms", n.self_ms === undefined ? "n/a" : n.self_ms.toFixed(2)], ["cost share", pct(all.cost[hot])],
                   ...(all.time ? [["time share", pct(all.time[hot])] as [string, string]] : []), ...(all.gnn ? [["GNN share", pct(all.gnn[hot])] as [string, string]] : []),
                 ];
-                return (
-                  <div className="glass-strong pointer-events-none absolute z-10 rounded-md px-2.5 py-2 text-[11px]" style={{ left: Math.max(0, left), top: Math.min(top, Math.max(0, treeH - 44 - rows.length * 17)), width: TIP_W }}>
+                // Fixed beside the hovered box (right when it fits, else left), kept inside the viewport. Portalled to
+                // the body: the glass backdrop-filter would otherwise make the card the containing block.
+                const tipH = 48 + rows.length * TIP_ROW;
+                const left = anchor.right + 8 + TIP_W <= window.innerWidth ? anchor.right + 8 : Math.max(8, anchor.left - TIP_W - 8);
+                const top = Math.max(8, Math.min(anchor.top, window.innerHeight - tipH - 8));
+                return createPortal(
+                  <div className="glass-strong pointer-events-none fixed z-10 rounded-md px-2.5 py-2 text-xs" style={{ left, top, width: TIP_W }}>
                     <div className="mb-1 font-medium text-slate-900">node {n.node_id}: {n.op}</div>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                       {rows.map(([k, v]) => <Fragment key={k}><dt className="text-slate-600">{k}</dt><dd className="text-right font-mono text-slate-900">{v}</dd></Fragment>)}
                     </dl>
-                  </div>
+                  </div>,
+                  document.body,
                 );
               })()}
             </div>
@@ -185,7 +195,7 @@ function Lab({ b }: { b: Bundle | null }) {
             </button>
             <label className="flex min-w-40 flex-1 items-center gap-2 text-xs text-slate-700">
               layers
-              <input type="range" min={0} max={spec.layers} step={1} value={layers} onChange={(e) => { setPlaying(false); setLayers(Number(e.target.value)); }} className="w-full accent-blue-600" />
+              <input type="range" min={0} max={spec.layers} step={1} value={layers} onChange={(e) => { setPlaying(false); setLayers(Number(e.target.value)); }} className="w-full accent-accent" />
               <span className="font-mono text-slate-900">{layers}</span>
             </label>
             <span className="text-xs text-slate-600">{seen.size} of {nodes.length} nodes reach node {node.node_id}</span>
@@ -203,17 +213,17 @@ function Lab({ b }: { b: Bundle | null }) {
 
         <ChartCard title={`Node ${node.node_id}: ${node.op}${node.relation ? ` on ${label(node.relation)}` : ""}`} caption={<>{spec._source}. Log features use log1p, as in features.py.</>}>
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-              <span className="rounded border border-blue-300 bg-blue-50 px-1.5 py-0.5 font-mono text-blue-900">op {opIndex(spec.ops, node.op)} of {spec.ops.length}</span>
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="rounded border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-ink">op {opIndex(spec.ops, node.op)} of {spec.ops.length}</span>
               <span className="text-slate-600">one-hot, then {spec.numeric.length} numbers:</span>
             </div>
             {!!node.filter_cols?.length && (
-              <div className="text-[11px] text-slate-700">filter columns: <span className="font-mono text-slate-900">{node.filter_cols.map(label).join(", ")}</span></div>
+              <div className="text-xs text-slate-700">filter columns: <span className="font-mono text-slate-900">{node.filter_cols.map(label).join(", ")}</span></div>
             )}
             <HBars digits={2} bars={spec.numeric.map((k, i) => ({ label: k, value: f[i], color: SERIES.blue }))} />
             {ratio !== null && (
-              <div className={cn("flex items-start gap-2 rounded-lg border p-2 text-xs", ratio >= spec.misestimate_ratio_alert ? "border-amber-300 bg-amber-50/80 text-amber-900" : "border-slate-200 bg-white/60 text-slate-700")}>
-                {ratio >= spec.misestimate_ratio_alert && <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />}
+              <div className={cn("flex items-start gap-2 rounded-lg border p-2 text-xs", ratio >= spec.misestimate_ratio_alert ? "border-signal/40 bg-signal-soft text-ink" : "glass-subtle text-slate-700")}>
+                {ratio >= spec.misestimate_ratio_alert && <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-signal" />}
                 <span>Expected {int(node.est_rows)} rows, got {int(node.actual_rows!)}: {ratio.toFixed(1)}x off{ratio >= spec.misestimate_ratio_alert ? `, past the ${spec.misestimate_ratio_alert}x alert: run ANALYZE` : ""}.</span>
               </div>
             )}
@@ -227,7 +237,7 @@ function Lab({ b }: { b: Bundle | null }) {
             <BigNumber value={`${opt.explain.predicted_total_ms.toFixed(1)} ms`} label="predicted total" />
             <div className="space-y-1.5" onMouseLeave={() => setHl(null)}>
               {opt.explain.top_nodes.map((n) => (
-                <div key={n.node_id} onMouseEnter={() => setHl(n.node_id)} className={cn("grid cursor-default grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 rounded px-1 text-xs transition-colors", hl === n.node_id && "bg-blue-50")}>
+                <div key={n.node_id} onMouseEnter={() => hover(n.node_id)} className={cn("grid cursor-default grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 rounded px-1 text-xs transition-colors", hl === n.node_id && "bg-accent-soft")}>
                   <span className="truncate text-slate-700">node {n.node_id} {n.op}{n.relation ? <span className="font-mono text-slate-500"> {label(n.relation)}</span> : null}</span>
                   <div className="h-5 py-0.5"><div className="h-full rounded-r-[4px] transition-opacity" style={{ width: `${(n.predicted_share_pct / explainMax) * 100}%`, background: SERIES.blue, opacity: hl === null || hl === n.node_id ? 1 : 0.45 }} /></div>
                   <span className="font-mono text-slate-900">{n.predicted_share_pct.toFixed(1)}% <span className="text-slate-500">{n.predicted_self_ms.toFixed(1)} ms</span></span>
@@ -238,8 +248,8 @@ function Lab({ b }: { b: Bundle | null }) {
           <div className="mt-3 space-y-2">
             {opt.explain.misestimates.length === 0 && <div className="text-xs text-slate-600">No node past the {opt.explain.misestimate_alert_ratio}x misestimate alert.</div>}
             {opt.explain.misestimates.map((x) => (
-              <div key={x.node_id} className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/80 p-2 text-xs text-amber-900">
-                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+              <div key={x.node_id} className="flex items-start gap-2 rounded-lg border border-signal/40 bg-signal-soft p-2 text-xs text-ink">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-signal" />
                 <span>Node {x.node_id} {x.op}{x.relation ? ` on ${label(x.relation)}` : ""}: expected {int(x.est_rows)} rows, got {int(x.actual_rows)} ({x.ratio}x). {x.recommend}.</span>
               </div>
             ))}
@@ -252,14 +262,14 @@ function Lab({ b }: { b: Bundle | null }) {
           {[["GNN median q-error", gnn, setGnn], ["Postgres median q-error", pg, setPg]].map(([label, v, set]) => (
             <label key={label as string} className="block text-xs text-slate-700">
               <span className="flex justify-between"><span>{label as string}</span><span className="font-mono text-slate-900">{(v as number).toFixed(2)}</span></span>
-              <input type="range" min={1} max={5} step={0.01} value={v as number} onChange={(e) => (set as (n: number) => void)(Number(e.target.value))} className="w-full accent-blue-600" />
+              <input type="range" min={1} max={5} step={0.01} value={v as number} onChange={(e) => (set as (n: number) => void)(Number(e.target.value))} className="w-full accent-accent" />
             </label>
           ))}
-          <div className={cn("rounded-lg border px-3 py-2 text-sm font-medium", who === "gnn" ? "border-emerald-300 bg-emerald-50/80 text-emerald-900" : "border-amber-300 bg-amber-50/80 text-amber-900")}>
+          <div className={cn("rounded-lg border px-3 py-2 text-sm font-medium", who === "gnn" ? "border-accent/40 bg-accent-soft text-ink" : "border-signal/40 bg-signal-soft text-ink")}>
             serves: {who === "gnn" ? "GNN" : "Postgres baseline"}
           </div>
         </div>
-        <div className="mt-3 rounded-md border border-amber-300/70 bg-amber-50/80 px-2 py-1 font-mono text-[11px] text-amber-900">{b?.estimator?.label ?? run.search.estimator_label}</div>
+        <div className="mt-3 rounded-md border border-signal/40 bg-signal-soft px-2 py-1 font-mono text-xs text-ink">{b?.estimator?.label ?? run.search.estimator_label}</div>
       </ChartCard>
     </div>
   );

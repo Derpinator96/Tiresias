@@ -39,21 +39,52 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* One type scale (human request 2026-10-04): small 13px, body 15px, h2 20px, h1 28px. The
+     default size names map onto it so no component can drift to a fifth size. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.5rem;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 1.75rem;
+  --text-3xl--line-height: 2.125rem;
+  --text-4xl: 1.75rem;
+  --text-4xl--line-height: 2.125rem;
+
+  /* Three colours (human request 2026-10-04): ink for text and primary buttons, accent for
+     active and good states, signal for slow, warning and bad states. Everything else is white
+     glass and slate greys. */
+  --color-ink: #0f172a;
+  --color-accent: #2563eb;
+  --color-accent-soft: #dbeafe;
+  --color-signal: #ea580c;
+  --color-signal-soft: #ffedd5;
 }
 
 /* Light only (CLAUDE.md design rules): no dark theme, no purple, no pill buttons.
    Glass = translucent white over a slate page with faint blue and slate tints. */
 :root {
-  /* glass tokens */
-  --glass-bg: rgb(255 255 255 / 0.72);
-  --glass-strong-bg: rgb(255 255 255 / 0.9);
-  --glass-subtle-bg: rgb(255 255 255 / 0.5);
-  --glass-border: rgb(255 255 255 / 0.65);
-  --glass-edge: rgb(226 232 240 / 0.9); /* slate-200: keeps glass edges visible on light glass */
-  --glass-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.06), 0 4px 6px -2px rgb(15 23 42 / 0.03);
-  --glass-shadow-lg: 0 24px 48px -12px rgb(15 23 42 / 0.14);
-  --glass-blur: 20px;
-  --inset-bg: rgb(248 250 252 / 0.72);
+  /* glass tokens: white glassmorphism (reference card 2026-10-04): translucent white, blur,
+     brighter top and left edges, a soft shadow; whiter and lifted on hover */
+  --glass-bg: rgb(255 255 255 / 0.55);
+  --glass-strong-bg: rgb(255 255 255 / 0.78);
+  --glass-subtle-bg: rgb(255 255 255 / 0.38);
+  --glass-hover-bg: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(255 255 255 / 0.55);
+  --glass-border-top: rgb(255 255 255 / 0.9);
+  --glass-edge: rgb(255 255 255 / 0.95);
+  --glass-shadow: 0 8px 32px rgb(15 23 42 / 0.10);
+  --glass-shadow-lg: 0 12px 40px rgb(15 23 42 / 0.16);
+  --glass-blur: 15px;
+  --inset-bg: rgb(255 255 255 / 0.5);
 
   /* shadcn tokens, pointed at the glass */
   --background: oklch(0.968 0.007 247.896); /* slate-100 */
@@ -70,15 +101,15 @@
   --muted-foreground: oklch(0.446 0.043 257.281); /* slate-600: AA on glass */
   --accent: oklch(0.968 0.007 247.896 / 0.8);
   --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: var(--color-signal);
   --border: var(--glass-edge);
   --input: var(--glass-edge);
-  --ring: oklch(0.546 0.245 262.881); /* blue-600 */
-  --chart-1: oklch(0.546 0.245 262.881);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.554 0.046 257.417);
-  --chart-5: oklch(0.208 0.042 265.755);
+  --ring: var(--color-accent);
+  --chart-1: var(--color-accent);
+  --chart-2: var(--color-signal);
+  --chart-3: #94a3b8;
+  --chart-4: #cbd5e1;
+  --chart-5: var(--color-ink);
   --radius: 0.625rem;
 }
 
@@ -92,16 +123,38 @@
   body {
     color: var(--foreground);
     background-color: var(--background);
-    background-image:
-      radial-gradient(60rem 40rem at 0% 0%, rgb(191 219 254 / 0.35), transparent 70%),
-      radial-gradient(50rem 40rem at 100% 100%, rgb(203 213 225 / 0.45), transparent 70%),
-      radial-gradient(40rem 30rem at 85% 10%, rgb(224 242 254 / 0.5), transparent 70%);
+    /* the backdrop the glass blurs: accent and signal tints over slate, drifting slowly */
+    background-image: linear-gradient(120deg, var(--color-accent-soft) 0%, #f1f5f9 45%, var(--color-signal-soft) 100%);
+    background-size: 300% 300%;
     background-attachment: fixed;
+    animation: backdrop-drift 24s ease-in-out infinite;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  @keyframes backdrop-drift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  /* fixed sizes for raw headings and paragraphs: the same four sizes as the utilities */
+  h1 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); font-weight: 600; letter-spacing: -0.01em; }
+  h2 { font-size: var(--text-lg); line-height: var(--text-lg--line-height); font-weight: 600; }
+  h3 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 600; }
+  p, li, td, th, label, input, textarea, button { font-size: var(--text-sm); }
+  small, caption, figcaption, code, kbd { font-size: var(--text-xs); }
+  /* press bounce (human request 2026-10-04): every button springs when clicked. The class is set
+     by src/components/site/press-bounce.tsx on click and removed when the animation ends. */
+  button:active { transform: scale(0.96); }
+  .is-pressed { animation: press-bounce 360ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes press-bounce {
+    0% { transform: scale(1); }
+    35% { transform: scale(0.92); }
+    70% { transform: scale(1.05); }
+    100% { transform: scale(1); }
   }
   /* every button and link eases its hover colours; utilities (transition-all etc.) still win */
   button,
   a {
-    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-duration: 150ms;
   }
   /* hand-rolled tables (figures, ledger, columns): a row tint on hover. shadcn rows keep their own. */
@@ -109,7 +162,7 @@
     transition: background-color 150ms;
   }
   tbody > tr:hover {
-    background-color: rgb(15 23 42 / 0.035);
+    background-color: rgb(255 255 255 / 0.5);
   }
 }
 
@@ -140,22 +193,24 @@
     background-color: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--glass-border);
+    border-top-color: var(--glass-border-top);
+    border-left-color: var(--glass-border-top);
     border-radius: 0.75rem;
     box-shadow: var(--glass-shadow);
-    transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+    transition: border-color 150ms, box-shadow 150ms, transform 250ms, background-color 250ms;
   }
   /* before the state rules, so a processing ring wins over the hover ring */
   .stage-card:hover {
-    transform: translateY(-1px);
-    border-color: var(--glass-edge);
-    box-shadow: 0 0 0 2px rgb(15 23 42 / 0.1), var(--glass-shadow-lg);
+    transform: translateY(-4px);
+    background-color: var(--glass-hover-bg);
+    box-shadow: var(--glass-shadow-lg);
   }
   .stage-card[data-state="processing"] {
-    border-color: rgb(59 130 246);
-    box-shadow: 0 0 0 3px rgb(59 130 246 / 0.2), var(--glass-shadow);
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.2), var(--glass-shadow);
   }
   .stage-card[data-state="done"] {
-    border-color: rgb(16 185 129 / 0.7);
+    border-color: rgb(37 99 235 / 0.6);
   }
   .stage-card[data-selected="true"] {
     outline: 2px solid rgb(15 23 42 / 0.7);
@@ -170,25 +225,31 @@
 @utility glass {
   background-color: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-top);
   box-shadow: var(--glass-shadow);
-  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+  transition: transform 250ms ease, box-shadow 250ms ease, background-color 250ms ease;
   &:hover {
-    transform: translateY(-1px);
-    border-color: var(--glass-edge);
+    transform: translateY(-4px);
+    background-color: var(--glass-hover-bg);
     box-shadow: var(--glass-shadow-lg);
   }
 }
 @utility glass-strong {
   background-color: var(--glass-strong-bg);
-  backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.4));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.4));
   border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-top);
   box-shadow: var(--glass-shadow-lg);
-  transition: transform 150ms, border-color 150ms, box-shadow 150ms;
+  transition: transform 250ms ease, box-shadow 250ms ease, background-color 250ms ease;
   &:hover {
-    transform: translateY(-1px);
-    border-color: var(--glass-edge);
-    box-shadow: 0 28px 56px -12px rgb(15 23 42 / 0.18);
+    transform: translateY(-4px);
+    background-color: rgb(255 255 255 / 0.88);
+    box-shadow: 0 16px 48px rgb(15 23 42 / 0.2);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -202,8 +263,15 @@
   }
   .glass:hover,
   .glass-strong:hover,
-  .stage-card:hover {
+  .stage-card:hover,
+  button:active {
     transform: none;
+  }
+  .is-pressed {
+    animation: none;
+  }
+  body {
+    animation: none;
   }
 }
 @utility glass-subtle {
@@ -212,15 +280,18 @@
   border: 1px solid var(--glass-border);
 }
 @utility glass-bar {
-  background-color: rgb(255 255 255 / 0.8);
-  backdrop-filter: blur(calc(var(--glass-blur) * 2));
-  border: 1px solid rgb(255 255 255 / 0.7);
-  box-shadow: 0 14px 34px rgb(15 23 42 / 0.08);
+  background-color: var(--glass-strong-bg);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+  border: 1px solid var(--glass-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-top);
+  box-shadow: var(--glass-shadow);
   border-radius: 0.75rem;
 }
 @utility inset-field {
   background-color: var(--inset-bg);
-  border: 1px solid var(--glass-edge);
+  border: 1px solid rgb(255 255 255 / 0.7);
   border-radius: 0.5rem;
   backdrop-filter: blur(4px);
 }

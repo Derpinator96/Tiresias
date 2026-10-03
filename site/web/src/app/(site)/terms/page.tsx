@@ -16,7 +16,7 @@ export default function Terms() {
       <H2>No warranty</H2>
       <P>The site and its content are provided as they are, without warranty of any kind. Use them at your own risk. The authors are not liable for any loss arising from use of the site or reliance on its content.</P>
       <H2>Source code: MIT License</H2>
-      <P>These terms cover this website only. The source code is released under the MIT License, set out in the LICENSE file of its repository at <a className="text-blue-700 underline" href="https://github.com/Derpinator96/Tiresias">github.com/Derpinator96/Tiresias</a>. That license, not this page, governs use of the code.</P>
+      <P>These terms cover this website only. The source code is released under the MIT License, set out in the LICENSE file of its repository at <a className="text-accent underline" href="https://github.com/Derpinator96/Tiresias">github.com/Derpinator96/Tiresias</a>. That license, not this page, governs use of the code.</P>
       <H2>Changes</H2>
       <P>These terms may change. The date at the top shows the latest version.</P>
     </article></Page>

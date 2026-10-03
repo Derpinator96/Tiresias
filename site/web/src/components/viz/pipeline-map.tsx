@@ -23,10 +23,10 @@ export function PipelineMap() {
               <Lock className="size-3.5" aria-hidden /><ArrowRight className="size-4 rotate-90 md:rotate-0" aria-hidden />
             </div>
           )}
-          <div className={cn("rounded-xl border border-dashed p-3", z.ai ? "border-blue-300 bg-blue-50/40" : "border-slate-300 bg-white/30")}>
+          <div className={cn("rounded-xl border border-dashed p-3", z.ai ? "border-accent/40 bg-accent-soft/40" : "border-slate-300 bg-white/30")}>
             <div className="mb-2 flex items-baseline justify-between gap-2">
               <span className="text-xs font-semibold text-slate-800">{z.label}</span>
-              <span className="text-[11px] text-slate-500">{z.sub}</span>
+              <span className="text-xs text-slate-500">{z.sub}</span>
             </div>
             <div className={cn("grid gap-2", z.ai && "sm:grid-cols-2")}>
               {z.ids.map((id) => {
@@ -36,7 +36,7 @@ export function PipelineMap() {
                   <Link key={id} href={`/stages/${id}`} className="glass group flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-white/90">
                     <span className="grid size-7 shrink-0 place-items-center rounded-md border border-slate-200 bg-white text-slate-700 transition-colors group-hover:border-slate-300 group-hover:text-slate-900"><Icon className="size-4" /></span>
                     <span className="min-w-0">
-                      <span className="block font-mono text-[10px] text-slate-500">{i + 1}</span>
+                      <span className="block font-mono text-xs text-slate-500">{i + 1}</span>
                       <span className="block truncate text-sm font-medium text-slate-900">{STAGES[i].title}</span>
                     </span>
                     <ArrowRight className="ml-auto size-4 shrink-0 text-slate-500 opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" aria-hidden />

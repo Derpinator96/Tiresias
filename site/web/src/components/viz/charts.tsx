@@ -9,7 +9,8 @@ import { ArrowRight } from "lucide-react";
 import { Source } from "@/components/playground/bits";
 import { cn } from "@/lib/utils";
 
-export const SERIES = { blue: "#2a78d6", orange: "#eb6834", aqua: "#1baf7a" } as const;
+// Two series only (human request 2026-10-04): the accent and the signal colour of globals.css.
+export const SERIES = { blue: "#2563eb", orange: "#ea580c", aqua: "#94a3b8" } as const;
 
 export function ChartCard({ title, caption, children, className }: { title: string; caption?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -48,7 +49,7 @@ export function HBars({ bars, unit = "", digits = 1, refLine, max }: { bars: Bar
               <div className="absolute inset-y-0.5 left-0 rounded-r-[4px] transition-opacity" style={{ width: pct(b.value), background: b.color, opacity: hover === null || hover === i ? 1 : 0.45 }} />
               <span className="absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-xs font-semibold text-slate-900" style={{ left: pct(b.value) }}>{fmt(b.value)}</span>
               {hover === i && b.note && (
-                <div className="glass-strong absolute bottom-full left-0 z-10 mb-1 max-w-64 rounded-md px-2 py-1 text-[11px] text-slate-700">{b.label}: {fmt(b.value)}. {b.note}</div>
+                <div className="glass-strong absolute bottom-full left-0 z-10 mb-1 max-w-64 rounded-md px-2 py-1 text-xs text-slate-700">{b.label}: {fmt(b.value)}. {b.note}</div>
               )}
             </div>
           </div>
@@ -57,7 +58,7 @@ export function HBars({ bars, unit = "", digits = 1, refLine, max }: { bars: Bar
       {refLine && (
         <div className="pointer-events-none absolute inset-y-0 left-[calc(7.5rem+0.5rem)] right-0">
           <div className="absolute inset-y-[-6px] border-l border-dashed border-slate-500" style={{ left: pct(refLine.value) }}>
-            <span className="absolute -top-4 left-1 whitespace-nowrap text-[10px] text-slate-600">{refLine.label}</span>
+            <span className="absolute -top-4 left-1 whitespace-nowrap text-xs text-slate-600">{refLine.label}</span>
           </div>
         </div>
       )}
@@ -79,13 +80,13 @@ export function LineChart({ points, threshold, yMax, digits = 4 }: { points: { l
         {ticks.map((t) => (
           <g key={t}>
             <line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="#e2e8f0" />
-            <text x={L - 6} y={y(t) + 3} textAnchor="end" className="fill-slate-500 text-[10px]">{t}</text>
+            <text x={L - 6} y={y(t) + 3} textAnchor="end" className="fill-slate-500 text-xs">{t}</text>
           </g>
         ))}
         {threshold && (
           <g>
             <line x1={L} x2={W - R} y1={y(threshold.value)} y2={y(threshold.value)} stroke="#64748b" strokeDasharray="4 3" />
-            <text x={W - R} y={y(threshold.value) - 4} textAnchor="end" className="fill-slate-600 text-[10px]">{threshold.label}</text>
+            <text x={W - R} y={y(threshold.value) - 4} textAnchor="end" className="fill-slate-600 text-xs">{threshold.label}</text>
           </g>
         )}
         <polyline points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")} fill="none" stroke={SERIES.blue} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
@@ -93,13 +94,13 @@ export function LineChart({ points, threshold, yMax, digits = 4 }: { points: { l
           <g key={p.label} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
             <rect x={x(i) - 30} y={T} width={60} height={H - T - B} fill="transparent" />
             <circle cx={x(i)} cy={y(p.value)} r={hover === i ? 6 : 4.5} fill={SERIES.blue} stroke="white" strokeWidth={2} />
-            <text x={x(i)} y={H - 12} textAnchor="middle" className="fill-slate-600 text-[10px]">{p.label}</text>
+            <text x={x(i)} y={H - 12} textAnchor="middle" className="fill-slate-600 text-xs">{p.label}</text>
           </g>
         ))}
-        <text x={x(points.length - 1) - 8} y={y(points.at(-1)!.value) - 10} textAnchor="end" className="fill-slate-900 font-mono text-[11px] font-semibold">{points.at(-1)!.value}</text>
+        <text x={x(points.length - 1) - 8} y={y(points.at(-1)!.value) - 10} textAnchor="end" className="fill-slate-900 font-mono text-xs font-semibold">{points.at(-1)!.value}</text>
       </svg>
       {hover !== null && (
-        <div className="glass-strong pointer-events-none absolute top-0 rounded-md px-2 py-1 font-mono text-[11px] text-slate-800" style={{ left: `${(x(hover) / W) * 100}%`, transform: "translateX(-50%)" }}>
+        <div className="glass-strong pointer-events-none absolute top-0 rounded-md px-2 py-1 font-mono text-xs text-slate-800" style={{ left: `${(x(hover) / W) * 100}%`, transform: "translateX(-50%)" }}>
           {points[hover].label}: {points[hover].value.toFixed(digits)}
         </div>
       )}
@@ -136,7 +137,7 @@ export function PartBar({ parts, total, unit = "" }: { parts: { label: string; v
 
 /** A left-to-right chain of steps that wraps on small screens. */
 export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "private" | "ai" | "check" }[] }) {
-  const tone = { private: "border-slate-300 bg-white/80", ai: "border-blue-300 bg-blue-50/80", check: "border-emerald-300 bg-emerald-50/80" };
+  const tone = { private: "border-slate-300 bg-white/80", ai: "border-accent/40 bg-accent-soft/70", check: "border-accent bg-accent-soft" };
   return (
     <ol className="flex flex-wrap items-center gap-1.5">
       {steps.map((s, i) => (
@@ -144,7 +145,7 @@ export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "
           {i > 0 && <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />}
           <li className={cn("rounded-lg border px-2.5 py-1.5", tone[s.tone ?? "private"])}>
             <div className="text-xs font-medium text-slate-900">{s.label}</div>
-            {s.sub && <div className="font-mono text-[10.5px] text-slate-600">{s.sub}</div>}
+            {s.sub && <div className="font-mono text-xs text-slate-600">{s.sub}</div>}
           </li>
         </Fragment>
       ))}
@@ -155,7 +156,7 @@ export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "
 export function BigNumber({ value, label, tone = "default" }: { value: string; label: string; tone?: "default" | "good" }) {
   return (
     <div>
-      <div className={cn("font-mono text-3xl font-semibold tracking-tight", tone === "good" ? "text-emerald-700" : "text-slate-900")}>{value}</div>
+      <div className={cn("font-mono text-2xl font-semibold tracking-tight", tone === "good" ? "text-accent" : "text-slate-900")}>{value}</div>
       <div className="mt-0.5 text-xs text-slate-600">{label}</div>
     </div>
   );

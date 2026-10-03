@@ -36,7 +36,7 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
         <button className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-white hover:bg-slate-800" onClick={() => { if (cursor >= total) setCursor(0); setPlaying(!playing); }}>
           {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} {playing ? "Pause" : "Play"}
         </button>
-        <button className="inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white/70 px-2 text-slate-700 hover:bg-white" onClick={() => { setPlaying(false); setCursor(null); }}>
+        <button className="inline-flex h-7 items-center gap-1 rounded-md glass-subtle px-2 text-ink hover:bg-white/80" onClick={() => { setPlaying(false); setCursor(null); }}>
           <RotateCcw className="size-3.5" /> Reset
         </button>
         <label className="inline-flex items-center gap-1.5 text-slate-700">
@@ -49,7 +49,7 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
         <div className="grid grid-cols-[minmax(0,8.5rem)_1fr] gap-2">
           <div />
           <div className="relative h-4">
-            {ticks.map((t) => <span key={t} className="absolute -translate-x-1/2 font-mono text-[10px] text-slate-500" style={{ left: x(t) }}>{fmt(t)}</span>)}
+            {ticks.map((t) => <span key={t} className="absolute -translate-x-1/2 font-mono text-xs text-slate-500" style={{ left: x(t) }}>{fmt(t)}</span>)}
           </div>
           {shown.map((s) => {
             const done = Math.min(1, Math.max(0, (cursor - s.start) / s.dur));
@@ -61,21 +61,21 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
                     <div className="absolute inset-0" style={{ background: s.kind === "predicted" ? `repeating-linear-gradient(135deg, ${TONE[s.tone]} 0 4px, rgba(255,255,255,0.55) 4px 8px)` : TONE[s.tone], opacity: 0.28 }} />
                     <div className="absolute inset-y-0 left-0" style={{ width: `${done * 100}%`, background: s.kind === "predicted" ? `repeating-linear-gradient(135deg, ${TONE[s.tone]} 0 4px, rgba(255,255,255,0.55) 4px 8px)` : TONE[s.tone] }} />
                   </div>
-                  <span className="absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-[11px] font-semibold text-slate-900" style={{ left: `calc(${x(s.start + s.dur)})` }}>{fmt(s.dur)}</span>
+                  <span className="absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-xs font-semibold text-slate-900" style={{ left: `calc(${x(s.start + s.dur)})` }}>{fmt(s.dur)}</span>
                 </div>
               </div>
             );
           })}
         </div>
         <div className="pointer-events-none absolute bottom-0 top-4 left-[calc(8.5rem+0.5rem)] right-0">
-          <div className="absolute inset-y-0 border-l border-dashed border-red-500" style={{ left: x(cursor) }}>
-            <span className="absolute -top-1 -left-1 size-2 rounded-sm bg-red-500" />
+          <div className="absolute inset-y-0 border-l border-dashed border-signal" style={{ left: x(cursor) }}>
+            <span className="absolute -top-1 -left-1 size-2 rounded-sm bg-signal" />
           </div>
         </div>
       </div>
 
-      <input type="range" min={0} max={axis} step={axis / 400} value={cursor} onChange={(e) => { setPlaying(false); setCursor(Number(e.target.value)); }} className="mt-2 w-full accent-red-500" aria-label="time cursor" />
-      <p className="mt-1 min-h-8 text-[11px] leading-snug text-slate-700">
+      <input type="range" min={0} max={axis} step={axis / 400} value={cursor} onChange={(e) => { setPlaying(false); setCursor(Number(e.target.value)); }} className="mt-2 w-full accent-signal" aria-label="time cursor" />
+      <p className="mt-1 min-h-8 text-xs leading-snug text-slate-700">
         {h ? <><span className="font-medium text-slate-900">{h.label}</span>: {fmt(h.dur)}, {h.kind}. {h.note}.</> : "Hover a row for its source. Hatched bars are predictions, solid bars are measurements."}
       </p>
       <div className="sr-only"><table><tbody>{spans.map((s) => <tr key={s.id}><td>{s.label}</td><td>{s.start}</td><td>{s.dur}</td><td>{s.kind}</td></tr>)}</tbody></table></div>

@@ -36,14 +36,14 @@ function History() {
   };
   return (
     <div>
-      <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">History</div>
+      <div className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-slate-500">History</div>
       <ul className="space-y-0.5">
         {list.map((b) => (
           <li key={b.id} className={cn("group flex h-8 items-center gap-1.5 rounded-md pl-2 pr-1 text-xs text-slate-700 transition-colors hover:bg-white/80 hover:text-slate-900", current?.id === b.id && "bg-white font-medium text-slate-900 shadow-sm")}>
             <button type="button" onClick={() => select(b.id)} title={`${b.question} (${b.id})`} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
-              {b.ok ? <Check className="size-3 shrink-0 text-emerald-600" aria-label="answered" /> : <X className="size-3 shrink-0 text-red-600" aria-label="failed" />}
+              {b.ok ? <Check className="size-3 shrink-0 text-accent" aria-label="answered" /> : <X className="size-3 shrink-0 text-signal" aria-label="failed" />}
               <span className="truncate">{b.question}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-500">{when(b.created_at)}</span>
+              <span className="ml-auto shrink-0 font-mono text-xs text-slate-500">{when(b.created_at)}</span>
             </button>
             <button type="button" onClick={() => remove(b.id)} aria-label={`Delete ${b.question}`} className="grid size-5 shrink-0 place-items-center rounded text-slate-400 opacity-0 hover:bg-slate-200 hover:text-slate-900 focus:opacity-100 group-hover:opacity-100">
               <X className="size-3" />
@@ -62,19 +62,19 @@ export function Sidebar() {
     cn("group flex h-8 items-center gap-2 rounded-md px-2 text-sm text-slate-700 transition-colors hover:bg-white/80 hover:text-slate-900", active && "bg-white font-medium text-slate-900 shadow-sm");
   const nav = (
     <nav className="flex h-full flex-col gap-4 overflow-y-auto p-3" onClick={() => setOpen(false)}>
-      <Link href="/" className="px-2 pt-1 text-base font-semibold tracking-tight text-slate-900">Tiresias</Link>
+      <Link href="/" className="px-2 pt-1 text-lg font-semibold tracking-tight text-slate-900">Tiresias</Link>
       <ul className="space-y-0.5">
         {MAIN.map(({ href, label, icon: Icon }) => (
           <li key={href}><Link href={href} className={item(path === href)}><Icon className="size-4 text-slate-500 transition-colors group-hover:text-slate-900" />{label}</Link></li>
         ))}
       </ul>
       <div>
-        <div className="px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">Stages</div>
+        <div className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Stages</div>
         <ul className="space-y-0.5">
           {STAGES.map((s, i) => (
             <li key={s.id}>
               <Link href={`/stages/${s.id}`} className={item(path === `/stages/${s.id}`)}>
-                <span className="w-4 text-right font-mono text-[11px] text-slate-500 transition-colors group-hover:text-slate-900">{i + 1}</span>{s.title}
+                <span className="w-4 text-right font-mono text-xs text-slate-500 transition-colors group-hover:text-slate-900">{i + 1}</span>{s.title}
               </Link>
             </li>
           ))}

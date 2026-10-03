@@ -22,9 +22,9 @@ export function DatabaseSample() {
     <div className="mt-6 space-y-4">
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-700">
         <span>Sample rows per table</span>
-        <div className="flex w-fit rounded-md border border-slate-200 bg-white/70 p-0.5">
+        <div className="glass-subtle flex w-fit rounded-md p-0.5">
           {ROWS.map((n) => (
-            <button key={n} type="button" onClick={() => setRows(n)} className={cn("h-7 rounded px-2.5 text-xs", rows === n ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-white")}>{n}</button>
+            <button key={n} type="button" onClick={() => setRows(n)} className={cn("h-7 rounded px-2.5 text-xs", rows === n ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70")}>{n}</button>
           ))}
         </div>
         {loading && <span className="text-xs text-slate-500">loading</span>}
@@ -34,8 +34,8 @@ export function DatabaseSample() {
       {data?.map((t) => (
         <section key={t.code} className="glass rounded-xl p-4">
           <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="font-mono text-base font-semibold text-slate-900">{t.table}</h2>
-            <Badge variant="outline" className="font-mono text-[11px]">{t.code}</Badge>
+            <h2 className="font-mono text-sm font-semibold text-slate-900">{t.table}</h2>
+            <Badge variant="outline" className="font-mono text-xs">{t.code}</Badge>
             <span className="text-xs text-slate-600">{t.rows.toLocaleString()} rows, {t.size_mb.toFixed(1)} MB</span>
           </header>
           <div className="inset-field max-h-96 overflow-auto">
@@ -45,7 +45,7 @@ export function DatabaseSample() {
                   {t.columns.map((c) => (
                     <TableHead key={c.code} className="h-auto whitespace-nowrap py-1.5 align-top">
                       <div className="text-slate-900">{c.name} <span className="font-normal text-slate-500">({c.type})</span></div>
-                      <div className="font-mono text-[10px] font-normal text-slate-400">{c.code}</div>
+                      <div className="font-mono text-xs font-normal text-slate-400">{c.code}</div>
                     </TableHead>
                   ))}
                 </TableRow>

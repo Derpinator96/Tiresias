@@ -10,7 +10,7 @@ export default function NotFound() {
         <Page>
           <H1>This page does not exist</H1>
           <Lead>
-            <Link href="/" className="text-blue-700 underline">Go to the overview</Link> or open the <Link href="/playground" className="text-blue-700 underline">pipeline playground</Link>.
+            <Link href="/" className="text-accent underline">Go to the overview</Link> or open the <Link href="/playground" className="text-accent underline">pipeline playground</Link>.
           </Lead>
         </Page>
       </main>

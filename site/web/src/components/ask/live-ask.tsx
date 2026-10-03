@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 type State = AskJob & { poll_ms: number; events: string[]; bundle_ready: boolean };
 
 const PAGES = [["Open in Playground", "/playground"], ["GNN", "/gnn"], ["Hashing", "/hashing"], ["Stage pages", "/stages/source"]];
-const bad = "rounded-lg border border-red-200 bg-red-50/80 p-3 text-sm text-red-800";
+const bad = "rounded-lg bg-signal-soft p-3 text-sm font-medium text-signal";
 
 /** The answer, twin result and SQL of one job: the live one while it runs, or a saved bundle's. */
 function Result({ job, live }: { job: AskJob; live: boolean }) {
@@ -23,9 +23,9 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
         <section>
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-900">Answer</h3>
-            <div className="flex rounded-md border border-slate-200 bg-white/70 p-0.5 text-xs">
+            <div className="glass-subtle flex rounded-md p-0.5 text-xs">
               {[false, true].map((v) => (
-                <button key={String(v)} onClick={() => setAiView(v)} className={cn("h-6 rounded px-2", aiView === v ? "bg-slate-900 text-white" : "text-slate-600")}>
+                <button key={String(v)} onClick={() => setAiView(v)} className={cn("h-6 rounded px-2", aiView === v ? "bg-ink text-white" : "text-slate-600")}>
                   {v ? "What the AI saw" : "Real names"}
                 </button>
               ))}
@@ -77,7 +77,7 @@ function PageLinks() {
   return (
     <div className="flex flex-wrap gap-2">
       {PAGES.map(([label, href]) => (
-        <Link key={href} href={href} className="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white/70 px-2.5 text-xs font-medium text-slate-700 hover:bg-white">{label}</Link>
+        <Link key={href} href={href} className="glass-subtle inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-ink hover:bg-white/70">{label}</Link>
       ))}
     </div>
   );
@@ -129,11 +129,11 @@ export function LiveAsk() {
   return (
     <div className="glass-strong space-y-4 rounded-xl p-5">
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <span className="size-2 rounded-full bg-emerald-500" aria-hidden /> Live: local gateway and AI service
+        <span className="size-2 rounded-full bg-accent" aria-hidden /> Live: local gateway and AI service
       </div>
       <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); ask(); }}>
         <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: why is the monthly category report slow?" aria-label="Question" className="min-w-60 flex-1" />
-        <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
+        <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-ink px-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Ask
         </button>
       </form>
@@ -145,7 +145,7 @@ export function LiveAsk() {
         <div className="inset-field p-3 text-sm text-slate-700">
           Working: {state.events.filter((e) => e.startsWith("tool ")).length} tool calls so far
           {state.events.filter((e) => e.startsWith("rate limited") || e.startsWith("LLM service unavailable")).map((e) => (
-            <div key={e} className="mt-1 text-amber-800">{e}</div>
+            <div key={e} className="mt-1 text-signal">{e}</div>
           ))}
         </div>
       )}
@@ -155,8 +155,8 @@ export function LiveAsk() {
 
       {saved && (
         <>
-          <div className="text-xs text-slate-600">
-            From history: <span className="font-medium text-slate-900">{bundle.question}</span> <span className="font-mono text-[11px] text-slate-500">({bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")})</span>
+          <div className="glass-subtle rounded-lg px-3 py-2 text-xs text-slate-600">
+            From history: <span className="font-medium text-slate-900">{bundle.question}</span> <span className="font-mono text-xs text-slate-500">({bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")})</span>
           </div>
           <Result key={bundle.id} job={bundle.job} live={false} />
           <PageLinks />

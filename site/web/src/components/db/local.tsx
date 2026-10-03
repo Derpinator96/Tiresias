@@ -9,7 +9,7 @@ export const LocalOnly = () => (
 );
 
 export function ErrorLine({ text }: { text?: string }) {
-  return text ? <p className="rounded-md bg-red-50 px-3 py-2 font-mono text-xs text-red-800 [overflow-wrap:anywhere]">{text}</p> : null;
+  return text ? <p className="rounded-md bg-signal-soft px-3 py-2 font-mono text-xs font-medium text-signal [overflow-wrap:anywhere]">{text}</p> : null;
 }
 
 /** GET `url` (refetched when it changes). `error` is the API's one-line message or the HTTP status;
