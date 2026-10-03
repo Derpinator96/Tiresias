@@ -75,19 +75,47 @@ def ai_ask(body: dict = Body(...)) -> dict:
     config, simulation}. config and simulation are the Config from the agent's last run_rl call
     and the twin SimResult (plus speedup_pct) from its last simulate call, or null if it made
     no such call; the dashboard shows them next to the answer.
-    The DBA's question text is never received here; the gateway resolved it privately."""
+    The DBA's question text is never received here; the gateway resolved it privately.
+
+    Optional, for make llm-bench and the per-provider e2e test (production switches provider in
+    config.yaml only): "llm": {"provider": gemini|nim|ollama, "model": ...} overrides the
+    configured provider for this request; "record": true returns every LLM exchange and tool
+    call in "record" (agent/recording.py). The reply also carries seconds, the provider and
+    model used, and the provider's tool-call errors.
+
+    Fallback (llm.fallback, human decision 2026-10-03): when a provider fails with one of
+    llm.FAILOVER_ERRORS, the whole question is asked again of the next provider in llm.chain(),
+    with the same toolbox (its cached results are reused; every new LLM body is scanned again).
+    "failovers" lists each provider that failed and why. A canary block is never failed over."""
+    import time as _time
+
     from agent import agent as agent_mod
     from agent import llm
-    qid, tids = body["question_id"], list(body.get("template_ids", []))
-    EVENTS[qid] = []
-    try:
-        provider = llm.provider()
-    except llm.MissingKey as e:
-        raise HTTPException(503, str(e)) from None
+    from agent.recording import RecordingToolbox, RecordingTransport
     from agent.tools import Toolbox
-    toolbox = Toolbox()
+    qid, tids = body["question_id"], list(body.get("template_ids", []))
+    choice = body.get("llm") or {}
+    if choice.get("provider") not in (None, *llm.PROVIDERS):
+        raise HTTPException(400, f"unknown provider {choice.get('provider')!r}")
+    record = bool(body.get("record"))
+    EVENTS[qid] = []
+    transport = RecordingTransport() if record else None
+    toolbox = RecordingToolbox() if record else Toolbox()
+    started = _time.monotonic()
+    names, failovers = llm.chain(choice.get("provider")), []
     try:
-        r = agent_mod.ask(qid, tids, provider, toolbox=toolbox, on_event=EVENTS[qid].append)
+        for i, name in enumerate(names):
+            try:
+                provider = llm.provider(transport, name=name, model=choice.get("model"))
+                r = agent_mod.ask(qid, tids, provider, toolbox=toolbox, on_event=EVENTS[qid].append)
+                break
+            except llm.FAILOVER_ERRORS as e:
+                if i == len(names) - 1:
+                    raise
+                failovers.append({"provider": name, "error": f"{type(e).__name__}: {str(e)[:200]}"})
+                EVENTS[qid].append(f"{name} failed ({type(e).__name__}), asking {names[i + 1]} instead")
+    except llm.MissingKey as e:
+        raise HTTPException(503, {"error": "no LLM provider available", "detail": str(e), "failovers": failovers}) from None
     except llm.RateLimited as e:
         raise HTTPException(503, {"error": "rate limited", "detail": str(e), "events": EVENTS[qid]}) from None
     except llm.OutboundBlocked as e:
@@ -97,9 +125,65 @@ def ai_ask(body: dict = Body(...)) -> dict:
     except httpx.HTTPStatusError as e:   # e.g. Ollama 404 when the model is not pulled
         raise HTTPException(502, {"error": "LLM HTTP error", "detail": f"{e.response.status_code}: {e.response.text[:300]}",
                                   "events": EVENTS[qid]}) from None
-    return {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
-            "tool_calls": r.tool_calls, "events": r.events,
-            "config": toolbox.last_config, "simulation": toolbox.last_simulation}
+    out = {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
+           "tool_calls": r.tool_calls, "events": r.events,
+           "config": toolbox.last_config, "simulation": toolbox.last_simulation,
+           "seconds": round(_time.monotonic() - started, 2),
+           "llm": {"provider": name, "model": provider.model}, "failovers": failovers,
+           "tool_call_errors": list(getattr(provider, "tool_call_errors", []))}
+    if record:
+        out["record"] = {"exchanges": transport.exchanges, "tool_calls": toolbox.recorded}
+    return out
+
+
+@app.post("/ai/llm/probe")
+def ai_llm_probe(body: dict = Body(...)) -> dict:
+    """{provider, model} -> does the model return a tool call for one synthetic request? The
+    request holds no data (a fixed instruction and one tool with no arguments) and goes through
+    the outbound scan like every LLM body. Used by make llm-bench to find candidates whose
+    hosted deployment has tool calling enabled; the model list does not say."""
+    import time as _time
+
+    from agent import llm
+    name, model = body.get("provider", "nim"), body.get("model")
+    if name not in llm.PROVIDERS or not model:
+        raise HTTPException(400, "provider and model are required")
+    decl = [{"name": "get_slow_templates", "description": "Top query templates by total time.",
+             "parameters": {"type": "object", "properties": {}}}]
+    started = _time.monotonic()
+    events: list[str] = []          # retry events: each one is a 429 or 5xx the API returned
+    try:
+        p = llm.provider(name=name, model=model)
+        out = p.generate("You are a test. Call the tool get_slow_templates now; do not answer in text.",
+                         [{"role": "user", "parts": [{"text": "Call get_slow_templates."}]}], decl, on_event=events.append)
+    except llm.MissingKey as e:
+        raise HTTPException(503, str(e)) from None
+    except (llm.RateLimited, llm.MalformedReply, httpx.HTTPError) as e:
+        detail = f"{e.response.status_code}: {e.response.text[:200]}" if isinstance(e, httpx.HTTPStatusError) else str(e)
+        return {"model": model, "tool_call": False, "error": f"{type(e).__name__}: {detail}", "events": events,
+                "seconds": round(_time.monotonic() - started, 2)}
+    parts = out["candidates"][0]["content"]["parts"]
+    called = [pt["functionCall"]["name"] for pt in parts if "functionCall" in pt]
+    return {"model": model, "tool_call": called == ["get_slow_templates"], "called": called,
+            "text": "".join(pt.get("text", "") for pt in parts)[:200],
+            "tool_call_errors": list(getattr(p, "tool_call_errors", [])), "events": events,
+            "seconds": round(_time.monotonic() - started, 2)}
+
+
+@app.get("/ai/llm/models")
+def ai_llm_models(provider: str = "nim") -> dict:
+    """Model IDs the hosted provider lists (GET {base_url}/models; no request body, so nothing
+    to ledger). NIM only: Gemini's model is checked by agent/tests/test_live_llm.py."""
+    from agent import llm
+    if provider != "nim":
+        raise HTTPException(400, "only provider nim lists models here")
+    try:
+        p = llm.provider(name="nim", model="list-only")
+        return {"provider": "nim", "models": p.list_models()}
+    except llm.MissingKey as e:
+        raise HTTPException(503, str(e)) from None
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"model list failed: {type(e).__name__}") from None
 
 
 @app.get("/ai/llm")
@@ -108,7 +192,8 @@ def ai_llm() -> dict:
     ai can still reach the LLM API host)."""
     from agent import llm
     name, label = llm.provider_name(), llm.label()
-    return {"provider": name, "model": cfg("llm.ollama.model") if name == "ollama" else cfg("llm.model"),
+    model = cfg("llm.model") if name == "gemini" else cfg(f"llm.{name}.model")
+    return {"provider": name, "model": model, "fallback": llm.chain()[1:],
             "label": label, "air_gapped": label.endswith(llm.ROUTE_NONE)}
 
 
@@ -160,7 +245,13 @@ def ai_privacy_adversary(body: dict = Body(...)) -> dict:
         raise HTTPException(400, "body needs since and until")
     try:
         material = gw.get("/v1/ledger/payloads?" + urlencode({"since": body["since"], "until": body["until"]}))
-        return adversary.run(material["payloads"], llm.provider())
+        names = llm.chain()
+        for i, name in enumerate(names):
+            try:
+                return adversary.run(material["payloads"], llm.provider(name=name))
+            except llm.FAILOVER_ERRORS:
+                if i == len(names) - 1:
+                    raise
     except llm.MissingKey as e:
         raise HTTPException(503, str(e)) from None
     except llm.RateLimited as e:

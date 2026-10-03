@@ -59,6 +59,10 @@ DC="docker compose -f infra/docker-compose.yml --project-directory ."
 | `make export` | write site/results.json from the latest passing e2e run; refuses if none | `$DC run --rm -T tools python -m scripts.export_results` |
 | `make site` | build the public site into site/dist | `$DC run --rm -T tools python site/build.py` |
 | `make test-site` | exporter and site build tests | `$DC run --rm -T tools python -m pytest scripts/tests` |
+| `make llm-models` | list NVIDIA NIM models and the tool-calling candidates (needs NVIDIA_API_KEY) | `$DC run --rm -T tools python -m scripts.llm_bench models` |
+| `make llm-bench` | run Q1 on each NIM candidate, one after another, and record replay fixtures | `$DC run --rm -T tools python -m scripts.llm_bench run --provider nim` |
+| `make llm-bench-gemini` | same for the configured Gemini model | `$DC run --rm -T tools python -m scripts.llm_bench run --provider gemini` |
+| (no target) | run Q1 on one OpenAI model (needs OPENAI_API_KEY) | `$DC run --rm -T tools python -m scripts.llm_bench run --provider openai --models <id>` |
 | `make test-db` | data generation checks against the seeded pg-prod | `$DC run --rm -T tools python -m pytest db/tests` |
 | `make plans-load` | build the bench image (DSB and TPC-H kits at pinned commits), start pg-bench, load dsb, tpch and a QuickMart copy | `$DC build pg-prod`, `$DC --profile bench up -d pg-bench`, `$DC --profile bench build bench`, then `$DC --profile bench run --rm -T bench python -m db.plangen load` |
 | `make plans-sample` | the early sample of 200 plans into `data/plans/sample_200.jsonl` | `$DC --profile bench run --rm -T bench python -m db.plangen sample` |

@@ -7,7 +7,7 @@ DC := docker compose -f infra/docker-compose.yml --project-directory .
 TOOLS := $(DC) run --rm -T tools
 BENCH := $(DC) --profile bench run --rm -T bench
 
-.PHONY: keygen up down seed twin fidelity demo drift-demo e2e adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
+.PHONY: keygen up down seed twin fidelity demo drift-demo e2e adversarial export site gnn-export gnn-export-sample gnn-train-ref gnn-eval plans-load plans-sample plans plans-dedupe test-plangen test test-all test-site test-agent test-llm llm-models llm-bench llm-bench-gemini test-verify test-dashboard test-infra test-db test-gateway test-miner test-predictor test-search airgap online test-airgap
 
 ## Create .env with the HMAC key and Postgres password (never printed, never overwritten).
 keygen:
@@ -140,6 +140,19 @@ test-agent:
 ## Live Gemini tests, run in the ai container (needs GEMINI_API_KEY in .env, then make up).
 test-llm:
 	$(DC) exec -T ai python -m pytest -p no:cacheprovider -rs agent/tests/test_live_llm.py
+
+## NVIDIA NIM: list the hosted models and the tool-calling candidates (needs NVIDIA_API_KEY).
+llm-models:
+	$(TOOLS) python -m scripts.llm_bench models
+
+## Run the Q1 flow on each NIM candidate, one after another; report tool-call errors, number
+## checker and seconds; record passing runs as replay fixtures (needs make up, make seed).
+llm-bench:
+	$(TOOLS) python -m scripts.llm_bench run --provider nim
+
+## Same, for the configured Gemini model (records the Gemini replay fixture).
+llm-bench-gemini:
+	$(TOOLS) python -m scripts.llm_bench run --provider gemini
 
 ## Checksum verification on the twin (needs make up and make seed).
 test-verify:
