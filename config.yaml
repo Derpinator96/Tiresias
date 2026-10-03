@@ -44,6 +44,9 @@ workload:
   q1_runs: 5
   # Q1's parameters, from the doc's "Demo queries": region_id = 7 AND transaction_date >= this.
   q1_since: "2026-09-26"
+  # Not in the doc's table: the database role the application workload runs as. The gateway
+  # ingests only this role's queries, so test and catalog queries never become templates.
+  app_role: quickmart_app
   # Not in the doc's table: rows per COPY batch when loading sales.
   copy_batch_rows: 250000
 
@@ -67,6 +70,10 @@ gateway:
   skew_top_mcv_count: 5
   resolver_top_templates: 3
   canary_fragment_chars: 6
+  # Not in the doc's table: gateway housekeeping.
+  plans_per_template: 5
+  ledger_path: /var/lib/blind-tuner/ledger.jsonl
+  dehash_query_chars: 80
 
 miner:
   min_weighted_support: 0.05      # share of total query time
