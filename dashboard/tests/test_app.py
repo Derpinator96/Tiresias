@@ -159,6 +159,8 @@ def test_approve_panel_shows_three_files_in_dba_view_only(app):
     assert not any(e.label.endswith((".sql", ".py")) for e in app.expander)
     assert not any(REAL.search(c.value) for c in app.code)
     assert not REAL.search(text_of(app))
+
+
 FIDELITY_DOC = {"queries": [{"query": "q2", "rewrite": "date_trunc_eq_to_range", "indexes": 1,
                              "twin": {"before_ms": 900.0, "after_ms": 300.0, "speedup": 3.0},
                              "production": {"before_ms": 1000.0, "after_ms": 250.0, "speedup": 4.0},
@@ -223,6 +225,8 @@ def test_drift_trigger_reruns_the_search_with_the_new_mix(monkeypatch):
     text = text_of(at)
     assert "Drift triggered by the window ending" in text and "Q-table" in text
     assert "New recommendation: add index on" in text or any("no index worth" in i.value for i in at.info)
+
+
 ADVERSARIAL = {  # shape written by privacy_tests/adversarial.py
     "window": {"since": "2026-10-03T10:00:00+00:00", "until": "2026-10-03T10:02:00+00:00"},
     "llm": {"provider": "gemini", "model": "m", "temperature": 0, "llm_payload_id": "pay_0000abcd", "guesses_returned": 4},
@@ -250,3 +254,9 @@ def test_adversarial_panel_shows_score_baseline_and_label(monkeypatch, result):
         assert metrics["Codes the adversary named from hashed payloads"] == "2 of 4 (50%)"
         assert metrics["Random common-name guess (expected)"] == "3.1%"
         assert metrics["Plaintext payloads (upper bound)"] == "100%"
+
+
+def test_llm_in_use_is_named_on_screen(app):
+    info = data.llm_info()
+    assert info["label"].startswith("LLM: ") and info["label"] != data.LLM_UNKNOWN
+    assert info["label"] in text_of(app)

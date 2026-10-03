@@ -350,3 +350,11 @@ else:
     st.caption(f"Baseline: one uniform random guess per code from {b['table_names_listed']} common table names or "
                f"{b['column_names_listed']} common column names; a guess on a small fixed synonym list counts as correct. "
                f"Plaintext: {adv['plaintext_upper_bound']['assumption']}; {adv['plaintext_llm_control']}.")
+
+# ---- LLM in use (step 31) --------------------------------------------------------------------
+st.header("LLM in use")
+llm_info = data.llm_info()
+st.markdown(f"- {llm_info['label']}")
+if llm_info.get("air_gapped"):
+    st.caption("Air-gapped mode: ai is on internal networks only, so the AI egress line at the top of the page "
+               "describes online mode, not this one.")
