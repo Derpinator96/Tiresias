@@ -26,3 +26,4 @@ data/gnn/
 
 # local web app history (real names), host dev only
 site/web/.bt-history/
+site/web/.bt-history-removed/

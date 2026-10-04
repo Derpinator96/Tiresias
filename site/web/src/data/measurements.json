@@ -27,7 +27,7 @@
     "y_headroom": 1.1
   },
   "gnn": {
-    "source": "models/gnn/NOTES.md, 2026-10-03: 3,133 test plans from 17 unseen templates; lower is better; reference weights, never served",
+    "source": "models/gnn/results.json, 2026-10-03: 3,133 test plans from 17 unseen templates; lower is better; the trained GNN serves (it beats the Postgres baseline)",
     "metrics": [
       {
         "id": "median",
@@ -40,15 +40,15 @@
     ],
     "models": [
       {
-        "label": "reference GNN",
-        "median": 1.892,
-        "p95": 9.636,
+        "label": "GNN (serving)",
+        "median": 1.59,
+        "p95": 8.113,
         "slot": "blue"
       },
       {
         "label": "boosted trees",
-        "median": 1.786,
-        "p95": 11.785,
+        "median": 1.738,
+        "p95": 12.144,
         "slot": "orange"
       },
       {
@@ -70,7 +70,7 @@
       "before": 217.8,
       "after": 46.2
     },
-    "q3_source": "rl/NOTES.md step 32, 2026-10-03"
+    "q3_source": "rl/NOTES.md step 32, 2026-10-03, measured once on the twin; partition step off on the demo laptop (rl.partition_max_keys 0, human decision 2026-10-04)"
   },
   "fidelity": {
     "source": "db/NOTES.md, 2026-10-03, correlated twin, loaded machine; 1.0 = the twin predicts production's speedup exactly",

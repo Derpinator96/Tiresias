@@ -343,6 +343,20 @@ def private_tables(request: Request, rows: int | None = None):
     return JSONResponse(g.tables(g.snapshot(), n))
 
 
+@app.post("/v1/private/query")
+def private_query(request: Request, body: dict = Body(...)):
+    """{sql} -> {sql, columns, rows, truncated, ms}: one read-only SELECT on pg-prod for the
+    local web app's data questions (gateway/private_query.py). Rows stay on the private side."""
+    from gateway import private_query as pq
+    _not_ai(request)
+    if not isinstance(body.get("sql"), str) or not body["sql"].strip():
+        raise HTTPException(400, "sql is required")
+    try:
+        return pq.run(gw().prod_dsn, body["sql"])
+    except pq.Rejected as e:
+        raise HTTPException(400, str(e)) from None
+
+
 @app.get("/v1/twin/fidelity")
 def twin_fidelity():
     """The last `make fidelity` result (db/sandbox/fidelity.py), or null before the first run.

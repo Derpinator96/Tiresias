@@ -22,6 +22,7 @@ class AgentResult:
     unmatched: list[str] = field(default_factory=list)
     tool_calls: list[dict] = field(default_factory=list)
     events: list[str] = field(default_factory=list)
+    draft: str | None = None          # the rejected text when blocked, tags stripped; never an Answer
 
 
 def _text(content: dict) -> str:
@@ -72,6 +73,7 @@ def ask(question_id: str, template_ids: list[str], llm, toolbox: Toolbox | None 
             return AgentResult("ok", answer, [], toolbox.calls, events)
         note(f"number checker rejected: {', '.join(unmatched)}")
         if retries <= 0:
-            return AgentResult("blocked_by_checker", None, unmatched, toolbox.calls, events)
+            return AgentResult("blocked_by_checker", None, unmatched, toolbox.calls, events,
+                               number_checker.strip_tags(text).strip())
         retries -= 1
         contents.append({"role": "user", "parts": [{"text": prompts.checker_feedback(unmatched)}]})

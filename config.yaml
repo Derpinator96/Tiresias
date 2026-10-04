@@ -119,6 +119,10 @@ gateway:
   plans_per_template: 5
   ledger_path: /var/lib/blind-tuner/ledger.jsonl
   dehash_query_chars: 80
+  # /v1/private/query (local web app data questions, gateway/private_query.py): one read-only
+  # SELECT as workload.app_role; longest run and most rows returned to the DBA's browser.
+  private_query_timeout_s: 30
+  private_query_max_rows: 50
 
 miner:
   min_weighted_support: 0.05      # share of total query time

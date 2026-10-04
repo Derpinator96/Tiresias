@@ -14,6 +14,12 @@ export const LOCAL = process.env.NEXT_PUBLIC_BT_LOCAL === "1";
 const KEY = "bt.current";
 
 const stored = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+// The question being answered survives a page reload: the server keeps the job, so polling resumes.
+const RUN_KEY = "bt.running";
+type Saved = { qid: string; question: string; startedAt: number };
+const savedRun = (): Saved | null => { try { return JSON.parse(localStorage.getItem(RUN_KEY) ?? "null"); } catch { return null; } };
+const saveRun = (r: Saved | null) => { try { if (r) localStorage.setItem(RUN_KEY, JSON.stringify(r)); else localStorage.removeItem(RUN_KEY); } catch { /* private window */ } };
+
 const store = (id: string | null) => { try { if (id) localStorage.setItem(KEY, id); else localStorage.removeItem(KEY); } catch { /* private window */ } };
 
 type S = {
@@ -30,6 +36,8 @@ type S = {
   start: (question: string) => Promise<string | null>;  // null on success, else the error text
   /** Plays the selected saved bundle back through `running`, with no service call. */
   replay: () => string | null;
+  /** Picks up a question that was running before a page reload. */
+  resume: () => void;
 };
 
 export type Running = {
@@ -43,8 +51,45 @@ export type Running = {
 };
 const FRESH_MS = 6000;
 
-export const useContextStore = create<S>()((set, get) => ({
+export const useContextStore = create<S>()((set, get) => {
+  const follow = ({ qid, question, startedAt }: Saved) => {
+    saveRun({ qid, question, startedAt });
+    set({ running: { qid, question, startedAt, events: [], stage: "source", reached: ["source"], answered: false, error: null, job: null } });
+    const tick = async () => {
+      const run = get().running;
+      if (!run || run.qid !== qid) return;
+      let st: Record<string, unknown> & { events?: string[]; done?: boolean; bundle_ready?: boolean; ask?: unknown; error?: string; poll_ms?: number };
+      try {
+        const r = await askApi!.get(qid);
+        st = r.body;
+        if (!r.ok) { saveRun(null); set({ running: { ...run, error: (st.error as string) ?? `HTTP ${r.status}` } }); return; }
+      } catch {
+        setTimeout(tick, 2000);
+        return;
+      }
+      // events stop arriving once the answer is back (askState sends []), so keep the last list
+      const events = st.events?.length ? st.events : run.events;
+      const answered = !!st.ask, done = !!st.done && !!st.bundle_ready;
+      set({ running: { ...run, events, answered, job: st, answeredAt: run.answeredAt ?? (answered ? Date.now() : undefined), error: (st.error as string) ?? null,
+        stage: stageOf(events, answered, done), reached: [...reached(events, answered, done)] } });
+      if (done) {
+        saveRun(null);
+        await get().refresh();
+        await get().select(qid);
+        set({ running: null, fresh: qid });
+        setTimeout(() => { if (get().fresh === qid) set({ fresh: null }); }, FRESH_MS);
+        return;
+      }
+      setTimeout(tick, typeof st.poll_ms === "number" ? st.poll_ms : 1000);
+    };
+    void tick();
+  };
+  return {
   list: [], current: null, loaded: false, loading: false, running: null, fresh: null,
+  resume: () => {
+    const r = savedRun();
+    if (LOCAL && askApi && r && !get().running) follow(r);
+  },
   start: async (question) => {
     if (!LOCAL || !askApi) return "live Ask is off in this build";
     if (get().running && !get().running?.error) return "a question is already running";
@@ -56,34 +101,7 @@ export const useContextStore = create<S>()((set, get) => ({
     } catch (e) {
       return e instanceof Error ? e.message : String(e);
     }
-    set({ running: { qid, question, startedAt: Date.now(), events: [], stage: "source", reached: ["source"], answered: false, error: null, job: null } });
-    const tick = async () => {
-      const run = get().running;
-      if (!run || run.qid !== qid) return;
-      let st: Record<string, unknown> & { events?: string[]; done?: boolean; bundle_ready?: boolean; ask?: unknown; error?: string; poll_ms?: number };
-      try {
-        const r = await askApi.get(qid);
-        st = r.body;
-        if (!r.ok) { set({ running: { ...run, error: (st.error as string) ?? `HTTP ${r.status}` } }); return; }
-      } catch {
-        setTimeout(tick, 2000);
-        return;
-      }
-      // events stop arriving once the answer is back (askState sends []), so keep the last list
-      const events = st.events?.length ? st.events : run.events;
-      const answered = !!st.ask, done = !!st.done && !!st.bundle_ready;
-      set({ running: { ...run, events, answered, job: st, answeredAt: run.answeredAt ?? (answered ? Date.now() : undefined), error: (st.error as string) ?? null,
-        stage: stageOf(events, answered, done), reached: [...reached(events, answered, done)] } });
-      if (done) {
-        await get().refresh();
-        await get().select(qid);
-        set({ running: null, fresh: qid });
-        setTimeout(() => { if (get().fresh === qid) set({ fresh: null }); }, FRESH_MS);
-        return;
-      }
-      setTimeout(tick, typeof st.poll_ms === "number" ? st.poll_ms : 1000);
-    };
-    void tick();
+    follow({ qid, question, startedAt: Date.now() });
     return null;
   },
   replay: () => {
@@ -117,7 +135,9 @@ export const useContextStore = create<S>()((set, get) => ({
       if (!r.ok) return;
       const list: BundleSummary[] = await r.json();
       set({ list, loaded: true });
-      const want = stored() && list.some((b) => b.id === stored()) ? stored() : list[0]?.id ?? null;
+      // first visit: the best saved answer (checker passed, largest twin speedup), else the newest
+      const best = list.filter((b) => b.ok && b.speedup_pct !== null).sort((a, b) => b.speedup_pct! - a.speedup_pct!)[0];
+      const want = stored() && list.some((b) => b.id === stored()) ? stored() : best?.id ?? list[0]?.id ?? null;
       if (want !== (get().current?.id ?? null)) await get().select(want);
     } catch {
       set({ loaded: true });
@@ -132,13 +152,14 @@ export const useContextStore = create<S>()((set, get) => ({
     } catch { /* fall through */ }
     set({ loading: false });
   },
-}));
+  };
+});
 
 /** The selected bundle, or null (public build, nothing asked yet, or still loading). Fetches the
  *  history once per page load. */
 export function useBundle(): Bundle | null {
-  const { current, loaded, refresh } = useContextStore();
-  useEffect(() => { if (LOCAL && !loaded) void refresh(); }, [loaded, refresh]);
+  const { current, loaded, refresh, resume } = useContextStore();
+  useEffect(() => { if (LOCAL && !loaded) { void refresh(); resume(); } }, [loaded, refresh, resume]);
   return LOCAL ? current : null;
 }
 

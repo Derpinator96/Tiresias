@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { Bento, BigNumber, ChartCard, Flow, Gauge, HBars, LineChart, PartBar, SERIES } from "@/components/viz/charts";
 import { Waterfall } from "@/components/viz/waterfall";
-import { CODE, CONFIG } from "@/lib/facts";
+import { CODE, CONFIG, writeShare } from "@/lib/facts";
 import type { RunView } from "@/lib/run-view";
 import { q1Spans } from "@/lib/spans";
 import type { StageId } from "@/lib/stages";
@@ -150,6 +150,7 @@ function Twin() {
       </ChartCard>
       <ChartCard title="Speedup on the twin" caption={`${v.src.twin}; median of ${v.runs ?? "?"} runs`} className={S4}>
         {v.speedupPct === null ? <BigNumber value={NA} label="speedup" /> : <Gauge value={v.speedupPct} digits={1} unit="%" label="faster on the twin" />}
+        {v.twinTag && <p className="mt-1 text-center text-xs text-slate-600">{v.twinTag}</p>}
       </ChartCard>
       <ChartCard title="Twin fidelity" caption={m.fidelity.source} className={S6}>
         <HBars digits={3} max={m.fidelity.exact} refLine={{ value: m.fidelity.exact, label: "exact" }} bars={m.fidelity.queries.map((q) => ({ label: q.label, value: q.value, color: SERIES.blue }))} />
@@ -157,7 +158,7 @@ function Twin() {
       <ChartCard title="Cost of the change" caption={`storage: ${v.src.twin}; write cost: ${v.src.writeCost}; checksum: ${v.src.checksum}`} className={S6}>
         <div className="flex flex-wrap gap-8">
           <BigNumber value={fmt(v.storageMb, " MB")} label="on disk" />
-          <BigNumber value={`+${v.writeCostMs} ms`} label="per insert" />
+          <BigNumber value={`+${v.writeCostMs} ms`} label={`per insert${v.twinTag ? " (assumed per-index penalty unless replayed)" : ""}, ${writeShare(v.writeCostMs)}`} />
           <BigNumber value={v.checksumMatch ? "match" : "differs"} label="result checksum" tone="good" />
         </div>
       </ChartCard>

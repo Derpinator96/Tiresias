@@ -18,6 +18,7 @@ export type RunRecord = {
 /** What the public build shows: the run record and the hand-written facts (src/lib/facts.ts). */
 export type Fallback = {
   run: RunRecord;
+  servingLabel?: string;              // the estimator serving now, when it differs from the run record's
   table: string; columns: string[];   // the illustrative codes of the Q1 index
   sql: string;                        // Q1 as the AI side receives it
   migration: string; rollback: string;
@@ -41,6 +42,7 @@ export type RunView = {
   llm: { provider: string; model: string; toolCalls: number | null; seconds: number | null; numbersChecked: number | null; checker: string | null };
   searchLabel: string; estimatorLabel: string;
   predictedBefore: number | null; predictedAfter: number | null;
+  twinTag: string | null;               // shown beside twin numbers that may be an estimate
   twinBefore: number | null; twinAfter: number | null; speedupPct: number | null; storageMb: number | null; runs: number | null;
   checksumMatch: boolean; writeCostMs: number;
   recommendedColumns: number; indexCols: string;   // "(col, col)" of the first add_index action
@@ -51,6 +53,13 @@ export type RunView = {
   events: string[];
   src: { prod: string; twin: string; ledger: string; predicted: string; threshold: string; checksum: string; writeCost: string; sql: string; search: string; llm: string; hero: string };
 };
+
+/** Where the twin numbers of an Ask come from, by config.yaml sandbox.twin_mode at ask time.
+ *  Bundles saved before the mode was recorded were made in the default recorded mode. */
+export function twinNote(mode: string | undefined): string {
+  return mode === "live" ? "measured on the twin"
+    : "recorded twin mode: replayed from an earlier twin measurement, or estimated from HypoPG costs when this fix was never measured";
+}
 
 const nameOf = (b: Bundle, code: string) => b.names[code] ?? code;
 /** A column code's real name is "table.column"; the column alone is what an index line shows. */
@@ -74,9 +83,10 @@ export function viewOf(b: Bundle | null, fb: Fallback): RunView {
       meanBefore: r.q1.mean_ms_before, slowThresholdMs: r.q1.slow_threshold_ms,
       payloads: r.privacy.payloads, llmPayloads: r.privacy.llm_payloads, canaryHits: r.privacy.canary_hits, canariesPlanted: r.privacy.canaries_planted, blocked: null,
       llm: { provider: r.llm.provider, model: r.llm.model, toolCalls: r.llm.tool_calls, seconds: null, numbersChecked: r.llm.numbers_checked, checker: null },
-      searchLabel: r.search.label, estimatorLabel: r.search.estimator_label,
+      searchLabel: r.search.label,
+      estimatorLabel: fb.servingLabel ? `${fb.servingLabel} (serving now; ${r.run_id} predicted with ${r.search.estimator_label.replace(/^estimator:\s*/, "")})` : r.search.estimator_label,
       predictedBefore: r.search.predicted_before_ms, predictedAfter: r.search.predicted_after_ms,
-      twinBefore: r.twin.before_ms, twinAfter: r.twin.after_ms, speedupPct: r.twin.speedup_pct, storageMb: r.twin.storage_mb, runs: r.twin.runs,
+      twinTag: null, twinBefore: r.twin.before_ms, twinAfter: r.twin.after_ms, speedupPct: r.twin.speedup_pct, storageMb: r.twin.storage_mb, runs: r.twin.runs,
       checksumMatch: r.twin.checksum_match, writeCostMs: fb.writeCostMs,
       recommendedColumns: r.search.recommended_columns, indexCols: `(${fb.columns.join(", ")})`,
       actions: [`add index on ${fb.table} (${fb.columns.join(", ")})`],
@@ -124,6 +134,7 @@ export function viewOf(b: Bundle | null, fb: Fallback): RunView {
     estimatorLabel: b.rl?.estimator_label ?? b.estimator?.label ?? r.search.estimator_label,
     predictedBefore: hasRl ? b.rl!.baseline_predicted_ms : r.search.predicted_before_ms,
     predictedAfter: hasRl ? b.rl!.final_predicted_ms : r.search.predicted_after_ms,
+    twinTag: b.sim && b.job.twin_mode !== "live" ? "recorded mode: replayed or a HypoPG estimate" : null,
     twinBefore: simRow?.before_ms ?? null, twinAfter: simRow?.after_ms ?? null, speedupPct: speedup,
     storageMb: b.sim?.storage_mb_delta ?? null, runs: b.sim?.runs ?? null,
     checksumMatch: r.twin.checksum_match, writeCostMs: writeCost ?? fb.writeCostMs,
@@ -135,12 +146,13 @@ export function viewOf(b: Bundle | null, fb: Fallback): RunView {
     events: b.events,
     src: {
       prod: `${bid}, pg_stat_statements on pg-prod at ask time`,
-      twin: b.sim ? `${bid}, measured on the twin, median of ${b.sim.runs} runs` : `${bid}: no twin measurement`,
+      twin: b.sim ? `${bid}, ${twinNote(b.job.twin_mode)}, median of ${b.sim.runs} runs` : `${bid}: no twin measurement`,
       ledger: `${bid}, gateway ledger counts after minus before the question`,
       predicted: hasRl ? `${bid}, ${b.rl!.estimator_label}` : noRl,
       threshold: `config.yaml workload.slow_query_ms (not in the bundle)`,
       checksum: `${r.run_id} (checksum_match is not in the bundle)`,
-      writeCost: writeCost === null ? `${fb.writeCostSource} (not in the bundle)` : `${bid}, pgbench on the twin`,
+      writeCost: writeCost === null ? `${fb.writeCostSource} (not in the bundle)`
+        : b.job.twin_mode === "live" ? `${bid}, pgbench on the twin` : `${bid}, pgbench on the twin if replayed, else the assumed per-index write penalty`,
       sql: `${bid}, real names from the gateway (local only)`, search: hasRl ? bid : noRl, llm: `${bid}, /ai/ask`,
       hero: hero ? `${bid}, /v1/meta/tables (rounded)` : `${bid}: no table metadata`,
     },

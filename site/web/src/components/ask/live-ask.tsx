@@ -8,6 +8,9 @@ import type { AskJob } from "@/lib/ask-shared";
 import { useBundle, useContextStore, type Running } from "@/lib/context";
 import { Bento, Gauge, useCountUp, useGrown } from "@/components/viz/charts";
 import { glitchFrame } from "@/lib/glitch";
+import { flagNumbers } from "@/lib/flag";
+import { twinNote } from "@/lib/run-view";
+import { Bad, DataAsk } from "@/components/ask/data-ask";
 import { ORDER } from "@/lib/progress";
 import { STAGES, STAGE_ICON } from "@/lib/stages";
 import { cn } from "@/lib/utils";
@@ -15,12 +18,14 @@ import { cn } from "@/lib/utils";
 const PAGES = [["Open in Playground", "/playground"], ["GNN", "/gnn"], ["Hashing", "/hashing"], ["Stage pages", "/stages/source"]];
 const seg = (on: boolean) => cn("h-7 pill px-2.5 text-sm", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
 
-/** Error and blocked states: off-white, ink text, one signal dot (the dot is the only colour). */
-function Bad({ children }: { children: React.ReactNode }) {
+/** A blocked answer's draft with each rejected number marked. */
+function Draft({ text, unmatched }: { text: string; unmatched: string[] }) {
   return (
-    <div className="inset-field flex items-start gap-2 p-3 text-sm text-ink">
-      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-signal" aria-hidden /> <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
-    </div>
+    <p className="inset-field max-h-96 overflow-auto whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">
+      {flagNumbers(text, unmatched).map((p, i) => p.flagged
+        ? <mark key={i} className="rounded bg-signal-soft px-0.5 font-semibold text-signal">{p.text}</mark>
+        : <span key={i}>{p.text}</span>)}
+    </p>
   );
 }
 
@@ -90,7 +95,15 @@ function Result({ job, live, flash = false, llmTime }: { job: AskJob; live: bool
           {a.status !== 200 ? (
             <Bad>The LLM did not answer: {a.detail}</Bad>
           ) : a.checker !== "ok" ? (
-            <Bad>Answer blocked: numbers not in any tool result ({a.unmatched?.join(", ")}).</Bad>
+            <div className="space-y-2">
+              <Bad>Answer blocked by the number checker: {a.unmatched?.join(", ")} {a.unmatched?.length === 1 ? "is" : "are"} in no tool result.</Bad>
+              {(aiView ? a.hashed : a.real) && (
+                <>
+                  <p className="text-xs text-slate-600">The LLM&apos;s draft, not verified. Highlighted numbers are in no tool result; everything else on this page comes from the tools.</p>
+                  <Draft text={(aiView ? a.hashed : a.real) ?? ""} unmatched={a.unmatched ?? []} />
+                </>
+              )}
+            </div>
           ) : (
             <AnswerText text={(aiView ? a.hashed : a.real) ?? ""} />
           )}
@@ -105,8 +118,9 @@ function Result({ job, live, flash = false, llmTime }: { job: AskJob; live: bool
           <>
             <section className={cn("space-y-2 rounded-3xl bg-rose p-5 text-ink", flash && "fresh-flash")}>
               <h3 className="text-sm font-semibold">Time saved on the twin</h3>
+              {job.twin_mode !== "live" && <p className="text-xs text-slate-700">Recorded mode: replayed from an earlier twin run, or estimated from HypoPG costs if this fix was never measured.</p>}
               {job.results.map((t) => <SavedTime key={t.template_id} t={t} label={aiView ? t.template_id : t.label} />)}
-              <Source>synthetic {job.rows ? `${job.rows.toLocaleString("en-US")}-row ` : ""}twin, median of {job.sim?.runs} runs; not production</Source>
+              <Source>synthetic {job.rows ? `${job.rows.toLocaleString("en-US")}-row ` : ""}twin, {twinNote(job.twin_mode)}, median of {job.sim?.runs} runs; not production</Source>
             </section>
             {best !== null && <div className={cn("glass p-5", flash && "fresh-flash")}><Gauge value={best} unit="%" label="best speedup on the twin" /></div>}
           </>
@@ -200,6 +214,20 @@ function Progress() {
 // itself lives in the context store (one poller, src/lib/context.ts), so leaving this page does not
 // lose it; once it lands, the new bundle is selected and renders here like any history entry.
 export function LiveAsk() {
+  const [mode, setMode] = useState<"tune" | "data">("tune");
+  return (
+    <div className="space-y-3">
+      <div className="glass-subtle inline-flex pill p-0.5" role="tablist" aria-label="Question type">
+        {([["tune", "Why is it slow?"], ["data", "Ask the data"]] as const).map(([m, text]) => (
+          <button key={m} role="tab" aria-selected={mode === m} onClick={() => setMode(m)} className={seg(mode === m)}>{text}</button>
+        ))}
+      </div>
+      {mode === "data" ? <DataAsk /> : <TuneAsk />}
+    </div>
+  );
+}
+
+function TuneAsk() {
   const { running, fresh, start, replay } = useContextStore();
   const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);

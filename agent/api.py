@@ -125,7 +125,7 @@ def ai_ask(body: dict = Body(...)) -> dict:
     except httpx.HTTPStatusError as e:   # e.g. Ollama 404 when the model is not pulled
         raise HTTPException(502, {"error": "LLM HTTP error", "detail": f"{e.response.status_code}: {e.response.text[:300]}",
                                   "events": EVENTS[qid]}) from None
-    out = {"status": r.status, "answer": r.answer, "unmatched": r.unmatched,
+    out = {"status": r.status, "answer": r.answer, "unmatched": r.unmatched, "draft": r.draft,
            "tool_calls": r.tool_calls, "events": r.events,
            "config": toolbox.last_config, "simulation": toolbox.last_simulation,
            "seconds": round(_time.monotonic() - started, 2),
@@ -134,6 +134,29 @@ def ai_ask(body: dict = Body(...)) -> dict:
     if record:
         out["record"] = {"exchanges": transport.exchanges, "tool_calls": toolbox.recorded}
     return out
+
+
+@app.post("/ai/sql")
+def ai_sql(body: dict = Body(...)) -> dict:
+    """{question, schema: [{table, columns: [{name, type}]}]} -> {explanation, sql, llm, seconds}.
+    Data questions from the local web app (agent/sql_answer.py): names and types only, no rows."""
+    import time as _time
+
+    from agent import llm, sql_answer
+    from common.config import cfg
+    q, schema = body.get("question"), body.get("schema")
+    if not isinstance(q, str) or not q.strip() or not isinstance(schema, list) or not schema:
+        raise HTTPException(400, "question and schema are required")
+    started = _time.monotonic()
+    try:
+        out = sql_answer.ask_sql(q.strip(), schema, int(cfg("gateway.private_query_max_rows")))
+    except llm.MissingKey as e:
+        raise HTTPException(503, {"error": "no LLM provider available", "detail": str(e)}) from None
+    except llm.OutboundBlocked as e:
+        raise HTTPException(403, {"error": "LLM request blocked by canary scan", "payload_id": e.entry["payload_id"]}) from None
+    except llm.FAILOVER_ERRORS as e:
+        raise HTTPException(503, {"error": type(e).__name__, "detail": str(e)[:300]}) from None
+    return {**out, "seconds": round(_time.monotonic() - started, 2)}
 
 
 @app.post("/ai/llm/probe")

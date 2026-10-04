@@ -189,6 +189,12 @@ def test_invented_number_retried_once_then_blocked():
     assert "do not appear" in model.requests[1][-1]["parts"][0]["text"]
 
 
+def test_blocked_answer_keeps_the_rejected_draft():
+    bad = {"role": "model", "parts": [{"text": "This is 85% faster."}]}
+    r = agent_mod.ask("qn_00000001", [], ScriptedLLM([bad, bad]), FakeTools())
+    assert r.status == "blocked_by_checker" and r.answer is None and r.draft == "This is 85% faster."
+
+
 def test_retry_can_recover():
     model = ScriptedLLM([call("get_slow_templates"), {"role": "model", "parts": [{"text": "About 25 ms."}]}, answer_citing_last_tool_after_feedback])
     r = agent_mod.ask("qn_00000001", [], model, FakeTools())

@@ -78,6 +78,19 @@ test("a blocked answer is not dehashed", async () => {
   assert.deepEqual(j.ask.unmatched, ["85"]);
 });
 
+test("a blocked answer's draft is kept and dehashed so the page can flag its numbers", async () => {
+  const f = fakes({ checker: "blocked_by_checker" });
+  const ai = async (path, body) => {
+    const r = await f.ai(path, body);
+    return path === "/ai/ask" ? { ...r, body: { ...r.body, answer: null, draft: "Index t_00000001 saves 85 ms." } } : r;
+  };
+  const j = job();
+  await runJob(j, f.gateway, ai);
+  assert.equal(j.ask.checker, "blocked_by_checker");
+  assert.equal(j.ask.hashed, "Index t_00000001 saves 85 ms.");
+  assert.equal(j.ask.real, "Index shop saves 85 ms.");
+});
+
 test("a failed step is reported, never left waiting", async () => {
   const f = fakes({ askStatus: 503 });
   const ai = async (path, body) => (path === "/ai/rl/run" ? { status: 500, body: {} } : f.ai(path, body));

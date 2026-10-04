@@ -3,7 +3,10 @@
 // Copy comes from docs/architecture.md (components 1 to 8) and the NOTES.md files, with the demo
 // database's real names left out (public pages never show them).
 import { ClipboardCheck, Cpu, Database, FlaskConical, Grid3x3, MessageSquareCode, Pickaxe, ShieldCheck } from "lucide-react";
-import { CANARIES, CODES_LABEL, CONFIG, INDEX_COLS, WRITE_COST, run } from "@/lib/facts";
+import { CANARIES, CODES_LABEL, CONFIG, GNN_SERVING, INDEX_COLS, WRITE_COST, run, writeShare } from "@/lib/facts";
+import measurements from "@/data/measurements.json";
+
+const [GNN_M, GBT_M, PG_M] = measurements.gnn.models;
 
 export const STAGES = [
   { id: "source", title: "Postgres Source" },
@@ -151,7 +154,7 @@ export const STAGE_COPY: Record<StageId, StageCopy> = {
   },
 
   gnn: {
-    heading: "Postgres cost x calibration serves until GNN scores",
+    heading: "The trained GNN serves: it beats Postgres's own estimate",
     steps: [
       "Input: EXPLAIN plan tree on a HypoPG index; operator, rows, cost; no names.",
       "Model: PyTorch attention over node and children, 3 layers, hidden 128.",
@@ -161,13 +164,13 @@ export const STAGE_COPY: Record<StageId, StageCopy> = {
     figures: [
       { label: "predicted Q1 before", value: ms(run.search.predicted_before_ms), source: `${run.run_id}, ${run.search.estimator_label}` },
       { label: "predicted Q1 after", value: ms(run.search.predicted_after_ms), source: `${run.run_id}, same estimator` },
-      { label: "median q-error, reference GNN", value: "1.892", source: "models/gnn/NOTES.md, 2026-10-03: 3,133 test plans, 17 unseen templates; never served" },
-      { label: "median q-error, gradient boosting", value: "1.786", source: "same test set (scikit-learn HistGradientBoosting)" },
-      { label: "median q-error, Postgres", value: "3.266", source: "same test set" },
-      { label: "p95 q-error, GNN / boosting / Postgres", value: "9.636 / 11.785 / 25.601", source: "same test set" },
+      { label: "median q-error, GNN (serving)", value: String(GNN_M.median), source: "models/gnn/results.json, 2026-10-03: 3,133 test plans, 17 unseen templates" },
+      { label: "median q-error, gradient boosting", value: String(GBT_M.median), source: "same test set (scikit-learn HistGradientBoosting)" },
+      { label: "median q-error, Postgres", value: String(PG_M.median), source: "same test set" },
+      { label: "p95 q-error, GNN / boosting / Postgres", value: `${GNN_M.p95} / ${GBT_M.p95} / ${PG_M.p95}`, source: "same test set" },
     ],
     status: [
-      { state: "SIMPLIFIED", text: run.search.estimator_label },
+      { state: "REAL", text: `${GNN_SERVING}; Postgres cost x calibration is the fallback. ${run.run_id} predates it (${run.search.estimator_label}).` },
       { state: "REAL", text: "Features, export, model, scoring, serving switch (models/gnn/)." },
     ],
     failures: [
@@ -192,11 +195,12 @@ export const STAGE_COPY: Record<StageId, StageCopy> = {
       { label: "alpha, gamma, episodes", value: `${CONFIG.alpha}, ${CONFIG.gamma}, ${CONFIG.episodes}`, source: "config.yaml rl.*" },
       { label: "Q1 search, 10M rows", value: "120.0 to 39.3 ms predicted", source: "rl/NOTES.md, 2026-10-03: 300 episodes in about 2 s, 8 configurations costed" },
       { label: "chosen config, measured drop", value: "0.70", source: "rl/NOTES.md, 2026-10-03, index plus two rewrites, twin, loaded machine" },
-      { label: "Q3 with monthly partitions", value: "217.8 to 46.2 ms", source: "rl/NOTES.md step 32, twin; storage +87 MB, write +0.058 ms" },
+      { label: "Q3 with monthly partitions", value: "217.8 to 46.2 ms", source: "rl/NOTES.md step 32, measured once on the twin 2026-10-03; storage +87 MB, write +0.058 ms. Off on the demo laptop: rl.partition_max_keys 0 (human decision 2026-10-04)" },
       { label: "cold search", value: "120 to 145 s", source: "rl/NOTES.md, 2026-10-03, loaded laptop; cached afterwards" },
     ],
     status: [
-      { state: "REAL", text: "Tabular Q-learning, top-3 twin re-check, partition step." },
+      { state: "REAL", text: "Tabular Q-learning, top-3 twin re-check." },
+      { state: "SIMPLIFIED", text: "Partition step built and tested (rl/tests/test_partition.py) but off on the demo laptop: a cold search ran past 300 s." },
       { state: "MISSING", text: "Drop-index action." },
       { state: "SIMPLIFIED", text: `${run.run_id} predates rewrites and re-check: "${run.search.label}".` },
     ],
@@ -249,7 +253,7 @@ export const STAGE_COPY: Record<StageId, StageCopy> = {
       { label: "Q1 on the twin", value: `${ms(run.twin.before_ms)} to ${ms(run.twin.after_ms)}`, source: `${run.run_id}, median of ${run.twin.runs}, CPU loaded by plan generation` },
       { label: "faster", value: `${run.twin.speedup_pct}%`, source: run.run_id },
       { label: "index size", value: `${run.twin.storage_mb} MB`, source: run.run_id },
-      { label: "write cost per insert", value: `+${WRITE_COST.medianMs} ms`, source: `db/NOTES.md, 2026-10-03, median of ${WRITE_COST.runs} pgbench runs, cold index` },
+      { label: "write cost per insert", value: `+${WRITE_COST.medianMs} ms, ${writeShare(WRITE_COST.medianMs)}`, source: `db/NOTES.md, 2026-10-03, median of ${WRITE_COST.runs} pgbench runs, cold index; the insert range is the same runs without the index` },
       { label: "twin fidelity Q1 / Q2 / two-region", value: "0.763 / 0.987 / 0.951", source: "db/NOTES.md, 2026-10-03, correlated twin, loaded machine; 1.0 is exact" },
       { label: "Q2 rewrite alone", value: "63.5% faster", source: "gateway/NOTES.md, 2026-10-03; correlated twin 22% to 45%" },
     ],

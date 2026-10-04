@@ -9,6 +9,7 @@ export type TemplateResult = { template_id: string; label: string; before_ms: nu
 export type AskJob = {
   question_id: string;
   template_ids: string[];
+  twin_mode?: string;               // config.yaml sandbox.twin_mode when asked (live or recorded)
   done: boolean;
   ask?: { status: number; detail?: string; checker?: string; unmatched?: string[]; hashed?: string; real?: string; tool_calls?: number };
   config?: unknown;
@@ -75,8 +76,11 @@ export async function runJob(job: AskJob, gateway: Call, ai: Call): Promise<void
     job.ask = good
       ? { status: 200, checker: body.status, unmatched: body.unmatched ?? [], hashed: body.answer?.text ?? "", tool_calls: body.tool_calls }
       : { status: r.status, detail: errorLine(r.status, body) };
-    if (good && body.status === "ok" && body.answer?.text) {
-      job.ask.real = (await ok(gateway, "/v1/answers/dehash", { question_id: job.question_id, text: body.answer.text, numbers: [] })).text;
+    // a blocked answer keeps its rejected draft (agent/agent.py), shown with the numbers flagged
+    const text = good && body.status === "ok" ? body.answer?.text : good && body.status === "blocked_by_checker" ? body.draft : null;
+    if (text) {
+      job.ask.hashed = text;
+      job.ask.real = (await ok(gateway, "/v1/answers/dehash", { question_id: job.question_id, text, numbers: [] })).text;
     }
     let config = good ? body.config : null;
     let sim = good ? body.simulation : null;

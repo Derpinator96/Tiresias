@@ -431,7 +431,7 @@ function DbaSheet() {
       </div>
       <button disabled={!ready} onClick={authorize}
         className="mt-3 h-9 w-full rounded-full bg-ink text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
-        {authorizedAt ? `Authorized at ${authorizedAt}` : ready ? "Authorize deployment" : `Tick all 4 gates (${gates.filter(Boolean).length} of 4)`}
+        {authorizedAt ? `Noted at ${authorizedAt} in this browser; nothing was deployed` : ready ? "Authorize deployment (noted in this browser only)" : `Tick all 4 gates (${gates.filter(Boolean).length} of 4)`}
       </button>
       <Source>recorded in this browser only; the DBA runs migration.sql with psql</Source>
     </>

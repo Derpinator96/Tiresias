@@ -1,6 +1,7 @@
 // Every figure the playground shows, with its source. The run record is an exact copy of
 // runs/latest.json (gitignored, so copied here). Anything not in it names its own source.
 import run from "@/data/run_d1b30d38.json";
+import measurements from "@/data/measurements.json";
 
 export { run };
 
@@ -31,6 +32,16 @@ export const QOR_REWRITTEN = `SELECT SUM(${CODE.sum})\nFROM ${CODE.table}\nWHERE
 
 // db/NOTES.md 2026-10-03: Q1 index on the 10M twin, 6 pgbench runs on a loaded machine.
 export const WRITE_COST = { medianMs: 0.032, runs: 6, baseLo: 0.23, baseHi: 0.51 };
+
+/** Added insert time as a share of one insert without the index (db/NOTES.md baseline range). */
+export function writeShare(addedMs: number): string {
+  const p = (base: number) => Math.round((addedMs / base) * 100);
+  return `${p(WRITE_COST.baseHi)}% to ${p(WRITE_COST.baseLo)}% of a ${WRITE_COST.baseLo} to ${WRITE_COST.baseHi} ms insert`;
+}
+
+// models/gnn/results.json via measurements.json: the estimator that serves now (models/gnn/predictor.py load_predictor).
+const GNN = measurements.gnn.models[0];
+export const GNN_SERVING = `estimator: GNN, median q-error ${GNN.median} on unseen templates`;
 
 // db/canaries.py PLACEMENTS: id = cn_ + first 8 hex of SHA-256 of the value. Values are never shown.
 export const CANARIES: [string, string, string][] = [

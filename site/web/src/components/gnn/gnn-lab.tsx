@@ -7,7 +7,7 @@ import { Source } from "@/components/playground/bits";
 import { argmax, layout, misestimate, numericFeatures, opIndex, planOptions, predictedShares, qError, reach, shares, type PlanNode } from "@/lib/gnn";
 import { name, useBundle } from "@/lib/context";
 import type { Bundle, Explain, Prediction } from "@/lib/bundle";
-import { run } from "@/lib/facts";
+import { GNN_SERVING, run } from "@/lib/facts";
 import plans from "@/data/gnn_plans.json";
 import spec from "@/data/gnn_spec.json";
 import m from "@/data/measurements.json";
@@ -33,7 +33,7 @@ type Option = { id: string; label: string; nodes: PlanNode[]; prediction?: Predi
 
 /** One plan per picker entry: the bundle's logged plans (plans[tid][0]) or the illustrative ones. */
 function options(b: Bundle | null): Option[] {
-  if (!b || !planOptions(b).length) return plans.plans.map((p) => ({ id: p.id, label: p.label, nodes: p.nodes as PlanNode[] }));
+  if (!b || !planOptions(b).length) return plans.plans.filter((p) => !("invented" in p)).map((p) => ({ id: p.id, label: p.label, nodes: p.nodes as PlanNode[] }));
   const indexed = b.config?.actions.some((a) => a.type === "add_index");
   return planOptions(b).map(({ tid, label }) => ({
     id: tid, label, nodes: b.plans[tid][0].nodes, prediction: b.predictions[tid], explain: b.explain[tid],
@@ -149,7 +149,7 @@ function Lab({ b }: { b: Bundle | null }) {
         <div className="flex min-w-0 flex-col gap-3 md:col-span-8">
           <ChartCard className="flex-1" title={`${variant === "hypopg" ? "Plan tree with the index" : "Plan tree"}, coloured by ${MODE_LABEL[mode]} share`} caption={b
             ? <>logged auto_explain plan, bundle {b.id}{mode === "gnn" ? `; predicted share: ${b.estimator?.label ?? opt.prediction?.estimator}` : ""}{variant === "hypopg" ? "; HypoPG plan, no actual rows or times" : ""}; AI-side labels are the gateway&apos;s HMAC codes</>
-            : <>illustrative plans, not from {run.run_id}: {plans._source}</>}>
+            : <>illustrative plan from docs/architecture.md, not from {run.run_id}; codes are illustrative. Ask a question to see real logged plans</>}>
             <div ref={wrap} className="inset-field max-h-[70vh] overflow-auto rounded-lg" onMouseLeave={() => setHl(null)}>
               <div className="relative mx-auto" style={{ width: treeW, height: treeH }}>
                 <svg className="absolute inset-0" width={treeW} height={treeH} aria-hidden>
@@ -321,7 +321,7 @@ function Lab({ b }: { b: Bundle | null }) {
                 )}
                 <Gauge value={gnnRef.median} min={1} max={pgRef.median} digits={2} label={`${gnnRef.label} median q-error`} />
                 <div className="text-center text-xs text-slate-700">full dial: {pgRef.label} {pgRef.median}</div>
-                <span className="inline-block max-w-full truncate pill bg-white/70 px-3 py-1 font-mono text-xs">serving: {b?.estimator?.label ?? run.search.estimator_label}</span>
+                <span className="inline-block max-w-full truncate pill bg-white/70 px-3 py-1 font-mono text-xs">serving: {b?.estimator?.label ?? GNN_SERVING}</span>
                 <Source>measured: sum of node self_ms in the logged plan; q-error is max over min. Dial: {m.gnn.source}. The GNN serves only when its scored median q-error is below Postgres&apos;s.</Source>
               </div>
               <div className="glass space-y-2 p-4">

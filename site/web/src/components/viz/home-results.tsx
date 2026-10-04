@@ -9,6 +9,7 @@ import { Architecture } from "@/components/viz/architecture";
 import { Bento, Gauge, useCountUp, useGrown } from "@/components/viz/charts";
 import { Source } from "@/components/playground/bits";
 import { useContextStore } from "@/lib/context";
+import { writeShare } from "@/lib/facts";
 import { q1Spans } from "@/lib/spans";
 import { useView } from "@/lib/view";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,7 @@ export function HomeResults({ hero }: { hero: ReactNode }) {
           ? <p className="mt-2 text-sm text-slate-600">No twin measurement in this bundle</p>
           : <div className="mx-auto w-full max-w-[150px] [&_.tracking-tight]:text-2xl!"><Gauge value={v.speedupPct} digits={1} unit="%" label="faster" /></div>}
         <div className="text-center font-mono text-xs text-slate-600">{v.twinBefore ?? "?"} ms to {v.twinAfter ?? "?"} ms</div>
+        {v.twinTag && <div className="text-center text-xs text-slate-600">{v.twinTag}</div>}
       </div>
 
       <div key={k("canary")} className={cn("tile-ink", TILE, flash)}>
@@ -53,7 +55,7 @@ export function HomeResults({ hero }: { hero: ReactNode }) {
         <div className="text-xs">What the fix costs</div>
         <div className="mt-2 flex flex-wrap items-end gap-x-5 gap-y-1">
           <div><div className="text-3xl font-light">{v.storageMb ?? "?"}<span className="text-base"> MB</span></div><div className="text-xs">on disk</div></div>
-          <div><div className="text-3xl font-light">+{v.writeCostMs}<span className="text-base"> ms</span></div><div className="text-xs">per insert</div></div>
+          <div><div className="text-3xl font-light">+{v.writeCostMs}<span className="text-base"> ms</span></div><div className="text-xs">per insert{v.twinTag && " (assumed per-index penalty unless replayed)"}, {writeShare(v.writeCostMs)}</div></div>
         </div>
         <div className="mt-1 text-xs">result {v.checksumMatch ? "identical" : "differs"}{v.live && `; checker ${v.llm.checker ?? "not run"}`}</div>
         <Source>storage: {v.src.twin}; write cost: {v.src.writeCost}; checksum: {v.src.checksum}</Source>

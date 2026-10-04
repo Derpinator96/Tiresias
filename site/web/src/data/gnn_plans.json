@@ -1,5 +1,5 @@
 {
- "_source": "illustrative plans. plan 'q1' is the HashedPlan example in docs/architecture.md (not a plan from run_d1b30d38); plan 'report' is invented for the picture. Codes are illustrative.",
+ "_source": "illustrative plan 'q1' is the HashedPlan example in docs/architecture.md (not a plan from run_d1b30d38); codes are illustrative. Plan 'report' is invented and kept only as a test fixture (tests/gnn.test.mjs); the page does not show it.",
  "plans": [
   {
    "id": "q1",
@@ -37,6 +37,7 @@
   {
    "id": "report",
    "label": "report with a join (invented)",
+   "invented": true,
    "ran": true,
    "nodes": [
     {

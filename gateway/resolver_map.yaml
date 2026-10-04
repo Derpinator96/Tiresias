@@ -3,8 +3,16 @@
 # query_pattern is the pg_stat_statements normalized text of the query behind the dashboard.
 dashboards:
   - name: weekly sales dashboard
-    phrases: ["weekly sales dashboard", "weekly sales", "sales dashboard"]
+    phrases: ["weekly sales dashboard", "weekly sales", "sales dashboard", "weekly report", "weekly dashboard", "region 7"]
     query_pattern: "SELECT SUM(amount) FROM sales WHERE region_id = $1 AND transaction_date >= $2"
   - name: monthly category sales report
-    phrases: ["category sales report", "monthly category", "sales by category"]
+    phrases: ["category sales report", "monthly category", "sales by category", "monthly report", "category report"]
     query_pattern: "SELECT p.category, SUM(s.amount) FROM sales s JOIN products p ON p.product_id = s.product_id JOIN stores st ON st.store_id = s.store_id WHERE st.region_id = $1 AND date_trunc($2, s.transaction_date) = $3 GROUP BY p.category"
+  - name: two region report
+    phrases: ["two region", "two-region", "two regions", "region comparison"]
+    query_pattern: "SELECT SUM(amount) FROM sales WHERE (region_id = $1 OR region_id = $2) AND transaction_date >= $3"
+  # Q4 runs only in make drift-demo; pattern written from db/workload.py Q4_TEMPLATE, UNVERIFIED
+  # against pg_stat_statements' normalized text until a drift demo has run.
+  - name: segment report
+    phrases: ["segment report", "customer segment", "segment by date", "new report"]
+    query_pattern: "SELECT c.segment, s.transaction_date, SUM(s.amount) FROM sales s JOIN customers c ON c.customer_id = s.customer_id WHERE c.segment = $1 AND s.transaction_date BETWEEN $2 AND $3 GROUP BY c.segment, s.transaction_date"

@@ -18,6 +18,12 @@ export function webConfig(): WebCfg {
   return doc.web;
 }
 
+/** config.yaml sandbox.twin_mode, saved with each Ask so the page can label its twin numbers. */
+function twinMode(): string {
+  const doc = load(readFileSync(process.env.BT_CONFIG ?? "../../config.yaml", "utf8")) as { sandbox: { twin_mode: string } };
+  return doc.sandbox.twin_mode;
+}
+
 export const enabled = () => process.env.BT_LOCAL === "1";
 
 /** 404 when not local; 403 on a foreign Host (DNS rebinding, or the ai container calling web:3000)
@@ -32,7 +38,7 @@ export function guard(req: Request): Response | null {
   return null;
 }
 
-function caller(base: string | undefined, timeoutS: number): Call {
+export function caller(base: string | undefined, timeoutS: number): Call {
   return async (path, body) => {
     const r = await fetch(`${(base ?? "").replace(/\/$/, "")}${path}`, {
       method: body === undefined ? "GET" : "POST",
@@ -96,7 +102,7 @@ export async function startAsk(question: string): Promise<{ question_id: string 
   const ai = caller(process.env.AI_URL, cfg.ask_timeout_s);
   const r = await gateway("/v1/ask/resolve", { question });
   if (r.status !== 200) return { error: `the gateway could not resolve the question (HTTP ${r.status})`, status: 502 };
-  const job: AskJob = { question_id: r.body.question_id, template_ids: r.body.template_ids, done: false };
+  const job: AskJob = { question_id: r.body.question_id, template_ids: r.body.template_ids, done: false, twin_mode: twinMode() };
   jobs.set(job.question_id, job);
   const before = await gateway("/v1/ledger").then((l) => l.body, () => null);
   const counts: LedgerCounts = {
