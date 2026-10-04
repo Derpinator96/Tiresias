@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "redirects": [
+    { "source": "/signin", "destination": "/", "permanent": false },
+    { "source": "/signup", "destination": "/", "permanent": false },
+    { "source": "/alerts", "destination": "/", "permanent": false },
+    { "source": "/analytics", "destination": "/", "permanent": false },
+    { "source": "/workbench", "destination": "/", "permanent": false },
+    { "source": "/database", "destination": "/", "permanent": false },
+    { "source": "/slow-log", "destination": "/", "permanent": false }
+  ]
+}
