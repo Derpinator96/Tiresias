@@ -39,3 +39,16 @@ export function reached(events: string[], answered: boolean, done: boolean): Set
   if (done) ORDER.forEach((x) => s.add(x));
   return s;
 }
+
+export type Frame = { events: string[]; answered: boolean; done: boolean };
+
+/** A saved run's steps in the order a live run showed them: question received, one event at a
+ *  time, the answer back, then done. Drives the Replay button (src/lib/context.ts replay). */
+export function replayFrames(events: string[]): Frame[] {
+  return [
+    { events: [], answered: false, done: false },
+    ...events.map((_, i) => ({ events: events.slice(0, i + 1), answered: false, done: false })),
+    { events, answered: true, done: false },
+    { events, answered: true, done: true },
+  ];
+}

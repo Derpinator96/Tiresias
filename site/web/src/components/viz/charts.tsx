@@ -37,8 +37,10 @@ export type Bar = { label: string; value: number; color: string; note?: string }
 /** Horizontal bars from one zero baseline; optional dashed reference line. */
 export function HBars({ bars, unit = "", digits = 1, refLine, max }: { bars: Bar[]; unit?: string; digits?: number; refLine?: { value: number; label: string }; max?: number }) {
   const [hover, setHover] = useState<number | null>(null);
+  const grown = useGrown();
   const top = (max ?? Math.max(...bars.map((b) => b.value), refLine?.value ?? 0)) * 1.18;
   const pct = (v: number) => `${(v / top) * 100}%`;
+  const grow = "transition-all duration-700 ease-out motion-reduce:transition-none";
   const fmt = (v: number) => `${v.toFixed(digits)}${unit}`;
   return (
     <div className="relative">
@@ -47,8 +49,8 @@ export function HBars({ bars, unit = "", digits = 1, refLine, max }: { bars: Bar
           <div key={b.label} className="grid grid-cols-[minmax(0,7.5rem)_1fr] items-center gap-2" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
             <span className="truncate text-xs text-slate-700" title={b.label}>{b.label}</span>
             <div className="relative h-6">
-              <div className="absolute inset-y-0.5 left-0 rounded-r-[4px] transition-opacity" style={{ width: pct(b.value), background: b.color, opacity: hover === null || hover === i ? 1 : 0.45 }} />
-              <span className="absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-xs font-semibold text-slate-900" style={{ left: pct(b.value) }}>{fmt(b.value)}</span>
+              <div className={cn("absolute inset-y-0.5 left-0 rounded-r-[4px]", grow)} style={{ width: pct(b.value * grown), transitionDelay: `${i * 60}ms`, background: b.color, opacity: hover === null || hover === i ? 1 : 0.45 }} />
+              <span className={cn("absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-xs font-semibold text-slate-900", grow)} style={{ left: pct(b.value * grown), transitionDelay: `${i * 60}ms` }}>{fmt(b.value)}</span>
               {hover === i && b.note && (
                 <div className="glass-strong absolute bottom-full left-0 z-10 mb-1 max-w-64 rounded-lg px-2 py-1 text-xs text-slate-700">{b.label}: {fmt(b.value)}. {b.note}</div>
               )}
@@ -174,14 +176,20 @@ export function Bento({ children, className }: { children: ReactNode; className?
   return <div className={cn("grid grid-cols-1 gap-3 md:grid-cols-12", FADE_UP, className)}>{children}</div>;
 }
 
+/** 0 on the first render, 1 a moment later, so bars and dials can transition in from zero.
+ *  A timer, not requestAnimationFrame: rAF never fires in a background tab, which left dials at 0. */
+export function useGrown(): number {
+  const [on, setOn] = useState(0);
+  useEffect(() => { const t = setTimeout(() => setOn(1), 30); return () => clearTimeout(t); }, []);
+  return on;
+}
+
 /** Semicircle dial like the reference's score gauge: value between min and max, a lime knob at
  *  the value, big light number in the middle. Sweeps in on mount (none under reduced motion). */
 export function Gauge({ value, min = 0, max = 100, label, unit = "", digits = 0, tone = "light" }: {
   value: number; min?: number; max?: number; label: string; unit?: string; digits?: number; tone?: "light" | "dark";
 }) {
-  const [shown, setShown] = useState(0);
-  // a timer, not requestAnimationFrame: rAF never fires in a background tab, which left the dial at 0
-  useEffect(() => { const t = setTimeout(() => setShown(1), 30); return () => clearTimeout(t); }, []);
+  const shown = useGrown();
   const f = Math.max(0, Math.min(1, (value - min) / (max - min || 1))) * shown;
   const r = 80, len = Math.PI * r;
   const a = Math.PI * (1 - f), kx = 100 + r * Math.cos(a), ky = 100 - r * Math.sin(a);

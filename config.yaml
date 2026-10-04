@@ -400,6 +400,7 @@ web:
   # Read at runtime by site/web/src/lib/ask-server.ts from the read-only mount BT_CONFIG.
   ask_timeout_s: 300   # per gateway or ai call; same as dashboard/data.py TIMEOUT_S (Node's fetch also stops waiting for headers at 300 s)
   ask_poll_ms: 1000    # how often the page asks for progress, like the dashboard's 1 s fragment
+  replay_step_ms: 800  # Replay of a saved run: one event per step (copied into site/web/src/lib/facts.ts CONFIG)
   # /slow-log: how many plan-generation templates (data/plans/web_sample.json, slowest median
   # first) the page lists beside pg-prod's slow log. Read by site/web/src/lib/db-server.ts.
   slow_log_sample: 12

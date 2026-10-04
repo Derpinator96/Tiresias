@@ -67,7 +67,11 @@ export function RunStatus() {
           <span className="min-w-0 max-w-[40%] truncate font-medium text-ink" title={running.question}>{running.question}</span>
           <span className="inline-flex shrink-0 items-center gap-1.5 pill bg-rose px-2.5 py-0.5 text-xs font-medium text-ink"><Icon className="size-3.5" />{TITLE[running.stage]}</span>
           <span className="shrink-0 text-xs text-slate-600">step {i + 1} of {ORDER.length}</span>
-          <span className="shrink-0 font-mono text-xs text-slate-600">{Math.max(0, Math.floor((now - running.startedAt) / 1000))} s</span>
+          {running.replay ? (
+            <span className="shrink-0 pill bg-lime px-2.5 py-0.5 text-xs font-medium text-ink" title="replay speed, not the real duration">
+              Replay of {running.replay.id}, recorded {new Date(running.replay.created_at).toLocaleString("en-GB")}{running.replay.seconds != null && `; real LLM time ${running.replay.seconds.toFixed(1)} s`}
+            </span>
+          ) : <span className="shrink-0 font-mono text-xs text-slate-600">{Math.max(0, Math.floor((now - running.startedAt) / 1000))} s</span>}
           {last && <span className="min-w-0 truncate font-mono text-[11px] text-slate-500" title={last}>{last.replace(/ ->.*$/, "")}</span>}
         </div>
         <div className="absolute inset-x-4 bottom-0 h-0.5 overflow-hidden rounded-full bg-slate-200/70" aria-hidden>

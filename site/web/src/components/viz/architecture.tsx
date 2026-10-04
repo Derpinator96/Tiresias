@@ -126,7 +126,7 @@ function Ticker({ v }: { v: RunView }) {
   const last = events.map((e, i) => ({ e, i })).slice(-5).reverse();
   return (
     <div className="mt-3 flex items-center gap-1.5 overflow-hidden text-xs *:shrink-0">
-      <span className="max-w-[18rem] truncate text-slate-500">{running ? `Live: ${running.question}` : v.live ? `Events of bundle ${v.id}` : "No question asked yet: the run record has no event log"}</span>
+      <span className="max-w-[18rem] truncate text-slate-500">{running ? `${running.replay ? "Replay" : "Live"}: ${running.question}` : v.live ? `Events of bundle ${v.id}` : "No question asked yet: the run record has no event log"}</span>
       {running && !events.length && <span className="pill bg-white px-2.5 py-1 text-slate-600 shadow-(--glass-shadow)">question received, waiting for the first tool call</span>}
       {last.map(({ e, i }) => (
         <span key={key(i)} className="pill bg-white px-2.5 py-1 font-mono text-slate-700 shadow-(--glass-shadow)" title={e}>

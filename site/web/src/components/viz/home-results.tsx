@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Architecture } from "@/components/viz/architecture";
-import { Bento, Gauge, useCountUp } from "@/components/viz/charts";
+import { Bento, Gauge, useCountUp, useGrown } from "@/components/viz/charts";
 import { Source } from "@/components/playground/bits";
 import { useContextStore } from "@/lib/context";
 import { q1Spans } from "@/lib/spans";
@@ -24,6 +24,7 @@ export function HomeResults({ hero }: { hero: ReactNode }) {
   const what = v.live ? v.templateId ?? "The query" : "Q1";
   const spans = q1Spans(v).filter((s) => s.kind === "measured");
   const most = Math.max(...spans.map((s) => s.dur));
+  const grown = useGrown();
   return (
     <Bento>
       <div className="glass p-5 md:col-span-12">
@@ -67,7 +68,7 @@ export function HomeResults({ hero }: { hero: ReactNode }) {
           {spans.map((s) => (
             <li key={s.id} className="text-xs">
               <div className="flex justify-between"><span>{s.label}</span><span className="font-mono">{s.dur} ms</span></div>
-              <div className="h-1.5 rounded-full bg-white/60"><div className={cn("h-full origin-left rounded-full", s.tone === "after" ? "bg-sky-ink" : "bg-ink")} style={{ transform: `scaleX(${s.dur / most})` }} /></div>
+              <div className="h-1.5 rounded-full bg-white/60"><div className={cn("h-full origin-left rounded-full transition-transform duration-700 ease-out motion-reduce:transition-none", s.tone === "after" ? "bg-sky-ink" : "bg-ink")} style={{ transform: `scaleX(${(s.dur / most) * grown})` }} /></div>
             </li>
           ))}
           {!spans.length && <li className="text-xs">No measured time in this bundle</li>}

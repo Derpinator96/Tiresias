@@ -11,6 +11,7 @@ export const CONFIG = {
   qInit: 1.0, // rl.q_init
   episodes: 300, // rl.episodes
   hexChars: 8, // hashing.hmac_code_hex_chars
+  replayStepMs: 800, // web.replay_step_ms
 };
 
 // Public pages never show the demo database's real names (scripts/tests/test_export_and_site.py

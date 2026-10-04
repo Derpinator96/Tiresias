@@ -5,7 +5,8 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { dehashWith, type Bundle, type BundleSummary } from "@/lib/bundle";
-import { reached, stageOf, type StageId } from "@/lib/progress";
+import { reached, replayFrames, stageOf, type StageId } from "@/lib/progress";
+import { CONFIG } from "@/lib/facts";
 // public build: a stub (null), so the live Ask path is not in any client chunk (next.config.ts)
 import { askApi } from "bt-ask-api";
 
@@ -27,12 +28,18 @@ type S = {
   /** Bundle id of a result that just arrived; cleared after FRESH_MS, drives the "fresh" flash. */
   fresh: string | null;
   start: (question: string) => Promise<string | null>;  // null on success, else the error text
+  /** Plays the selected saved bundle back through `running`, with no service call. */
+  replay: () => string | null;
 };
 
 export type Running = {
   qid: string; question: string; startedAt: number; events: string[];
   stage: StageId; reached: StageId[]; answered: boolean; error: string | null;
   job: Record<string, unknown> | null;   // the polled job state (src/lib/ask-server.ts askState)
+  /** Set on a replay of a saved bundle: which one, when it was recorded, its real LLM time. */
+  replay?: { id: string; created_at: string; seconds: number | null };
+  /** When a poll first saw the answer (live runs; accurate to one poll interval). */
+  answeredAt?: number;
 };
 const FRESH_MS = 6000;
 
@@ -65,7 +72,7 @@ export const useContextStore = create<S>()((set, get) => ({
       // events stop arriving once the answer is back (askState sends []), so keep the last list
       const events = st.events?.length ? st.events : run.events;
       const answered = !!st.ask, done = !!st.done && !!st.bundle_ready;
-      set({ running: { ...run, events, answered, job: st, error: (st.error as string) ?? null,
+      set({ running: { ...run, events, answered, job: st, answeredAt: run.answeredAt ?? (answered ? Date.now() : undefined), error: (st.error as string) ?? null,
         stage: stageOf(events, answered, done), reached: [...reached(events, answered, done)] } });
       if (done) {
         await get().refresh();
@@ -77,6 +84,30 @@ export const useContextStore = create<S>()((set, get) => ({
       setTimeout(tick, typeof st.poll_ms === "number" ? st.poll_ms : 1000);
     };
     void tick();
+    return null;
+  },
+  replay: () => {
+    const b = get().current;
+    if (!LOCAL || !b) return "no saved question selected";
+    if (get().running && !get().running?.error) return "a question is already running";
+    const qid = `replay:${b.id}`, frames = replayFrames(b.events);
+    const base = { qid, question: b.question, startedAt: Date.now(), error: null,
+      replay: { id: b.id, created_at: b.created_at, seconds: b.llm?.seconds ?? null } };
+    let k = 0;
+    const step = () => {
+      if (k > 0 && get().running?.qid !== qid) return;
+      const f = frames[k++];
+      if (f.done) {
+        set({ running: null, fresh: b.id });
+        setTimeout(() => { if (get().fresh === b.id) set({ fresh: null }); }, FRESH_MS);
+        return;
+      }
+      set({ running: { ...base, events: f.events, answered: f.answered,
+        job: f.answered ? { ...b.job, done: false } : null,
+        stage: stageOf(f.events, f.answered, false), reached: [...reached(f.events, f.answered, false)] } });
+      setTimeout(step, CONFIG.replayStepMs * (f.answered ? 2 : 1));
+    };
+    step();
     return null;
   },
   refresh: async () => {
