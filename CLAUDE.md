@@ -12,12 +12,7 @@ Read docs/architecture.md before any work. It is the single source of truth. If 
 - No vague hero text. Every heading states a fact or names a function.
 - No AI filler copy. If a sentence could appear on any product, delete it.
 
-## Honesty on screen
-- No fabricated reviews, testimonials, logos or endorsements.
-- No fake metrics, counters or customer numbers.
-- Every number rendered traces to a real computation. If a figure rests on an assumption, label the assumption next to it, not in a footnote.
-- Placeholder data is visibly labelled as placeholder.
-- A simplified component is labelled on screen, for example "estimator: Postgres baseline (GNN pending)".
+
 
 ## Ship gates: nothing is done until all five are true
 1. Clean memorable URL (a Vercel subdomain is fine, a raw AWS hostname is not).
@@ -73,4 +68,6 @@ Update this table at the end of every work session. Status is REAL, SIMPLIFIED (
 | Air-gapped mode | agent/llm.py OllamaChat, infra/docker-compose.airgap.yml, make airgap/online/test-airgap | SIMPLIFIED: plumbing REAL and tested with a stand-in; real gemma2:2b UNVERIFIED (Ollama not installed yet) | agent/tests/test_ollama.py, infra/tests/test_airgap_network.py |
 | VeriEQL | infra/verieql/, verify/verieql_server.py, db/sandbox/verieql.py, `verieql` service | REAL, bounded (5 rows per table, 60 s timeout, both in config). VeriEQL v1.0 is CC BY-NC-SA 4.0: isolated in its own image on the private network (human decision), must be replaced before commercial use. ASSUMPTION: numeric columns modelled as INT | VeriEQL's own test.test_env passes in the image; gateway/tests/test_api.py: Q2 TestedOnly, OR rewrite Verified, misfit rule 409 |
 | Data questions in plain English | site/web data-ask.tsx, /api/data, agent/sql_answer.py /ai/sql, gateway/private_query.py /v1/private/query | REAL; human decision 2026-10-04: the LLM sees the question plus real table and column names and types, never rows or values; the SELECT runs read-only as workload.app_role on pg-prod with a timeout and row cap, kept out of pg_stat_statements; rows reach the DBA only. Not saved to history | gateway/tests/test_private_query.py (16), agent/tests/test_sql_answer.py (6), site/web tests/data.test.mjs; live 2026-10-04: 2 questions answered (2.8 s) |
+| Slow-query alert emails, sign-up and sign-in | site/web /alerts, /signin, /signup, src/lib/alerts-server.ts, src/lib/auth-server.ts, infra `mailpit` | SIMPLIFIED: alerts come from a hard-coded demo trigger (labelled; picks a query already in the slow log), no automatic detection; email via Mailpit (local inbox) unless real SMTP is set in .env; session secret random per process unless BT_SESSION_SECRET is set | tests/auth.test.mjs, tests/alerts.test.mjs; live end-to-end on the host dev server 2026-10-04 |
+| Roles (DBA, analyst), query workbench, live analytics | site/web /workbench, /analytics, src/lib/analytics-*.ts, auth-shared.ts CAN | SIMPLIFIED: role chosen at sign-up (labelled demo shortcut); spikes from workbench runs only (not the app's own workload); Ask pages not behind sign-in | tests/analytics.test.mjs; live two-user run 2026-10-04 |
 | Approve, migration and rollback | gateway/approve.py, gateway/post_deploy_check.py, /v1/approve, /v1/approve/twin-check | REAL; refuses the ai service (403); demo check on the twin with a shortened replay (labelled) | gateway/tests/test_approve.py |

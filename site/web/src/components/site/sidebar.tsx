@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Check, Hash, House, Network, Menu, MessageSquareText, ScrollText, Table2, Workflow, X } from "lucide-react";
+import { Activity, BellRing, Check, SquareTerminal, Hash, House, Network, Menu, MessageSquareText, ScrollText, Table2, Workflow, X } from "lucide-react";
 import { LOCAL, useContextStore } from "@/lib/context";
 import { STAGES, STAGE_ICON, STAGE_TINT } from "@/lib/stages";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,10 @@ const MAIN: { href: string; label: string; icon: typeof House; tint: Tint }[] = 
   { href: "/hashing", label: "Hashing", icon: Hash, tint: T.peach },
   { href: "/ask", label: "Ask", icon: MessageSquareText, tint: T.rose },
   // Local web container only: pages that show real names (built by another agent).
-  ...(LOCAL ? [{ href: "/database", label: "Database", icon: Table2, tint: T.leaf }, { href: "/slow-log", label: "Slow log", icon: ScrollText, tint: T.sand }] : []),
+  ...(LOCAL ? [{ href: "/database", label: "Database", icon: Table2, tint: T.leaf }, { href: "/slow-log", label: "Slow log", icon: ScrollText, tint: T.sand },
+    { href: "/alerts", label: "Alerts", icon: BellRing, tint: T.rose },
+    { href: "/analytics", label: "Analytics", icon: Activity, tint: T.sky },
+    { href: "/workbench", label: "Workbench", icon: SquareTerminal, tint: T.peach }] : []),
 ];
 
 /** HH:MM today, else the date. */

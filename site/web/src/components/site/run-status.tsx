@@ -72,7 +72,7 @@ export function RunStatus() {
               Replay of {running.replay.id}, recorded {new Date(running.replay.created_at).toLocaleString("en-GB")}{running.replay.seconds != null && `; real LLM time ${running.replay.seconds.toFixed(1)} s`}
             </span>
           ) : <span className="shrink-0 font-mono text-xs text-slate-600">{Math.max(0, Math.floor((now - running.startedAt) / 1000))} s</span>}
-          {last && <span className="min-w-0 truncate font-mono text-[11px] text-slate-500" title={last}>{last.replace(/ ->.*$/, "")}</span>}
+          {last && <span className="min-w-0 truncate font-mono text-xs text-slate-500" title={last}>{last.replace(/ ->.*$/, "")}</span>}
         </div>
         <div className="absolute inset-x-4 bottom-0 h-0.5 overflow-hidden rounded-full bg-slate-200/70" aria-hidden>
           <div className="run-shimmer h-full rounded-full bg-ink transition-[width] duration-500" style={{ width: `${((i + 1) / ORDER.length) * 100}%` }} />

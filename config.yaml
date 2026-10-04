@@ -413,6 +413,19 @@ web:
   sample_rows: 10
   sample_rows_max: 100
 
+# Slow-query alert emails from the local web app (site/web/src/lib/alerts-server.ts). SMTP host,
+# port and credentials come from the environment (Mailpit by default, infra/docker-compose.yml).
+alerts:
+  from: "Blind Tuner alerts <alerts@blind-tuner.local>"
+  inbox_url: http://127.0.0.1:8025   # Mailpit's web inbox, linked from the Alerts page
+  session_days: 7                    # how long a sign-in lasts
+
+# Query analytics dashboard in the local web app (site/web/src/lib/analytics-server.ts). A spike
+# is a run at or over workload.slow_query_ms.
+analytics:
+  poll_ms: 1500          # how often the dashboard asks for new events
+  window_minutes: 15     # how much history the chart shows
+
 tests:
   fast_suite_limit_s: 120
   # e2e acceptance threshold (doc: "Q1 measured on the twin drops by over 50%").

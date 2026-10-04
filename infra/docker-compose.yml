@@ -208,6 +208,12 @@ services:
       BT_HISTORY_DIR: /var/lib/blind-tuner-web
       # DSB, TPC-H and QuickMart query texts with their plan statistics (scripts/plans_web_sample.py).
       BT_PLANS_SAMPLE: /data/web_sample.json
+      # Slow-query alert emails (src/lib/alerts-server.ts). Mailpit by default; set SMTP_HOST,
+      # SMTP_PORT, SMTP_USER and SMTP_PASS in .env to send through a real mail server instead.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
     volumes:
       - ./config.yaml:/config/config.yaml:ro
       - ./data/plans/web_sample.json:/data/web_sample.json:ro
@@ -215,7 +221,16 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     networks: [boundary, operator]
-    depends_on: [gateway, ai]
+    depends_on: [gateway, ai, mailpit]
+
+  # Local mail server with a web inbox for the slow-query alert emails. Nothing leaves the
+  # machine: SMTP and the inbox are published on 127.0.0.1 only. Version checked 2026-10-04.
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    networks: [operator]
 
   # Private-side runner for seeding, exports and tests. Not part of the product.
   # Started on demand: docker compose ... run --rm tools <command>

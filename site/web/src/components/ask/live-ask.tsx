@@ -10,6 +10,7 @@ import { Bento, Gauge, useCountUp, useGrown } from "@/components/viz/charts";
 import { glitchFrame } from "@/lib/glitch";
 import { flagNumbers } from "@/lib/flag";
 import { twinNote } from "@/lib/run-view";
+import { plainSummary } from "@/lib/summary";
 import { Bad, DataAsk } from "@/components/ask/data-ask";
 import { ORDER } from "@/lib/progress";
 import { STAGES, STAGE_ICON } from "@/lib/stages";
@@ -75,13 +76,35 @@ function SavedTime({ t, label }: { t: Saved; label: string }) {
   );
 }
 
+/** The outcome in plain words, built from the job's data, not the LLM (src/lib/summary.ts). */
+function Plain({ job, question }: { job: AskJob; question: string }) {
+  const { verdict, asked, outcome } = plainSummary(job, question);
+  if (!verdict && !asked.length && !outcome.length) return null;
+  const list = (title: string, items: string[]) => items.length > 0 && (
+    <div>
+      <div className="mb-1 text-xs text-white/60">{title}</div>
+      <ul className="space-y-1 text-sm text-white">{items.map((t, i) => <li key={i} className="[overflow-wrap:anywhere]">{t}</li>)}</ul>
+    </div>
+  );
+  return (
+    <section className="tile-ink min-w-0 space-y-3 p-5 md:col-span-12">
+      <h3 className="text-base font-semibold text-lime">In plain words</h3>
+      {verdict && <p className="text-lg font-semibold text-white">{verdict}</p>}
+      {list("What you asked about", asked)}
+      {list("What to do", outcome)}
+      <div className="text-xs text-white/50">written from the measured results and the SQL, not by the LLM; real names, local only</div>
+    </section>
+  );
+}
+
 /** The answer, twin result and SQL of one job as Bento tiles: the live one while it runs, or a saved bundle's. */
-function Result({ job, live, flash = false, llmTime }: { job: AskJob; live: boolean; flash?: boolean; llmTime?: string | null }) {
+function Result({ job, question, live, flash = false, llmTime }: { job: AskJob; question: string; live: boolean; flash?: boolean; llmTime?: string | null }) {
   const [aiView, setAiView] = useState(false);
   const a = job.ask;
   const best = job.results?.length ? Math.max(...job.results.map((t) => t.pct)) : null;
   return (
     <>
+      {!aiView && <Plain job={job} question={question} />}
       {a && (
         <section className={cn("glass min-w-0 p-5 md:col-span-7", flash && "fresh-flash")}>
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -278,8 +301,8 @@ function TuneAsk() {
       {running?.error && <div className="md:col-span-12"><Bad>The run stopped: {running.error}</Bad></div>}
 
       {running && <Progress />}
-      {running && job?.ask && <Result key={running.qid} job={job} live llmTime={llmTime(running)} />}
-      {saved && <Result key={bundle.id} job={bundle.job} live={false} flash={fresh === bundle.id} />}
+      {running && job?.ask && <Result key={running.qid} job={job} question={running.question} live llmTime={llmTime(running)} />}
+      {saved && <Result key={bundle.id} job={bundle.job} question={bundle.question} live={false} flash={fresh === bundle.id} />}
     </Bento>
   );
 }

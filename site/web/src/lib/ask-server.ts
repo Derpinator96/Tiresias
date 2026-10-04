@@ -19,7 +19,7 @@ export function webConfig(): WebCfg {
 }
 
 /** config.yaml sandbox.twin_mode, saved with each Ask so the page can label its twin numbers. */
-function twinMode(): string {
+export function twinModeNow(): string {
   const doc = load(readFileSync(process.env.BT_CONFIG ?? "../../config.yaml", "utf8")) as { sandbox: { twin_mode: string } };
   return doc.sandbox.twin_mode;
 }
@@ -102,7 +102,7 @@ export async function startAsk(question: string): Promise<{ question_id: string 
   const ai = caller(process.env.AI_URL, cfg.ask_timeout_s);
   const r = await gateway("/v1/ask/resolve", { question });
   if (r.status !== 200) return { error: `the gateway could not resolve the question (HTTP ${r.status})`, status: 502 };
-  const job: AskJob = { question_id: r.body.question_id, template_ids: r.body.template_ids, done: false, twin_mode: twinMode() };
+  const job: AskJob = { question_id: r.body.question_id, template_ids: r.body.template_ids, done: false, twin_mode: twinModeNow() };
   jobs.set(job.question_id, job);
   const before = await gateway("/v1/ledger").then((l) => l.body, () => null);
   const counts: LedgerCounts = {

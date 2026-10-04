@@ -30,7 +30,7 @@ export function HomeResults({ hero }: { hero: ReactNode }) {
     <Bento>
       <div className="glass p-5 md:col-span-12">
         {hero}
-        <div className="mt-4"><Architecture /></div>
+        <div className="mt-4 max-md:overflow-x-auto"><Architecture /></div>
       </div>
 
       <div key={k("speed")} className={cn("glass flex flex-col", TILE, flash)}>

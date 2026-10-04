@@ -19,12 +19,34 @@ export type AskJob = {
   migration?: string;
   rollback?: string;
   error?: string;
+  /** The templates the question matched, from pg-prod's slow log. */
+  matched?: Matched[] | null;
+  threshold_ms?: number;
   // Raw pieces kept for the bundle (src/lib/bundle-build.ts); the page never reads them.
   rl?: unknown;                     // /ai/rl/run body when the web ran the search
   files?: Record<string, string>;   // raw /v1/approve files
   ask_body?: unknown;               // raw /ai/ask body (llm, seconds, failovers, events, tool_calls)
   simulation?: unknown;             // raw SimResult
 };
+
+export type Matched = { template_id: string; sql: string; mean_ms: number; slow: boolean };
+
+/** What the question asked about, private side only: each matched template's real SQL, logged
+ *  mean and slow flag (/v1/private/slow-log). Never throws. */
+export async function matchAsked(job: AskJob, gateway: Call): Promise<void> {
+  try {
+    const log = await ok(gateway, "/v1/private/slow-log");
+    job.threshold_ms = log.threshold_ms;
+    const out: Matched[] = [];
+    for (const tid of job.template_ids) {
+      const t = log.templates.find((x: { template_id: string }) => x.template_id === tid);
+      if (t) out.push({ template_id: tid, sql: t.sql, mean_ms: t.mean_ms, slow: t.slow });
+    }
+    job.matched = out;
+  } catch {
+    job.matched = null;
+  }
+}
 
 /** The runnable SQL in an approve file, without its comments. A rewrite is a suggested code
  *  change, so approve writes it as comments; its query is taken from the block after "Rewritten:". */
@@ -114,7 +136,7 @@ export async function runJob(job: AskJob, gateway: Call, ai: Call): Promise<void
   } catch (e) {
     job.ask ??= { status: 0, detail: "not reached" };
     job.error = e instanceof Error ? e.message : String(e);
-  } finally {
-    job.done = true;
   }
+  await matchAsked(job, gateway);
+  job.done = true;
 }

@@ -40,25 +40,26 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Compact type scale (reference 2026-10-04): 11px secondary, 13px labels and body, 14px
-     emphasised labels, 18px subheadings, 24px page headings, 28px only for primary numbers.
+  /* Type scale, raised 2026-10-04 for legibility on a projector (human request): 13px secondary,
+     15px labels and body, 16px emphasised labels, 20px subheadings, 28px page headings, 32px
+     primary numbers.
      Weight carries emphasis, not size. The default size names map onto it. */
-  --text-xs: 0.6875rem;
-  --text-xs--line-height: 1rem;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.25rem;
-  --text-base: 0.875rem;
-  --text-base--line-height: 1.375rem;
-  --text-lg: 1.125rem;
-  --text-lg--line-height: 1.5rem;
-  --text-xl: 1.125rem;
-  --text-xl--line-height: 1.5rem;
-  --text-2xl: 1.5rem;
-  --text-2xl--line-height: 1.875rem;
-  --text-3xl: 1.75rem;
-  --text-3xl--line-height: 2.125rem;
-  --text-4xl: 2.75rem;
-  --text-4xl--line-height: 3rem; /* hero numbers only */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.375rem;
+  --text-4xl: 3rem;
+  --text-4xl--line-height: 3.25rem; /* hero numbers only */
 
   /* Three colours (human request 2026-10-04): ink for text and primary buttons, accent for
      active and good states, signal for slow, warning and bad states. Everything else is white

@@ -15,5 +15,6 @@ mkdir -p .bt-history
 export BT_LOCAL=1 NEXT_PUBLIC_BT_LOCAL=1 BT_CONFIG=../../config.yaml \
   GATEWAY_URL="http://$GW:8000" AI_URL="http://$AI:8100" \
   BT_WEB_HOSTS="localhost:$PORT,127.0.0.1:$PORT" \
-  BT_HISTORY_DIR="$PWD/.bt-history" BT_PLANS_SAMPLE="$PWD/../../data/plans/web_sample.json"
+  BT_HISTORY_DIR="$PWD/.bt-history" BT_PLANS_SAMPLE="$PWD/../../data/plans/web_sample.json" \
+  SMTP_HOST="${SMTP_HOST:-127.0.0.1}" SMTP_PORT="${SMTP_PORT:-1025}"
 exec npx next dev --port "$PORT"
