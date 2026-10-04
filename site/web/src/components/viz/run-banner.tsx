@@ -10,9 +10,9 @@ export function RunBanner({ className }: { className?: string }) {
   if (!v.live) return null;
   const sql = v.templateSqlReal ?? v.templateSql;
   return (
-    <div className={cn("glass-subtle rounded-lg px-3 py-2 text-xs text-slate-700", className)}>
+    <div className={cn("rounded-xl bg-white px-3 py-2 text-xs text-slate-700 shadow-(--glass-shadow)", className)}>
       <div className="flex items-center gap-2">
-        <MessageSquareText className="size-3.5 shrink-0 text-accent" aria-hidden />
+        <MessageSquareText className="size-3.5 shrink-0 text-slate-500" aria-hidden />
         <span className="min-w-0 truncate">
           Showing the run for: <span className="font-medium text-slate-900">{v.question}</span>
           {v.askedAt && <span className="text-slate-500"> (asked {new Date(v.askedAt).toLocaleString([], { hour12: false })})</span>}

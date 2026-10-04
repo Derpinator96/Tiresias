@@ -11,7 +11,16 @@ import { cn } from "@/lib/utils";
 type State = AskJob & { poll_ms: number; events: string[]; bundle_ready: boolean };
 
 const PAGES = [["Open in Playground", "/playground"], ["GNN", "/gnn"], ["Hashing", "/hashing"], ["Stage pages", "/stages/source"]];
-const bad = "rounded-lg bg-signal-soft p-3 text-sm font-medium text-signal";
+const seg = (on: boolean) => cn("h-7 pill px-2.5 text-sm", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
+
+/** Error and blocked states: off-white, ink text, one signal dot (the dot is the only colour). */
+function Bad({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="inset-field flex items-start gap-2 p-3 text-sm text-ink">
+      <span className="mt-1.5 size-2 shrink-0 rounded-full bg-signal" aria-hidden /> <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
+    </div>
+  );
+}
 
 /** The answer, twin result and SQL of one job: the live one while it runs, or a saved bundle's. */
 function Result({ job, live }: { job: AskJob; live: boolean }) {
@@ -23,25 +32,23 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
         <section>
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-slate-900">Answer</h3>
-            <div className="glass-subtle flex rounded-md p-0.5 text-xs">
+            <div className="glass-subtle flex pill p-0.5">
               {[false, true].map((v) => (
-                <button key={String(v)} onClick={() => setAiView(v)} className={cn("h-6 rounded px-2", aiView === v ? "bg-ink text-white" : "text-slate-600")}>
-                  {v ? "What the AI saw" : "Real names"}
-                </button>
+                <button key={String(v)} onClick={() => setAiView(v)} className={seg(aiView === v)}>{v ? "What the AI saw" : "Real names"}</button>
               ))}
             </div>
           </div>
           {a.status !== 200 ? (
-            <div className={bad}>The LLM did not answer: {a.detail}</div>
+            <Bad>The LLM did not answer: {a.detail}</Bad>
           ) : a.checker !== "ok" ? (
-            <div className={bad}>Answer blocked: numbers not in any tool result ({a.unmatched?.join(", ")}).</div>
+            <Bad>Answer blocked: numbers not in any tool result ({a.unmatched?.join(", ")}).</Bad>
           ) : (
             <p className="inset-field whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{aiView ? a.hashed : a.real}</p>
           )}
         </section>
       )}
 
-      {job.done && job.error && <div className={bad}>Could not measure or write the SQL: {job.error}</div>}
+      {job.done && job.error && <Bad>Could not measure or write the SQL: {job.error}</Bad>}
       {live && a && !job.done && <div className="inset-field flex items-center gap-2 p-3 text-sm text-slate-700"><Loader2 className="size-4 animate-spin" /> Measuring on the twin and writing the SQL</div>}
 
       {job.done && !job.error && !job.results && <div className="inset-field p-3 text-sm text-slate-700">No change worth its cost, so no SQL to apply.</div>}
@@ -77,7 +84,7 @@ function PageLinks() {
   return (
     <div className="flex flex-wrap gap-2">
       {PAGES.map(([label, href]) => (
-        <Link key={href} href={href} className="glass-subtle inline-flex h-7 items-center rounded-md px-2.5 text-xs font-medium text-ink hover:bg-white/70">{label}</Link>
+        <Link key={href} href={href} className="glass-subtle inline-flex h-7 items-center pill px-3 text-sm font-medium text-slate-600 hover:text-ink">{label}</Link>
       ))}
     </div>
   );
@@ -127,25 +134,22 @@ export function LiveAsk() {
 
   const saved = !state && !error && bundle;
   return (
-    <div className="glass-strong space-y-4 rounded-xl p-5">
-      <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <span className="size-2 rounded-full bg-accent" aria-hidden /> Live: local gateway and AI service
-      </div>
+    <div className="glass-strong space-y-4 rounded-2xl p-5">
       <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); ask(); }}>
         <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: why is the monthly category report slow?" aria-label="Question" className="min-w-60 flex-1" />
-        <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-ink px-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
+        <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 pill bg-ink px-3.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Ask
         </button>
       </form>
-      <Source>the question stays private; the AI side gets template codes only</Source>
+      <Source>live, local gateway and AI service; the question stays private, the AI side gets template codes only</Source>
 
-      {error && <div className={bad}>{error}</div>}
+      {error && <Bad>{error}</Bad>}
 
       {state && !state.ask && (
         <div className="inset-field p-3 text-sm text-slate-700">
           Working: {state.events.filter((e) => e.startsWith("tool ")).length} tool calls so far
           {state.events.filter((e) => e.startsWith("rate limited") || e.startsWith("LLM service unavailable")).map((e) => (
-            <div key={e} className="mt-1 text-signal">{e}</div>
+            <div key={e} className="mt-1 flex items-center gap-2 text-ink"><span className="size-2 shrink-0 rounded-full bg-signal" aria-hidden />{e}</div>
           ))}
         </div>
       )}
@@ -155,8 +159,10 @@ export function LiveAsk() {
 
       {saved && (
         <>
-          <div className="glass-subtle rounded-lg px-3 py-2 text-xs text-slate-600">
-            From history: <span className="font-medium text-slate-900">{bundle.question}</span> <span className="font-mono text-xs text-slate-500">({bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")})</span>
+          <div className="glass-subtle inline-flex max-w-full items-center gap-2 pill px-3 py-1 text-xs text-slate-600">
+            <span className="shrink-0">From history</span>
+            <span className="truncate font-medium text-slate-900">{bundle.question}</span>
+            <span className="shrink-0 font-mono text-slate-500">{bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")}</span>
           </div>
           <Result key={bundle.id} job={bundle.job} live={false} />
           <PageLinks />

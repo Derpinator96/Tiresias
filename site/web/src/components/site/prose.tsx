@@ -6,7 +6,7 @@ export const H1 = ({ children }: { children: React.ReactNode }) => (
   <h1 className="max-w-3xl text-2xl font-semibold tracking-tight text-slate-900">{children}</h1>
 );
 export const H2 = ({ children }: { children: React.ReactNode }) => (
-  <h2 className="mb-3 mt-10 text-lg font-semibold tracking-tight text-slate-900">{children}</h2>
+  <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight text-slate-900">{children}</h2>
 );
 export const Lead = ({ children }: { children: React.ReactNode }) => (
   <p className="mt-2 max-w-2xl text-sm text-slate-600">{children}</p>

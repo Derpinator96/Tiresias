@@ -12,8 +12,8 @@ import spec from "@/data/gnn_spec.json";
 import m from "@/data/measurements.json";
 import { cn } from "@/lib/utils";
 
-const seg = (on: boolean) => cn("h-7 whitespace-nowrap rounded px-2.5 text-xs", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
-const Seg = ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={cn("glass-subtle flex w-fit flex-wrap rounded-md p-0.5", className)}>{children}</div>;
+const seg = (on: boolean) => cn("h-7 whitespace-nowrap pill px-3 text-sm", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
+const Seg = ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={cn("glass-subtle flex w-fit flex-wrap pill p-0.5", className)}>{children}</div>;
 const nFeatures = spec.ops.length + spec.numeric.length;
 
 // Tree geometry in pixels: layout() gives x in leaf units and y in depth levels.
@@ -21,7 +21,8 @@ const nFeatures = spec.ops.length + spec.numeric.length;
 const BOX_W = 168, BOX_H = 64, COL = 192, ROW = 112, PAD = 12, TIP_W = 224, TIP_ROW = 20;
 // SVG strokes: slate-300, accent, ink (CSS classes cannot colour an SVG marker here)
 const EDGE = { idle: "rgb(203 213 225)", reach: SERIES.blue, hot: "rgb(15 23 42)" } as const;
-const heat = (s: number) => `rgb(37 99 235 / ${(0.5 * s).toFixed(3)})`;   // accent at an alpha proportional to the share
+// accent at an alpha proportional to the share, laid over white so the box stays a white card
+const heat = (s: number) => `linear-gradient(rgb(37 99 235 / ${(0.5 * s).toFixed(3)}), rgb(37 99 235 / ${(0.5 * s).toFixed(3)})), #fff`;
 const pct = (s: number) => `${(s * 100).toFixed(1)}%`;
 const int = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
@@ -94,7 +95,7 @@ function Lab({ b }: { b: Bundle | null }) {
 
   return (
     <div className="space-y-4">
-      <div className="glass flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl p-4">
+      <div className="glass flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl p-4">
         <Seg className="flex-wrap">{opts.map((p) => <button key={p.id} className={cn(seg(planId === p.id), "max-w-72 truncate font-mono")} title={b ? name(b, p.id) : undefined} onClick={() => pick(p.id)}>{p.label}</button>)}</Seg>
         {opt.hypopg && (
           <Seg>
@@ -122,8 +123,8 @@ function Lab({ b }: { b: Bundle | null }) {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <ChartCard title={variant === "hypopg" ? "Plan tree with the recommended index" : "Plan tree"} caption={b
-          ? <>Logged auto_explain plan, newest first, bundle {b.id}.{mode === "gnn" ? ` Predicted share: ${b.estimator?.label ?? opt.prediction?.estimator}.` : ""}{variant === "hypopg" ? " HypoPG plan: EXPLAIN with a hypothetical index, no actual rows or times." : ""} Codes under &quot;what the AI sees&quot; are the gateway&apos;s HMAC codes.</>
-          : <>Illustrative plans, not from {run.run_id}: {plans._source}</>}>
+          ? <>logged auto_explain plan, bundle {b.id}{mode === "gnn" ? `; predicted share: ${b.estimator?.label ?? opt.prediction?.estimator}` : ""}{variant === "hypopg" ? "; HypoPG plan, no actual rows or times" : ""}; AI-side labels are the gateway&apos;s HMAC codes</>
+          : <>illustrative plans, not from {run.run_id}: {plans._source}</>}>
           <div ref={wrap} className="inset-field overflow-x-auto rounded-lg" onMouseLeave={() => setHl(null)}>
             <div className="relative mx-auto" style={{ width: treeW, height: treeH }}>
               <svg className="absolute inset-0" width={treeW} height={treeH} aria-hidden>
@@ -154,9 +155,9 @@ function Lab({ b }: { b: Bundle | null }) {
                 const isHot = hl === n.node_id;
                 return (
                   <button key={n.node_id} onClick={() => setSel(i)} onMouseEnter={() => hover(n.node_id)} onMouseLeave={() => setHl(null)} onFocus={() => hover(n.node_id)} onBlur={() => setHl(null)} aria-pressed={sel === i} data-node={n.node_id}
-                    className={cn("inset-field absolute overflow-hidden px-2 py-1.5 text-left shadow-sm transition-[transform,box-shadow,opacity,border-color] duration-150",
-                      sel === i && "border-ink ring-2 ring-ink/30", isHot && "-translate-y-0.5 border-accent shadow-lg", !seen.has(n.node_id) && "opacity-40")}
-                    style={{ left: cx - BOX_W / 2, top, width: BOX_W, height: BOX_H, backgroundColor: heat(s) }}>
+                    className={cn("absolute overflow-hidden rounded-lg px-2.5 py-1.5 text-left transition-[translate,box-shadow,opacity] duration-150",
+                      isHot ? "-translate-y-0.5 shadow-lg" : "shadow-(--glass-shadow)", sel === i && "ring-2 ring-ink", !seen.has(n.node_id) && "opacity-40")}
+                    style={{ left: cx - BOX_W / 2, top, width: BOX_W, height: BOX_H, background: heat(s) }}>
                     <div className="truncate text-xs font-medium text-slate-900">{n.op}</div>
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate font-mono text-xs text-slate-600" title={label(n.relation)}>{label(n.relation)}</span>
@@ -178,7 +179,7 @@ function Lab({ b }: { b: Bundle | null }) {
                 const left = anchor.right + 8 + TIP_W <= window.innerWidth ? anchor.right + 8 : Math.max(8, anchor.left - TIP_W - 8);
                 const top = Math.max(8, Math.min(anchor.top, window.innerHeight - tipH - 8));
                 return createPortal(
-                  <div className="glass-strong pointer-events-none fixed z-10 rounded-md px-2.5 py-2 text-xs" style={{ left, top, width: TIP_W }}>
+                  <div className="pointer-events-none fixed z-10 rounded-xl bg-white px-3 py-2 text-xs shadow-(--glass-shadow-lg)" style={{ left, top, width: TIP_W }}>
                     <div className="mb-1 font-medium text-slate-900">node {n.node_id}: {n.op}</div>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
                       {rows.map(([k, v]) => <Fragment key={k}><dt className="text-slate-600">{k}</dt><dd className="text-right font-mono text-slate-900">{v}</dd></Fragment>)}
@@ -190,7 +191,7 @@ function Lab({ b }: { b: Bundle | null }) {
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <button className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-xs text-white hover:bg-slate-800" onClick={() => { if (layers >= spec.layers) setLayers(0); setPlaying(!playing); }}>
+            <button className="inline-flex h-7 items-center gap-1 pill bg-ink px-3 text-sm text-white hover:bg-slate-800" onClick={() => { if (layers >= spec.layers) setLayers(0); setPlaying(!playing); }}>
               {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} Message passing
             </button>
             <label className="flex min-w-40 flex-1 items-center gap-2 text-xs text-slate-700">
@@ -211,10 +212,10 @@ function Lab({ b }: { b: Bundle | null }) {
           )}
         </ChartCard>
 
-        <ChartCard title={`Node ${node.node_id}: ${node.op}${node.relation ? ` on ${label(node.relation)}` : ""}`} caption={<>{spec._source}. Log features use log1p, as in features.py.</>}>
+        <ChartCard title={`Node ${node.node_id}: ${node.op}${node.relation ? ` on ${label(node.relation)}` : ""}`} caption={<>{spec._source}; log features use log1p (features.py)</>}>
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="rounded border border-accent/40 bg-accent-soft px-1.5 py-0.5 font-mono text-ink">op {opIndex(spec.ops, node.op)} of {spec.ops.length}</span>
+              <span className="glass-subtle pill px-2.5 py-0.5 font-mono text-slate-700">op {opIndex(spec.ops, node.op)} of {spec.ops.length}</span>
               <span className="text-slate-600">one-hot, then {spec.numeric.length} numbers:</span>
             </div>
             {!!node.filter_cols?.length && (
@@ -222,7 +223,7 @@ function Lab({ b }: { b: Bundle | null }) {
             )}
             <HBars digits={2} bars={spec.numeric.map((k, i) => ({ label: k, value: f[i], color: SERIES.blue }))} />
             {ratio !== null && (
-              <div className={cn("flex items-start gap-2 rounded-lg border p-2 text-xs", ratio >= spec.misestimate_ratio_alert ? "border-signal/40 bg-signal-soft text-ink" : "glass-subtle text-slate-700")}>
+              <div className={cn("inset-field flex items-start gap-2 p-2 text-xs", ratio >= spec.misestimate_ratio_alert ? "text-ink" : "text-slate-700")}>
                 {ratio >= spec.misestimate_ratio_alert && <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-signal" />}
                 <span>Expected {int(node.est_rows)} rows, got {int(node.actual_rows!)}: {ratio.toFixed(1)}x off{ratio >= spec.misestimate_ratio_alert ? `, past the ${spec.misestimate_ratio_alert}x alert: run ANALYZE` : ""}.</span>
               </div>
@@ -232,12 +233,12 @@ function Lab({ b }: { b: Bundle | null }) {
       </div>
 
       {opt.explain && (
-        <ChartCard title="Why the plan is slow" caption={<>/ai/gnn/explain at ask time, estimator {opt.explain.estimator}: {opt.explain.label}. Alert ratio {opt.explain.misestimate_alert_ratio}x (config.yaml gnn.misestimate_ratio_alert). Hover a bar to find the node in the tree.</>}>
+        <ChartCard title="Why the plan is slow" caption={<>/ai/gnn/explain at ask time, {opt.explain.estimator}: {opt.explain.label}; alert ratio {opt.explain.misestimate_alert_ratio}x (config.yaml gnn.misestimate_ratio_alert); hover a bar to find the node</>}>
           <div className="grid gap-4 md:grid-cols-[auto_1fr]">
             <BigNumber value={`${opt.explain.predicted_total_ms.toFixed(1)} ms`} label="predicted total" />
             <div className="space-y-1.5" onMouseLeave={() => setHl(null)}>
               {opt.explain.top_nodes.map((n) => (
-                <div key={n.node_id} onMouseEnter={() => hover(n.node_id)} className={cn("grid cursor-default grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 rounded px-1 text-xs transition-colors", hl === n.node_id && "bg-accent-soft")}>
+                <div key={n.node_id} onMouseEnter={() => hover(n.node_id)} className={cn("grid cursor-default grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-2 rounded-lg px-1 text-xs transition-colors", hl === n.node_id && "bg-accent-soft")}>
                   <span className="truncate text-slate-700">node {n.node_id} {n.op}{n.relation ? <span className="font-mono text-slate-500"> {label(n.relation)}</span> : null}</span>
                   <div className="h-5 py-0.5"><div className="h-full rounded-r-[4px] transition-opacity" style={{ width: `${(n.predicted_share_pct / explainMax) * 100}%`, background: SERIES.blue, opacity: hl === null || hl === n.node_id ? 1 : 0.45 }} /></div>
                   <span className="font-mono text-slate-900">{n.predicted_share_pct.toFixed(1)}% <span className="text-slate-500">{n.predicted_self_ms.toFixed(1)} ms</span></span>
@@ -248,7 +249,7 @@ function Lab({ b }: { b: Bundle | null }) {
           <div className="mt-3 space-y-2">
             {opt.explain.misestimates.length === 0 && <div className="text-xs text-slate-600">No node past the {opt.explain.misestimate_alert_ratio}x misestimate alert.</div>}
             {opt.explain.misestimates.map((x) => (
-              <div key={x.node_id} className="flex items-start gap-2 rounded-lg border border-signal/40 bg-signal-soft p-2 text-xs text-ink">
+              <div key={x.node_id} className="inset-field flex items-start gap-2 p-2 text-xs text-ink">
                 <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-signal" />
                 <span>Node {x.node_id} {x.op}{x.relation ? ` on ${label(x.relation)}` : ""}: expected {int(x.est_rows)} rows, got {int(x.actual_rows)} ({x.ratio}x). {x.recommend}.</span>
               </div>
@@ -257,7 +258,7 @@ function Lab({ b }: { b: Bundle | null }) {
         </ChartCard>
       )}
 
-      <ChartCard title="When the GNN serves" caption={<>Rule from models/gnn/NOTES.md: the GNN serves only when its scored median q-error is below the Postgres baseline&apos;s. Defaults are the dated reference scores. {m.gnn.source}</>}>
+      <ChartCard title="When the GNN serves" caption={<>the GNN serves only when its scored median q-error is below the Postgres baseline&apos;s (models/gnn/NOTES.md); defaults: {m.gnn.source}</>}>
         <div className="grid items-center gap-4 md:grid-cols-[1fr_1fr_auto]">
           {[["GNN median q-error", gnn, setGnn], ["Postgres median q-error", pg, setPg]].map(([label, v, set]) => (
             <label key={label as string} className="block text-xs text-slate-700">
@@ -265,11 +266,11 @@ function Lab({ b }: { b: Bundle | null }) {
               <input type="range" min={1} max={5} step={0.01} value={v as number} onChange={(e) => (set as (n: number) => void)(Number(e.target.value))} className="w-full accent-accent" />
             </label>
           ))}
-          <div className={cn("rounded-lg border px-3 py-2 text-sm font-medium", who === "gnn" ? "border-accent/40 bg-accent-soft text-ink" : "border-signal/40 bg-signal-soft text-ink")}>
+          <div className={cn("pill px-4 py-2 text-sm font-medium", who === "gnn" ? "bg-accent-soft text-ink" : "inset-field text-slate-700")}>
             serves: {who === "gnn" ? "GNN" : "Postgres baseline"}
           </div>
         </div>
-        <div className="mt-3 rounded-md border border-signal/40 bg-signal-soft px-2 py-1 font-mono text-xs text-ink">{b?.estimator?.label ?? run.search.estimator_label}</div>
+        <div className="glass-subtle mt-3 inline-block pill px-3 py-1 font-mono text-xs text-slate-700">{b?.estimator?.label ?? run.search.estimator_label}</div>
       </ChartCard>
     </div>
   );

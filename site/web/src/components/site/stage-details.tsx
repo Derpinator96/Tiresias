@@ -20,8 +20,8 @@ export function StageDetails({ c }: { c: StageCopy }) {
           <AccordionTrigger>What crosses to the AI side</AccordionTrigger>
           <AccordionContent>
             <div className="grid gap-4 sm:grid-cols-2">
-              <ul className="space-y-1 text-slate-700">{c.sent.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-accent" />{x}</li>)}</ul>
-              <ul className="space-y-1 text-slate-700">{c.never.map((x) => <li key={x} className="flex gap-2"><X className="mt-0.5 size-4 shrink-0 text-signal" />{x}</li>)}</ul>
+              <ul className="space-y-1 text-slate-700">{c.sent.map((x) => <li key={x} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-slate-700" />{x}</li>)}</ul>
+              <ul className="space-y-1 text-slate-700">{c.never.map((x) => <li key={x} className="flex gap-2"><X className="mt-0.5 size-4 shrink-0 text-slate-400" />{x}</li>)}</ul>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -33,7 +33,7 @@ export function StageDetails({ c }: { c: StageCopy }) {
             <table className="w-full min-w-[480px] text-left">
               <tbody>
                 {c.figures.map((f) => (
-                  <tr key={f.label} className="border-t border-slate-200/70 align-top first:border-0">
+                  <tr key={f.label} className="align-top even:bg-slate-50">
                     <td className="py-1.5 pr-3 text-slate-700">{f.label}</td>
                     <td className="py-1.5 pr-3 font-mono font-semibold text-slate-900">{f.value}</td>
                     <td className="py-1.5 text-xs text-slate-600">{f.source}</td>

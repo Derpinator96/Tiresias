@@ -14,6 +14,8 @@ const EXAMPLES = {
   "join": "SELECT s.city, COUNT(*) FROM shops s\nJOIN visits v ON s.id = v.shop\nWHERE v.kind IN ('walk-in', 'online') AND v.day >= $1\nGROUP BY s.city ORDER BY s.city",
 };
 const CATALOG = ["pk", "fk", "indexed", "nullable"] as const;
+const TH = "px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-slate-500";
+const TR = "even:bg-[#f6f7f9]";
 
 function useAsync<T>(fn: () => Promise<T>, deps: unknown[]): [T | null, string | null] {
   const [state, setState] = useState<[T | null, string | null]>([null, null]);
@@ -60,32 +62,34 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
 
   return (
     <div className="space-y-4">
-      <div className="glass flex flex-wrap items-center gap-3 rounded-xl p-4">
+      <div className="glass flex flex-wrap items-center gap-3 rounded-2xl p-4">
         <KeyRound className="size-4 text-slate-700" />
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-slate-600">Demo key (32 random bytes, made in this tab, never sent)</div>
+          <div className="text-xs text-slate-600">Demo key: 32 random bytes, made in this tab, never sent</div>
           <div className="truncate font-mono text-xs text-slate-900">{key ? `${toHex(key).slice(0, 24)}...` : "generating"}</div>
         </div>
-        <button onClick={regenerate} className="h-8 rounded-md bg-ink px-3 text-xs font-medium text-white hover:bg-slate-800">New demo key</button>
-        {changed !== null && <span className="text-xs text-slate-700">{changed} of {names.length} codes changed with the new key</span>}
+        <button onClick={regenerate} className="h-8 pill bg-ink px-3.5 text-sm font-medium text-white hover:bg-slate-800">New demo key</button>
+        {changed !== null && <span className="text-xs text-slate-600">{changed} of {names.length} codes changed with the new key</span>}
       </div>
 
-      <div className="glass rounded-xl p-4">
+      <div className="glass rounded-2xl p-4">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">Your SQL</span>
-          {Object.entries(EXAMPLES).map(([k, v]) => (
-            <button key={k} onClick={() => edit(v)} className={cn("h-7 rounded-md border px-2 text-xs", sql === v ? "border-ink bg-ink text-white" : "glass-subtle text-ink hover:bg-white/70")}>
-              Example: {k}
-            </button>
-          ))}
+          <span className="text-base font-semibold text-slate-900">Your SQL</span>
+          <div className="glass-subtle flex pill p-0.5">
+            {Object.entries(EXAMPLES).map(([k, v]) => (
+              <button key={k} onClick={() => edit(v)} className={cn("h-7 whitespace-nowrap pill px-3 text-sm", sql === v ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70")}>
+                Example: {k}
+              </button>
+            ))}
+          </div>
         </div>
         <Textarea value={sql} onChange={(e) => edit(e.target.value)} spellCheck={false} aria-label="SQL to hash" className="min-h-24 font-mono text-xs" />
         <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <div className="min-w-0"><div className="mb-1 text-xs text-slate-600">What the operator sees</div><SqlBlock text={sql} /></div>
+          <div className="min-w-0"><div className="mb-1 text-xs text-slate-600">Operator view</div><SqlBlock text={sql} /></div>
           <div className="min-w-0">
-            <div className="mb-1 text-xs text-slate-600">What the AI side would receive</div>
+            <div className="mb-1 text-xs text-slate-600">AI side</div>
             {err ? (
-              <div className="flex items-start gap-2 rounded-lg bg-signal-soft p-3 text-xs font-medium text-signal"><ShieldX className="size-4 shrink-0" /> Not sent (fail closed): {err}</div>
+              <div className="inset-field flex items-start gap-2 p-3 text-xs text-ink"><ShieldX className="size-4 shrink-0 text-signal" /> Not sent (fail closed): {err}</div>
             ) : <SqlBlock text={res?.sql ?? ""} />}
           </div>
         </div>
@@ -94,14 +98,14 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
 
       {names.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
-          <div className="glass rounded-xl p-4">
-            <div className="mb-2 text-sm font-semibold text-slate-900">Names and their codes</div>
-            <div className="inset-field max-h-72 overflow-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 bg-slate-50 text-slate-600"><tr><th className="px-2 py-1.5 font-medium">hashed text</th><th className="px-2 font-medium">code</th><th className="px-2 font-medium">roles</th></tr></thead>
-                <tbody className="font-mono">
+          <div className="glass rounded-2xl p-4">
+            <div className="mb-2 text-base font-semibold text-slate-900">Names and their codes</div>
+            <div className="max-h-72 overflow-auto rounded-lg">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 bg-white"><tr><th className={TH}>hashed text</th><th className={TH}>code</th><th className={TH}>roles</th></tr></thead>
+                <tbody className="font-mono text-xs">
                   {names.map((n) => (
-                    <tr key={n.text} onClick={() => setPick(n.text)} className={cn("cursor-pointer border-t border-slate-200/70 hover:bg-white/80", sel?.text === n.text && "bg-accent-soft/80")}>
+                    <tr key={n.text} onClick={() => setPick(n.text)} className={cn("cursor-pointer", TR, sel?.text === n.text && "bg-accent-soft even:bg-accent-soft hover:bg-accent-soft")}>
                       <td className="px-2 py-1.5 text-slate-800">{n.text}</td>
                       <td className="px-2 text-slate-900">{n.code}</td>
                       <td className="px-2 text-slate-600">{n.roles.join(", ") || (n.kind === "table" ? "table" : "none")}</td>
@@ -114,8 +118,8 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
           </div>
 
           {sel && (
-            <div className="glass rounded-xl p-4">
-              <div className="mb-2 text-sm font-semibold text-slate-900">How {sel.code} is made</div>
+            <div className="glass rounded-2xl p-4">
+              <div className="mb-2 text-base font-semibold text-slate-900">How {sel.code} is made</div>
               <ol className="space-y-2 text-xs text-slate-700">
                 <li><span className="text-slate-500">1. text:</span> <span className="font-mono text-slate-900">{sel.text}</span></li>
                 <li><span className="text-slate-500">2. HMAC-SHA256(key, text):</span>
@@ -133,18 +137,18 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
       )}
 
       {res && res.columns.length > 0 && (
-        <div className="glass rounded-xl p-4">
-          <div className="mb-2 text-sm font-semibold text-slate-900">Column flags sent with each code</div>
-          <div className="inset-field overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-xs">
-              <thead className="text-slate-600"><tr><th className="px-2 py-1.5 font-medium">code</th>{CATALOG.map((f) => <th key={f} className="px-2 font-medium">{f}</th>)}<th className="px-2 font-medium">join</th><th className="px-2 font-medium">range</th><th className="px-2 font-medium">eq</th><th className="px-2 font-medium">bits</th></tr></thead>
-              <tbody>
+        <div className="glass rounded-2xl p-4">
+          <div className="mb-2 text-base font-semibold text-slate-900">Column flags sent with each code</div>
+          <div className="overflow-x-auto rounded-lg">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead><tr><th className={TH}>code</th>{CATALOG.map((f) => <th key={f} className={TH}>{f}</th>)}<th className={TH}>join</th><th className={TH}>range</th><th className={TH}>eq</th><th className={TH}>bits</th></tr></thead>
+              <tbody className="text-xs">
                 {res.columns.map((c) => {
                   const f = flags[c.code] ?? {};
                   const derived = [c.roles.includes("JOIN"), c.roles.includes("RANGE"), c.roles.includes("EQ")];
                   const bits = [...CATALOG.map((k) => !!f[k]), ...derived].map((x) => (x ? 1 : 0)).join("");
                   return (
-                    <tr key={c.code} className="border-t border-slate-200/70">
+                    <tr key={c.code} className={TR}>
                       <td className="px-2 py-1.5 font-mono text-slate-900">{c.code}</td>
                       {CATALOG.map((k) => (
                         <td key={k} className="px-2">
@@ -159,12 +163,12 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
               </tbody>
             </table>
           </div>
-          <Source>pk, fk, indexed, nullable come from the catalog (tick them here); join, range, eq from the SQL; the gateway sends named booleans, not bits (gateway/ingest/stats.py)</Source>
+          <Source>catalog flags are ticked here; join, range, eq come from the SQL; the gateway sends named booleans, not bits (gateway/ingest/stats.py)</Source>
         </div>
       )}
 
-      <div className="glass rounded-xl p-4">
-        <div className="mb-2 text-sm font-semibold text-slate-900">Change one letter, get an unrelated code</div>
+      <div className="glass rounded-2xl p-4">
+        <div className="mb-2 text-base font-semibold text-slate-900">Change one letter, get an unrelated code</div>
         <div className="grid gap-3 sm:grid-cols-2">
           {[[a, setA], [b, setB]].map(([v, set], i) => (
             <div key={i}>
@@ -173,7 +177,7 @@ export function HashingVisualizer({ initialSql }: { initialSql?: string } = {}) 
             </div>
           ))}
         </div>
-        {aval && <p className="mt-2 text-xs text-slate-700">{bitsDiffer(aval[0], aval[1])} of 256 digest bits differ (about 128 expected)</p>}
+        {aval && <p className="mt-2 text-xs text-slate-600">{bitsDiffer(aval[0], aval[1])} of 256 digest bits differ (about 128 expected)</p>}
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ import { useView } from "@/lib/view";
 import { CopyButton, Pip, Source, SqlBlock, Stat, save } from "./bits";
 
 const H = ({ children }: { children: React.ReactNode }) => <h3 className="mb-2 mt-5 text-sm font-semibold text-slate-900 first:mt-0">{children}</h3>;
-const seg = (on: boolean) => cn("h-7 rounded px-2.5 text-xs", on ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100");
+const seg = (on: boolean) => cn("h-7 rounded-full px-3 text-xs", on ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-200/70");
 const NA = "not in bundle";
 const n = (x: number | null, unit = " ms", digits = 1) => (x === null ? NA : `${x.toFixed(digits)}${unit}`);
 
@@ -26,7 +26,7 @@ function SourceSheet() {
       {v.templateSqlReal && <Source>real SQL from the bundle&apos;s names map; private side only</Source>}
       <div className={v.templateSqlReal ? "mt-3" : ""}><SqlBlock text={v.templateSql} file="hashed.sql" /></div>
       <Source>as the AI side receives it; {v.src.sql}</Source>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <Stat label="mean before" value={n(v.meanBefore)} note={v.src.prod} />
         <Stat label="slow threshold" value={`${v.slowThresholdMs} ms`} note={v.src.threshold} />
         <Stat label="table rows" value={v.heroRows === null ? NA : v.heroRows.toLocaleString("en-US")} note={`${v.heroTable ?? "table unknown"}; ${v.src.hero}`} />
@@ -55,8 +55,8 @@ function GatewaySheet() {
       <div className="grid grid-cols-4 gap-1.5">
         {CANARIES.map(([id], i) => (
           <button key={i} onClick={() => setCanary(i === canary ? null : i)}
-            className={cn("flex items-center gap-1 rounded-md border px-1.5 py-1 font-mono text-xs",
-              i === canary ? "border-ink bg-ink text-white" : "glass-subtle text-ink hover:bg-white/80")}>
+            className={cn("flex items-center gap-1 rounded-full px-2 py-1 font-mono text-xs",
+              i === canary ? "bg-ink text-white" : "glass-subtle text-ink hover:bg-slate-200/70")}>
             <Pip tone="ok" /> {id.slice(3)}
           </button>
         ))}
@@ -67,35 +67,35 @@ function GatewaySheet() {
           <div>kind: <span className="font-mono">{c[1]}</span></div>
           <div>placement: {c[2]}</div>
           <div className="flex items-center gap-1.5 text-accent"><ShieldCheck className="size-3.5" /> {v.canaryHits} hits in {v.payloads} outbound payloads of {v.id}</div>
-          <Source>id: first 8 hex of SHA-256 of the planted value (db/canaries.py); value never shown; any 6-character fragment also blocked; placements from db/canaries.py</Source>
+          <Source>db/canaries.py: id = first 8 hex of SHA-256 of the value; any 6-character fragment is also blocked</Source>
         </div>
       ) : (
-        <Source>click a canary for its placement; hits are totals, not per canary</Source>
+        <Source>hits are totals, not per canary</Source>
       )}
 
       <H>Sent to the AI side</H>
       <SqlBlock text={v.templateSql} />
       <Source>
-        {v.live ? v.src.sql : CODES_LABEL}; codes: t_ or c_ plus the first {CONFIG.hexChars} hex of HMAC-SHA256 under the .env key; values become ?.{" "}
+        {v.live ? v.src.sql : CODES_LABEL}; t_ or c_ plus the first {CONFIG.hexChars} hex of HMAC-SHA256; values become ?.{" "}
         <Link href="/hashing" className="text-accent underline">Hash your own SQL</Link>
       </Source>
 
       <H>Outbound ledger</H>
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search id, destination or sha256"
-          className="inset-field h-8 flex-1 px-2 text-xs outline-none focus:border-accent" />
-        <div className="flex rounded-md glass-subtle p-0.5">
+          className="inset-field h-8 flex-1 rounded-full px-3 text-xs outline-none focus:ring-2 focus:ring-accent/40" />
+        <div className="glass-subtle flex rounded-full p-0.5">
           {(["all", "ai", "llm"] as const).map((d) => <button key={d} className={seg(dest === d)} onClick={() => setDest(d)}>{d}</button>)}
         </div>
       </div>
       <div className="inset-field max-h-64 overflow-auto">
         <table className="w-full text-left text-xs">
-          <thead className="sticky top-0 bg-slate-50 text-slate-500">
+          <thead className="sticky top-0 bg-(--inset-bg) text-slate-500">
             <tr><th className="px-2 py-1.5 font-medium">payload</th><th className="px-2 font-medium">to</th><th className="px-2 font-medium">count</th><th className="px-2 font-medium">sha256</th><th className="px-2 font-medium">canary hits</th></tr>
           </thead>
           <tbody className="font-mono text-slate-800">
             {rows.map((r, i) => (
-              <tr key={i} className="border-t border-slate-200/70">
+              <tr key={i} className="even:bg-white/60">
                 <td className="px-2 py-1.5">{r.id}</td><td className="px-2">{r.destination}</td><td className="px-2">{r.count}</td>
                 <td className="max-w-32 truncate px-2" title={r.sha256}>{r.sha256}</td>
                 <td className="px-2"><span className="inline-flex items-center gap-1"><Pip tone={r.canaryHits ? "bad" : "ok"} />{r.canaryHits}</span></td>
@@ -105,7 +105,7 @@ function GatewaySheet() {
           </tbody>
         </table>
       </div>
-      <Source>{v.live ? `${v.src.ledger}: ${v.payloads} payloads, ${v.canaryHits} canary hits, ${v.blocked ?? 0} blocked; per-payload hashes stay in the gateway ledger` : `run record totals: ${v.payloads} payloads, ${v.llmPayloads} to the LLM; per-payload ids stay in the operator ledger`}</Source>
+      <Source>{v.live ? `${v.src.ledger}: ${v.payloads} payloads, ${v.canaryHits} canary hits, ${v.blocked ?? 0} blocked; per-payload hashes stay in the gateway` : `run record totals; per-payload ids stay in the operator ledger`}</Source>
     </>
   );
 }
@@ -116,14 +116,14 @@ function MinerSheet() {
   return (
     <>
       <H>{v.live ? `The search chose ${v.recommendedColumns ? "a composite index" : "no index"} for this question` : "The miner proposes one composite index for Q1"}</H>
-      <Stat label="recommended index" value={v.indexCols} note={`${v.recommendedColumns} columns on ${v.heroTable ?? "the table"}; FP-Growth weighted by calls x latency; equality column first (one value holds 30.01% of rows, db/NOTES.md); ${v.live ? v.src.search : CODES_LABEL}`} />
+      <Stat label="recommended index" value={v.indexCols} note={`${v.recommendedColumns} columns on ${v.heroTable ?? "the table"}; FP-Growth, calls x latency; equality column first (30.01% of rows, db/NOTES.md); ${v.live ? v.src.search : CODES_LABEL}`} />
       {v.live ? (
         <>
           <H>{v.candidates.length} candidates mined</H>
           <table className="inset-field w-full text-xs">
             <tbody className="font-mono text-slate-800">
               {v.candidates.map((c, i) => (
-                <tr key={i} className="border-t border-slate-200/70 first:border-0"><td className="px-3 py-1.5">{c.table} ({c.columns.join(", ")})</td><td className="px-3 text-right">{c.support.toFixed(3)}</td></tr>
+                <tr key={i} className="even:bg-white/60"><td className="px-3 py-1.5">{c.table} ({c.columns.join(", ")})</td><td className="px-3 text-right">{c.support.toFixed(3)}</td></tr>
               ))}
               {v.candidates.length === 0 && <tr><td className="px-3 py-2 text-slate-400">/ai/mine gave no candidates for this bundle</td></tr>}
             </tbody>
@@ -141,9 +141,9 @@ function GnnSheet() {
   const v = useView();
   return (
     <>
-      <div className="rounded-md border border-slate-300 bg-slate-100/80 px-3 py-2 font-mono text-xs text-slate-700">{v.estimatorLabel}</div>
+      <div className="glass-subtle inline-block rounded-full px-3 py-1 font-mono text-xs text-slate-600">{v.estimatorLabel}</div>
       <H>Predicted times used by the search</H>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-2 sm:grid-cols-2">
         <Stat label="predicted before" value={n(v.predictedBefore)} note={v.src.predicted} />
         <Stat label="predicted after" value={n(v.predictedAfter)} note="same estimator, with the chosen actions" />
       </div>
@@ -151,11 +151,11 @@ function GnnSheet() {
       <table className="inset-field w-full text-xs">
         <tbody className="font-mono text-slate-800">
           {[["GNN", "2.47"], ["Postgres baseline", "2.54"], ["scikit-learn GBT", "1.56"]].map(([k, x]) => (
-            <tr key={k} className="border-t border-slate-200/70 first:border-0"><td className="px-3 py-1.5 font-sans text-slate-600">{k}</td><td className="px-3 text-right">{x}</td></tr>
+            <tr key={k} className="even:bg-white/60"><td className="px-3 py-1.5 font-sans text-slate-600">{k}</td><td className="px-3 text-right">{x}</td></tr>
           ))}
         </tbody>
       </table>
-      <Source>median q-error, 40 test plans of the 200-plan sample (too small to conclude); weights not delivered, Postgres baseline serves</Source>
+      <Source>median q-error on 40 test plans (too small to conclude); weights not delivered, so the Postgres baseline serves</Source>
     </>
   );
 }
@@ -243,8 +243,8 @@ function RlSheet() {
         <div className="font-semibold text-slate-900">= {updated.toFixed(3)}</div>
       </div>
       <div className="mt-2 flex gap-2">
-        <button className="h-8 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800" onClick={() => setQ({ ...q, [`${key(s)}|${a}`]: updated })}>Apply update</button>
-        <button className="h-8 rounded-md glass-subtle px-3 text-xs text-ink hover:bg-white/80" onClick={() => setQ(fresh())}>Reset table</button>
+        <button className="h-8 rounded-full bg-ink px-3 text-xs font-medium text-white hover:bg-slate-800" onClick={() => setQ({ ...q, [`${key(s)}|${a}`]: updated })}>Apply update</button>
+        <button className="glass-subtle h-8 rounded-full px-3 text-xs text-ink hover:bg-slate-200/70" onClick={() => setQ(fresh())}>Reset table</button>
       </div>
     </>
   );
@@ -272,12 +272,12 @@ function LlmSheet() {
       {v.answer && (
         <>
           <H>The answer</H>
-          <div className="mb-1 flex rounded-md glass-subtle p-0.5 w-fit">
-            <button className={seg(!hashed)} onClick={() => setHashed(false)}>dehashed (DBA view)</button>
-            <button className={seg(hashed)} onClick={() => setHashed(true)}>hashed (as the LLM wrote it)</button>
+          <div className="glass-subtle mb-1 flex w-fit rounded-full p-0.5">
+            <button className={seg(!hashed)} onClick={() => setHashed(false)}>dehashed</button>
+            <button className={seg(hashed)} onClick={() => setHashed(true)}>hashed, as the LLM wrote it</button>
           </div>
           <div className="inset-field whitespace-pre-wrap p-3 text-xs leading-relaxed text-slate-800">{hashed ? v.answer.hashed : v.answer.real}</div>
-          <Source>bundle {v.id}: the LLM wrote the hashed text; the gateway dehashed it on the private side</Source>
+          <Source>bundle {v.id}; dehashed by the gateway on the private side</Source>
         </>
       )}
       {v.live && (
@@ -291,7 +291,7 @@ function LlmSheet() {
         </>
       )}
       <H>The 8 tools</H>
-      <Source>{v.live ? `${v.src.llm}: ${v.llm.toolCalls ?? "?"} calls, listed above` : `${v.id} made ${v.llm.toolCalls} calls; order and payloads not in the run record`}; declarations verbatim from agent/tools.py</Source>
+      <Source>{v.live ? `${v.src.llm}: ${v.llm.toolCalls ?? "?"} calls, listed above` : `${v.id}: ${v.llm.toolCalls} calls; order not in the run record`}; declarations from agent/tools.py</Source>
       <div className="mt-2 space-y-1">
         {TOOLS.map((t, i) => (
           <div key={t.name} className="inset-field">
@@ -301,7 +301,7 @@ function LlmSheet() {
               <ChevronDown className={cn("ml-auto size-3.5 text-slate-400 transition-transform", open === t.name && "rotate-180")} />
             </button>
             {open === t.name && (
-              <div className="border-t border-slate-200/80 px-3 py-2">
+              <div className="px-3 pb-2">
                 <p className="mb-2 text-xs text-slate-600">{t.description}</p>
                 <pre className="overflow-x-auto font-mono text-xs text-slate-800">{JSON.stringify(t.parameters, null, 2)}</pre>
               </div>
@@ -310,11 +310,11 @@ function LlmSheet() {
         ))}
       </div>
       <H>Number check</H>
-      <Source>{v.live ? "the agent's checked numbers are not in the bundle (verdict above)" : `the agent's ${v.llm.numbersChecked} checked numbers are not in the run record`}; this table re-checks the figures on this page</Source>
+      <Source>{v.live ? "the agent's checked numbers are not in the bundle" : `the agent's ${v.llm.numbersChecked} checked numbers are not in the run record`}; this table re-checks this page</Source>
       <table className="inset-field mt-2 w-full text-xs">
         <tbody>
           {checks.map(([k, x, src, ok]) => (
-            <tr key={k} className="border-t border-slate-200/70 align-top first:border-0">
+            <tr key={k} className="align-top even:bg-white/60">
               <td className="px-3 py-1.5 text-slate-600">{k}</td>
               <td className="px-2 py-1.5 font-mono text-slate-900">{x}</td>
               <td className="px-2 py-1.5 text-xs text-slate-500">{src}</td>
@@ -361,7 +361,7 @@ function TwinSheet() {
           </div>
         ))}
         {cur && (
-          <div className="mt-2 border-t border-slate-200/80 pt-2 text-xs text-slate-700">
+          <div className="mt-2 text-xs text-slate-700">
             <span className="font-medium">{cur.k}:</span> {cur.d}
             <Source>{v.live ? "per-node times are in the bundle's plans; totals shown here" : "plan node breakdown not in the run record"}</Source>
           </div>
@@ -370,7 +370,7 @@ function TwinSheet() {
       <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <Stat label="faster" value={v.speedupPct === null ? NA : `${v.speedupPct.toFixed(1)}%`} note={v.src.twin} />
         <Stat label="storage" value={n(v.storageMb, " MB")} note="twin disk" />
-        <Stat label="twin fidelity, Q1" value="0.76" note="plan agreement, loaded machine (db/sandbox/fidelity.py, 2026-10-03); not per question" />
+        <Stat label="twin fidelity, Q1" value="0.76" note="plan agreement on a loaded machine (db/sandbox/fidelity.py, 2026-10-03); not per question" />
       </div>
       <H>Result checksum</H>
       <div className="inset-field flex items-start gap-3 p-3">
@@ -378,12 +378,12 @@ function TwinSheet() {
           <ShieldCheck className="size-3.5" />
         </span>
         <div className="text-xs text-slate-700">
-          <div className="font-medium text-slate-900">{v.checksumMatch ? "Q1 gives the same result with and without the index" : "checksum mismatch"}</div>
+          <div className="font-medium text-slate-900">{v.checksumMatch ? "same result with and without the index" : "checksum mismatch"}</div>
           <Source>checksum_match = {String(v.checksumMatch)}; {v.src.checksum}; hash values not kept</Source>
         </div>
       </div>
       <H>Rewrite diff</H>
-      <Source>Q1&apos;s fix is an index, so its SQL is unchanged; shown: the two-region rewrite, Verified by VeriEQL (5 rows per table); rule or_same_column_to_in rendered by hand; {CODES_LABEL}</Source>
+      <Source>Q1&apos;s fix is an index, so this is the two-region rewrite (rule or_same_column_to_in, Verified by VeriEQL at 5 rows per table, rendered by hand); {CODES_LABEL}</Source>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <div className="min-w-0"><div className="mb-1 text-xs text-slate-500">original</div><SqlBlock text={QOR_SQL} tone="del" /></div>
         <div className="min-w-0"><div className="mb-1 text-xs text-slate-500">rewritten</div><SqlBlock text={QOR_REWRITTEN} tone="add" /></div>
@@ -398,17 +398,17 @@ const gatesOf = (v: RunView): [string, string][] => [
   ["Twin execution verified", v.twinBefore === null ? `${NA} (${v.src.twin})` : `${ms(v.twinBefore)} to ${ms(v.twinAfter!)}, ${v.src.twin}`],
   ["Result checksum identical", `checksum_match = ${v.checksumMatch} (${v.src.checksum})`],
   ["Zero canary leaks", `${v.canaryHits} of ${v.canariesPlanted} in ${v.payloads} payloads (${v.src.ledger})`],
-  ["Write cost reviewed", v.live && v.writeCostMs !== WRITE_COST.medianMs ? `+${v.writeCostMs.toFixed(3)} ms per insert (${v.src.writeCost})` : `+${WRITE_COST.medianMs} ms per insert against a ${WRITE_COST.baseLo} to ${WRITE_COST.baseHi} ms insert (${pct(WRITE_COST.baseHi)}% to ${pct(WRITE_COST.baseLo)}%, mostly the cold new index; db/NOTES.md)`],
+  ["Write cost reviewed", v.live && v.writeCostMs !== WRITE_COST.medianMs ? `+${v.writeCostMs.toFixed(3)} ms per insert (${v.src.writeCost})` : `+${WRITE_COST.medianMs} ms on a ${WRITE_COST.baseLo} to ${WRITE_COST.baseHi} ms insert, ${pct(WRITE_COST.baseHi)}% to ${pct(WRITE_COST.baseLo)}% (db/NOTES.md)`],
 ];
 
 function DbaSheet() {
   const v = useView();
   const { gates, toggleGate, authorize, authorizedAt } = useRun();
   const ready = gates.every(Boolean);
-  const btn = "inline-flex h-8 items-center gap-1.5 rounded-md glass-subtle px-3 text-xs text-ink hover:bg-white/80";
+  const btn = "glass-subtle inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-ink hover:bg-slate-200/70";
   return (
     <>
-      <Source>{v.live ? `bundle ${v.id}: files from POST /v1/approve, real names, local only; comments stripped (dashboard/data.py)` : `rendered from gateway/approve.py's template; config_id not in the run record; ${CODES_LABEL}`}</Source>
+      <Source>{v.live ? `bundle ${v.id}: files from POST /v1/approve, real names, local only` : `rendered from gateway/approve.py's template; ${CODES_LABEL}`}</Source>
       <div className="mt-3 flex flex-wrap gap-2">
         <CopyButton text={v.migration} label="Copy migration" />
         <CopyButton text={v.rollback} label="Copy rollback" />
@@ -430,10 +430,10 @@ function DbaSheet() {
         ))}
       </div>
       <button disabled={!ready} onClick={authorize}
-        className="mt-3 h-9 w-full rounded-md bg-ink text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
+        className="mt-3 h-9 w-full rounded-full bg-ink text-sm font-medium text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">
         {authorizedAt ? `Authorized at ${authorizedAt}` : ready ? "Authorize deployment" : `Tick all 4 gates (${gates.filter(Boolean).length} of 4)`}
       </button>
-      <Source>recorded in this browser only; nothing is sent; the DBA runs migration.sql with psql</Source>
+      <Source>recorded in this browser only; the DBA runs migration.sql with psql</Source>
     </>
   );
 }
@@ -449,7 +449,7 @@ export function Inspector() {
   const i = STAGES.findIndex((s) => s.id === selected);
   const id = STAGES[Math.max(i, 0)].id;
   const Sheet = SHEETS[id];
-  const light = "size-3 rounded-full border border-black/10";
+  const light = "size-3 rounded-full";
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && drawerOpen && select(null);
     window.addEventListener("keydown", onKey);
@@ -466,25 +466,22 @@ export function Inspector() {
         drawerOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",
       )}
     >
-      <header className="flex h-11 shrink-0 items-center gap-3 border-b border-slate-200/70 px-3">
+      <header className="flex h-11 shrink-0 items-center gap-3 px-3">
         <div className="flex gap-1.5">
-          <button className={cn(light, "bg-signal")} onClick={toggleDrawer} title="Close" aria-label="Close inspector" />
+          <button className={cn(light, "bg-slate-700")} onClick={toggleDrawer} title="Close" aria-label="Close inspector" />
           <button className={cn(light, "bg-slate-400")} onClick={() => setMin(!min)} title={min ? "Restore" : "Minimize"} aria-label="Minimize inspector" />
-          <button className={cn(light, "bg-accent")} onClick={() => setWide(!wide)} title={wide ? "Narrow" : "Widen"} aria-label="Widen inspector" />
+          <button className={cn(light, "bg-slate-300")} onClick={() => setWide(!wide)} title={wide ? "Narrow" : "Widen"} aria-label="Widen inspector" />
         </div>
-        <div className="flex-1 truncate text-center text-sm font-semibold text-slate-900">
-          <span className="mr-1.5 font-mono text-xs font-normal text-slate-400">{Math.max(i, 0) + 1}/8</span>
-          {STAGES[Math.max(i, 0)].title}
-        </div>
+        <div className="flex-1 truncate text-center text-base font-semibold text-slate-900">{STAGES[Math.max(i, 0)].title}</div>
         <div className="flex">
-          <button className="grid size-7 place-items-center rounded-md text-slate-600 hover:bg-slate-900/5 disabled:opacity-30" disabled={i <= 0} onClick={() => select(STAGES[i - 1].id)} aria-label="Previous stage"><ChevronLeft className="size-4" /></button>
-          <button className="grid size-7 place-items-center rounded-md text-slate-600 hover:bg-slate-900/5 disabled:opacity-30" disabled={i >= STAGES.length - 1} onClick={() => select(STAGES[i + 1].id)} aria-label="Next stage"><ChevronRight className="size-4" /></button>
+          <button className="grid size-7 place-items-center rounded-full text-slate-600 hover:bg-slate-100 disabled:opacity-30" disabled={i <= 0} onClick={() => select(STAGES[i - 1].id)} aria-label="Previous stage"><ChevronLeft className="size-4" /></button>
+          <button className="grid size-7 place-items-center rounded-full text-slate-600 hover:bg-slate-100 disabled:opacity-30" disabled={i >= STAGES.length - 1} onClick={() => select(STAGES[i + 1].id)} aria-label="Next stage"><ChevronRight className="size-4" /></button>
         </div>
       </header>
       {!min && (
         <div className="flex-1 overflow-y-auto p-4">
           <Sheet key={id} />
-          <Link href={`/stages/${id}`} className="mt-6 flex items-center justify-between rounded-lg glass-subtle px-3 py-2 text-sm font-medium text-slate-900 hover:bg-white">
+          <Link href={`/stages/${id}`} className="glass-subtle mt-6 flex items-center justify-between rounded-full px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200/70">
             {STAGES[Math.max(i, 0)].title} page <ArrowRight className="size-4" />
           </Link>
         </div>

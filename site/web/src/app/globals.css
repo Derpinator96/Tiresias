@@ -35,25 +35,26 @@
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* One type scale (human request 2026-10-04): small 13px, body 15px, h2 20px, h1 28px. The
-     default size names map onto it so no component can drift to a fifth size. */
-  --text-xs: 0.8125rem;
-  --text-xs--line-height: 1.25rem;
-  --text-sm: 0.9375rem;
-  --text-sm--line-height: 1.5rem;
-  --text-base: 0.9375rem;
-  --text-base--line-height: 1.5rem;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.75rem;
-  --text-xl: 1.25rem;
-  --text-xl--line-height: 1.75rem;
-  --text-2xl: 1.75rem;
-  --text-2xl--line-height: 2.125rem;
+  /* Compact type scale (reference 2026-10-04): 11px secondary, 13px labels and body, 14px
+     emphasised labels, 18px subheadings, 24px page headings, 28px only for primary numbers.
+     Weight carries emphasis, not size. The default size names map onto it. */
+  --text-xs: 0.6875rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5rem;
+  --text-xl: 1.125rem;
+  --text-xl--line-height: 1.5rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.875rem;
   --text-3xl: 1.75rem;
   --text-3xl--line-height: 2.125rem;
   --text-4xl: 1.75rem;
@@ -76,22 +77,23 @@
 /* Light only (CLAUDE.md design rules): no dark theme, no purple, no pill buttons.
    Glass = translucent white over a slate page with faint blue and slate tints. */
 :root {
-  /* glass tokens: white glassmorphism (reference card 2026-10-04): translucent white, blur,
-     brighter top and left edges, a soft shadow; whiter and lifted on hover */
-  --glass-bg: rgb(255 255 255 / 0.55);
-  --glass-strong-bg: rgb(255 255 255 / 0.78);
-  --glass-subtle-bg: rgb(255 255 255 / 0.38);
-  --glass-hover-bg: rgb(255 255 255 / 0.72);
-  --glass-border: rgb(255 255 255 / 0.55);
-  --glass-border-top: rgb(255 255 255 / 0.9);
-  --glass-edge: rgb(255 255 255 / 0.95);
-  --glass-shadow: 0 8px 32px rgb(15 23 42 / 0.10);
-  --glass-shadow-lg: 0 12px 40px rgb(15 23 42 / 0.16);
-  --glass-blur: 15px;
-  --inset-bg: rgb(255 255 255 / 0.5);
+  /* surfaces (reference 2026-10-04): pure white cards on a faint off-white canvas, no hard
+     borders, depth from very soft diffused shadows; a slightly deeper shadow and a 2px lift on
+     hover. The old glass names are kept so every component keeps working. */
+  --glass-bg: #ffffff;
+  --glass-strong-bg: #ffffff;
+  --glass-subtle-bg: #f6f7f9;
+  --glass-hover-bg: #ffffff;
+  --glass-border: transparent;
+  --glass-border-top: transparent;
+  --glass-edge: #eceef2;
+  --glass-shadow: 0 8px 32px rgb(0 0 0 / 0.04);
+  --glass-shadow-lg: 0 12px 40px rgb(0 0 0 / 0.08);
+  --glass-blur: 0px;
+  --inset-bg: #f6f7f9;
 
   /* shadcn tokens, pointed at the glass */
-  --background: oklch(0.968 0.007 247.896); /* slate-100 */
+  --background: #f3f4f6; /* off-white canvas */
   --foreground: oklch(0.208 0.042 265.755); /* slate-900 */
   --card: var(--glass-bg);
   --card-foreground: oklch(0.208 0.042 265.755);
@@ -106,15 +108,15 @@
   --accent: oklch(0.968 0.007 247.896 / 0.8);
   --accent-foreground: oklch(0.208 0.042 265.755);
   --destructive: var(--color-signal);
-  --border: var(--glass-edge);
-  --input: var(--glass-edge);
+  --border: #eceef2;
+  --input: #eceef2;
   --ring: var(--color-accent);
   --chart-1: var(--color-accent);
   --chart-2: var(--color-signal);
   --chart-3: #94a3b8;
   --chart-4: #cbd5e1;
   --chart-5: var(--color-ink);
-  --radius: 0.625rem;
+  --radius: 0.75rem; /* lg 12px; xl 20px and 2xl 24px for cards (reference 2026-10-04) */
 }
 
 @layer base {
@@ -131,8 +133,7 @@
        it (human request 2026-10-04: the colour moves only with the cursor). --mx and --my are
        set by src/components/site/site-effects.tsx; without a mouse they stay at the defaults. */
     background-image:
-      radial-gradient(70rem 70rem at var(--mx) var(--my), var(--color-accent-soft) 0%, transparent 60%),
-      radial-gradient(60rem 60rem at calc(100% - var(--mx)) calc(100% - var(--my)), var(--color-signal-soft) 0%, transparent 60%);
+      radial-gradient(60rem 60rem at var(--mx) var(--my), #ffffff 0%, transparent 60%);
     background-attachment: fixed;
     transition: --mx 400ms ease-out, --my 400ms ease-out;
     font-size: var(--text-sm);
@@ -141,7 +142,7 @@
   /* fixed sizes for raw headings and paragraphs: the same four sizes as the utilities */
   h1 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); font-weight: 600; letter-spacing: -0.01em; }
   h2 { font-size: var(--text-lg); line-height: var(--text-lg--line-height); font-weight: 600; }
-  h3 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 600; }
+  h3 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 600; }
   p, li, td, th, label, input, textarea, button { font-size: var(--text-sm); }
   small, caption, figcaption, code, kbd { font-size: var(--text-xs); }
   /* press bounce (human request 2026-10-04): every button springs when clicked. The class is set
@@ -165,7 +166,7 @@
     transition: background-color 150ms;
   }
   tbody > tr:hover {
-    background-color: rgb(255 255 255 / 0.5);
+    background-color: #f6f7f9;
   }
 }
 
@@ -176,36 +177,31 @@
   [data-slot="table-container"],
   [data-slot="tabs-list"],
   [data-slot="accordion"] {
-    backdrop-filter: blur(var(--glass-blur));
     box-shadow: var(--glass-shadow);
   }
   [data-slot="dialog-content"],
   [data-slot="sheet-content"],
   [data-slot="navigation-menu-content"] {
-    background-color: var(--glass-strong-bg);
-    backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
+    background-color: #ffffff;
     box-shadow: var(--glass-shadow-lg);
   }
   [data-slot="input"],
   [data-slot="textarea"] {
     background-color: var(--inset-bg);
-    backdrop-filter: blur(4px);
+    border-color: transparent;
   }
   /* playground stage nodes: glass plus a state edge (utilities would fight over border and shadow) */
   .stage-card {
     background-color: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-    border-top-color: var(--glass-border-top);
-    border-left-color: var(--glass-border-top);
-    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 1.25rem;
     box-shadow: var(--glass-shadow);
     transition: border-color 150ms, box-shadow 150ms, transform 250ms, background-color 250ms;
   }
   /* before the state rules, so a processing ring wins over the hover ring */
   .stage-card:hover {
-    transform: translateY(-4px);
-    background-color: var(--glass-hover-bg);
+    transform: translateY(-2px);
     box-shadow: var(--glass-shadow-lg);
   }
   .stage-card[data-state="processing"] {
@@ -226,33 +222,23 @@
 
 /* cards: a 1px lift, a firmer edge and a deeper shadow on hover, 150 ms; no transform when motion is reduced */
 @utility glass {
-  background-color: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-top-color: var(--glass-border-top);
-  border-left-color: var(--glass-border-top);
+  background-color: #ffffff;
+  border: 1px solid transparent;
   box-shadow: var(--glass-shadow);
-  transition: transform 250ms ease, box-shadow 250ms ease, background-color 250ms ease;
+  transition: transform 250ms ease, box-shadow 250ms ease;
   &:hover {
-    transform: translateY(-4px);
-    background-color: var(--glass-hover-bg);
+    transform: translateY(-2px);
     box-shadow: var(--glass-shadow-lg);
   }
 }
 @utility glass-strong {
-  background-color: var(--glass-strong-bg);
-  backdrop-filter: blur(calc(var(--glass-blur) * 1.4));
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.4));
-  border: 1px solid var(--glass-border);
-  border-top-color: var(--glass-border-top);
-  border-left-color: var(--glass-border-top);
-  box-shadow: var(--glass-shadow-lg);
-  transition: transform 250ms ease, box-shadow 250ms ease, background-color 250ms ease;
+  background-color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: var(--glass-shadow);
+  transition: transform 250ms ease, box-shadow 250ms ease;
   &:hover {
-    transform: translateY(-4px);
-    background-color: rgb(255 255 255 / 0.88);
-    box-shadow: 0 16px 48px rgb(15 23 42 / 0.2);
+    transform: translateY(-2px);
+    box-shadow: var(--glass-shadow-lg);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -278,23 +264,22 @@
   }
 }
 @utility glass-subtle {
-  background-color: var(--glass-subtle-bg);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
+  background-color: #f6f7f9;
+  border: 1px solid transparent;
 }
 @utility glass-bar {
-  background-color: var(--glass-strong-bg);
-  backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.6));
-  border: 1px solid var(--glass-border);
-  border-top-color: var(--glass-border-top);
-  border-left-color: var(--glass-border-top);
+  background-color: #ffffff;
+  border: 1px solid transparent;
   box-shadow: var(--glass-shadow);
-  border-radius: 0.75rem;
+  border-radius: 1.25rem;
 }
 @utility inset-field {
-  background-color: var(--inset-bg);
-  border: 1px solid rgb(255 255 255 / 0.7);
-  border-radius: 0.5rem;
-  backdrop-filter: blur(4px);
+  background-color: #f6f7f9;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+}
+/* small buttons, tags and segmented controls are pills (reference 2026-10-04, human decision;
+   CLAUDE.md's no-pill rule is overridden for this site by the human) */
+@utility pill {
+  border-radius: 9999px;
 }

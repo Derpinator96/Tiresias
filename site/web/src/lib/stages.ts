@@ -2,6 +2,7 @@
 // pages can read it. Every figure carries its source and, where it rests on one, its assumption.
 // Copy comes from docs/architecture.md (components 1 to 8) and the NOTES.md files, with the demo
 // database's real names left out (public pages never show them).
+import { ClipboardCheck, Cpu, Database, FlaskConical, Grid3x3, MessageSquareCode, Pickaxe, ShieldCheck } from "lucide-react";
 import { CANARIES, CODES_LABEL, CONFIG, INDEX_COLS, WRITE_COST, run } from "@/lib/facts";
 
 export const STAGES = [
@@ -15,6 +16,11 @@ export const STAGES = [
   { id: "dba", title: "DBA Console" },
 ] as const;
 export type StageId = (typeof STAGES)[number]["id"];
+
+/** One icon per stage (sidebar, overview map, playground cards). Stages carry no numbers on screen. */
+export const STAGE_ICON: Record<StageId, typeof Database> = {
+  source: Database, gateway: ShieldCheck, miner: Pickaxe, gnn: Cpu, rl: Grid3x3, llm: MessageSquareCode, twin: FlaskConical, dba: ClipboardCheck,
+};
 
 export const STAGE_SUMMARY: Record<StageId, string> = {
   source: "Postgres logs the slow query shape; values are already $1.",

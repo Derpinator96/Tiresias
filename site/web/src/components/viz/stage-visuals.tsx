@@ -51,7 +51,7 @@ function Gateway() {
       <ChartCard title="Canary leaks" caption={`${v.canariesPlanted} planted canaries scanned per payload; ${runLine(v)}`}>
         <div className="flex items-center gap-3">
           <ShieldCheck className="size-8 text-accent" />
-          <BigNumber value={`${v.canaryHits} of ${v.canariesPlanted}`} label="canaries found outside the private network" tone={v.canaryHits ? "default" : "good"} />
+          <BigNumber value={`${v.canaryHits} of ${v.canariesPlanted}`} label="canaries leaked" tone={v.canaryHits ? "default" : "good"} />
         </div>
       </ChartCard>
     </div>
@@ -78,9 +78,9 @@ function Gnn() {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <ChartCard title="Prediction error by model" caption={m.gnn.source}>
-        <div className="mb-2 flex w-fit rounded-md glass-subtle p-0.5 text-xs">
+        <div className="glass-subtle mb-2 flex w-fit rounded-full p-0.5 text-xs">
           {m.gnn.metrics.map((x) => (
-            <button key={x.id} onClick={() => setMetric(x.id)} aria-pressed={metric === x.id} className={`h-6 rounded px-2 ${metric === x.id ? "bg-ink text-white" : "text-slate-600"}`}>{x.label}</button>
+            <button key={x.id} onClick={() => setMetric(x.id)} aria-pressed={metric === x.id} className={`h-6 rounded-full px-2.5 ${metric === x.id ? "bg-ink text-white" : "text-slate-600"}`}>{x.label}</button>
           ))}
         </div>
         <HBars digits={3} bars={m.gnn.models.map((x) => ({ label: x.label, value: x[key], color: slot(x.slot) }))} />
@@ -130,8 +130,8 @@ function Llm() {
       </ChartCard>
       <ChartCard title="Numbers in the answer" caption={`${v.src.llm}, ${v.llm.model}`}>
         {v.live
-          ? <BigNumber value={v.llm.checker ?? "not run"} label="number checker verdict; count not in the bundle" tone={v.llm.checker === "ok" ? "good" : "default"} />
-          : <BigNumber value={`${v.llm.numbersChecked} checked`} label="every one matched a tool result" tone="good" />}
+          ? <BigNumber value={v.llm.checker ?? "not run"} label="number checker" tone={v.llm.checker === "ok" ? "good" : "default"} />
+          : <BigNumber value={`${v.llm.numbersChecked} checked`} label="all matched tool results" tone="good" />}
       </ChartCard>
     </div>
   );

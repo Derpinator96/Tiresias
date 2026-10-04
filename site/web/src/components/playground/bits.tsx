@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function Pip({ tone }: { tone: "ok" | "busy" | "idle" | "bad" }) {
-  const c = { ok: "bg-accent", busy: "bg-signal", idle: "bg-slate-400", bad: "bg-signal" }[tone];
+  // Monochrome except bad (a bad data state keeps the signal colour); busy pulses.
+  const c = { ok: "bg-ink", busy: "animate-pulse bg-slate-500", idle: "bg-slate-300", bad: "bg-signal" }[tone];
   return <span className={cn("inline-block size-2 shrink-0 rounded-full", c)} aria-hidden />;
 }
 
@@ -34,7 +35,7 @@ export function CopyButton({ text, label = "Copy" }: { text: string; label?: str
   return (
     <button
       type="button"
-      className="inline-flex h-7 items-center gap-1.5 rounded-md glass-subtle px-2 text-xs text-ink hover:bg-white/80"
+      className="glass-subtle inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-ink hover:bg-slate-200/70"
       onClick={async () => {
         let ok = false;
         try {
@@ -82,13 +83,13 @@ export function SqlBlock({ text, file, tone }: { text: string; file?: string; to
   return (
     <div className="inset-field overflow-hidden">
       {file && (
-        <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 px-3 py-1.5">
+        <div className="flex items-center justify-between gap-2 px-3 pt-2">
           <span className="font-mono text-xs text-slate-600">{file}</span>
           <div className="flex gap-1.5">
             <CopyButton text={text} />
             <button
               type="button"
-              className="inline-flex h-7 items-center gap-1.5 rounded-md glass-subtle px-2 text-xs text-ink hover:bg-white/80"
+              className="glass-subtle inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs text-ink hover:bg-slate-200/70"
               onClick={() => save(file.endsWith(".sql") ? file : `${file}.sql`, text, "application/sql")}
             >
               <Download className="size-3.5" /> .sql
@@ -108,11 +109,13 @@ export function SqlBlock({ text, file, tone }: { text: string; file?: string; to
   );
 }
 
+/** 28px only for a value that starts with a number; names and "not in bundle" stay 18px. */
 export function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+  const big = /^[+-]?\d/.test(value);
   return (
-    <div className="inset-field min-w-0 px-3 py-2 transition-[transform,border-color,box-shadow] duration-150 hover:-translate-y-px hover:border-slate-300 hover:shadow-sm motion-reduce:transition-none motion-reduce:hover:translate-y-0 [overflow-wrap:anywhere]">
+    <div className="inset-field min-w-0 px-3 py-2 transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-(--glass-shadow) motion-reduce:transition-none motion-reduce:hover:translate-y-0 [overflow-wrap:anywhere]">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="font-mono text-lg font-semibold tracking-tight text-slate-900">{value}</div>
+      <div className={cn("font-mono font-semibold tracking-tight text-slate-900", big ? "text-3xl" : "text-lg")}>{value}</div>
       {note && <Source>{note}</Source>}
     </div>
   );

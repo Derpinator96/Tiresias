@@ -33,10 +33,10 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
-        <button className="inline-flex h-7 items-center gap-1 rounded-md bg-slate-900 px-2 text-white hover:bg-slate-800" onClick={() => { if (cursor >= total) setCursor(0); setPlaying(!playing); }}>
+        <button className="inline-flex h-7 items-center gap-1 rounded-full bg-ink px-2.5 text-white hover:bg-slate-800" onClick={() => { if (cursor >= total) setCursor(0); setPlaying(!playing); }}>
           {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} {playing ? "Pause" : "Play"}
         </button>
-        <button className="inline-flex h-7 items-center gap-1 rounded-md glass-subtle px-2 text-ink hover:bg-white/80" onClick={() => { setPlaying(false); setCursor(null); }}>
+        <button className="glass-subtle inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-ink hover:bg-slate-200/70" onClick={() => { setPlaying(false); setCursor(null); }}>
           <RotateCcw className="size-3.5" /> Reset
         </button>
         <label className="inline-flex items-center gap-1.5 text-slate-700">
@@ -56,7 +56,7 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
             return (
               <div key={s.id} className="contents" onMouseEnter={() => setHover(s.id)} onMouseLeave={() => setHover(null)}>
                 <span className={cn("truncate self-center text-xs text-slate-700", hover === s.id && "font-medium text-slate-900")} title={s.label}>{s.label}</span>
-                <div className="relative h-7 border-t border-slate-200/70">
+                <div className="relative h-7">
                   <div className="absolute top-1 h-5 overflow-hidden rounded-[4px]" style={{ left: x(s.start), width: x(s.dur), minWidth: 3, opacity: hover && hover !== s.id ? 0.5 : 1 }}>
                     <div className="absolute inset-0" style={{ background: s.kind === "predicted" ? `repeating-linear-gradient(135deg, ${TONE[s.tone]} 0 4px, rgba(255,255,255,0.55) 4px 8px)` : TONE[s.tone], opacity: 0.28 }} />
                     <div className="absolute inset-y-0 left-0" style={{ width: `${done * 100}%`, background: s.kind === "predicted" ? `repeating-linear-gradient(135deg, ${TONE[s.tone]} 0 4px, rgba(255,255,255,0.55) 4px 8px)` : TONE[s.tone] }} />
@@ -76,7 +76,7 @@ export function Waterfall({ spans, title }: { spans: Span[]; title?: string }) {
 
       <input type="range" min={0} max={axis} step={axis / 400} value={cursor} onChange={(e) => { setPlaying(false); setCursor(Number(e.target.value)); }} className="mt-2 w-full accent-signal" aria-label="time cursor" />
       <p className="mt-1 min-h-8 text-xs leading-snug text-slate-700">
-        {h ? <><span className="font-medium text-slate-900">{h.label}</span>: {fmt(h.dur)}, {h.kind}. {h.note}.</> : "Hover a row for its source. Hatched bars are predictions, solid bars are measurements."}
+        {h ? <><span className="font-medium text-slate-900">{h.label}</span>: {fmt(h.dur)}, {h.kind}. {h.note}.</> : "hatched: predicted; solid: measured; hover a row for its source"}
       </p>
       <div className="sr-only"><table><tbody>{spans.map((s) => <tr key={s.id}><td>{s.label}</td><td>{s.start}</td><td>{s.dur}</td><td>{s.kind}</td></tr>)}</tbody></table></div>
     </div>

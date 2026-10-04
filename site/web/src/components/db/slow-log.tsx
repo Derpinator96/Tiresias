@@ -5,10 +5,9 @@
 import { useState } from "react";
 import { Dices } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ErrorLine, LocalOnly, ms, useJson } from "@/components/db/local";
-import { SqlBlock, Stat } from "@/components/playground/bits";
+import { ErrorLine, LocalOnly, ms, TH, useJson } from "@/components/db/local";
+import { Source, SqlBlock, Stat } from "@/components/playground/bits";
 import { ChartCard, HBars, SERIES } from "@/components/viz/charts";
 import { LOCAL } from "@/lib/context";
 import { cn } from "@/lib/utils";
@@ -19,41 +18,43 @@ type Log = { threshold_ms: number | null; templates: Prod[]; gateway_error?: str
 type Drawn = ({ source: "pg-prod" } & Prod) | ({ source: "bench" } & Bench);
 type Pick = Drawn & { pool: { "pg-prod": number; bench: number } };
 
-const BENCH_LABEL = "plan generation workload (data/plans), not pg-prod's log";
+const BENCH_LABEL = "plan-generation workload (data/plans), not pg-prod's log";
 const KEEP = 5;
+const tag = "pill text-xs";
 
-const SlowBadge = ({ on }: { on: boolean }) => (on ? <Badge className="bg-signal text-white">slow</Badge> : <Badge variant="outline" className="border-slate-300 text-slate-600">ok</Badge>);
+// slow is a data state (signal); ok is structure (slate)
+const SlowBadge = ({ on }: { on: boolean }) => (on ? <Badge className={cn(tag, "bg-signal text-white")}>slow</Badge> : <Badge variant="secondary" className={cn(tag, "text-slate-600")}>ok</Badge>);
 
 function BenchCard({ e, className }: { e: Bench; className?: string }) {
   return (
-    <section className={cn("glass rounded-xl p-4", className)}>
+    <section className={cn("glass rounded-2xl p-4", className)}>
       <header className="mb-2 flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="font-mono">{e.database}</Badge>
-        <span className="font-mono text-sm font-semibold text-slate-900">{e.template_id}</span>
-        {e.demo && <Badge variant="outline">demo query</Badge>}
+        <Badge variant="secondary" className={cn(tag, "font-mono text-slate-600")}>{e.database}</Badge>
+        <span className="font-mono text-base font-semibold text-slate-900">{e.template_id}</span>
+        {e.demo && <Badge variant="secondary" className={cn(tag, "text-slate-600")}>demo query</Badge>}
         <span className="text-xs text-slate-500">{BENCH_LABEL}</span>
       </header>
       {e.sql ? <SqlBlock text={e.sql} /> : <p className="text-xs text-slate-500">no query text for this template</p>}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Stat label="median" value={ms(e.median_runtime_ms)} />
         <Stat label="max" value={ms(e.max_runtime_ms)} />
         <Stat label="plans" value={String(e.plans)} />
         <Stat label="timed out" value={String(e.timed_out)} />
         <Stat label="nodes" value={e.nodes === null ? "n/a" : String(e.nodes)} />
-        <Stat label="top ops" value={e.top_ops.join(", ") || "n/a"} />
       </div>
+      <div className="mt-2 text-xs text-slate-600">top ops: <span className="font-mono text-slate-900">{e.top_ops.join(", ") || "n/a"}</span></div>
     </section>
   );
 }
 
 function ProdCard({ e, threshold, className }: { e: Prod; threshold: number | null; className?: string }) {
   return (
-    <section className={cn("glass rounded-xl p-4", className)}>
+    <section className={cn("glass rounded-2xl p-4", className)}>
       <header className="mb-2 flex flex-wrap items-center gap-2">
-        <Badge variant="secondary" className="font-mono">pg-prod</Badge>
-        <span className="font-mono text-sm font-semibold text-slate-900">{e.template_id}</span>
+        <Badge variant="secondary" className={cn(tag, "font-mono text-slate-600")}>pg-prod</Badge>
+        <span className="font-mono text-base font-semibold text-slate-900">{e.template_id}</span>
         <SlowBadge on={e.slow} />
-        {threshold !== null && <span className="text-xs text-slate-500">slow means mean above {threshold} ms</span>}
+        {threshold !== null && <span className="text-xs text-slate-500">slow: mean above {threshold} ms</span>}
       </header>
       <SqlBlock text={e.example ?? e.sql} />
       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -93,19 +94,20 @@ export function SlowLog() {
   return (
     <div className="mt-6 space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Button size="lg" onClick={draw} disabled={busy} className="bg-ink text-white hover:bg-slate-800"><Dices /> Generate one</Button>
+        <button type="button" onClick={draw} disabled={busy} className="inline-flex h-9 items-center gap-1.5 pill bg-ink px-4 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40"><Dices className="size-4" /> Generate one</button>
         <span className="text-sm text-slate-700">
-          slow threshold: <span className="font-mono font-semibold text-slate-900">{threshold === null ? "n/a" : `${threshold} ms`}</span>
-          {data && <span className="text-xs text-slate-500"> ({prod.length} pg-prod templates, {data.bench.length} benchmark templates listed)</span>}
+          slow threshold <span className="font-mono font-semibold text-slate-900">{threshold === null ? "n/a" : `${threshold} ms`}</span>
+          {data && <span className="text-xs text-slate-500"> ({prod.length} pg-prod, {data.bench.length} benchmark templates)</span>}
         </span>
       </div>
       <ErrorLine text={error} />
       <ErrorLine text={drawError} />
       {latest && (
         <div>
-          <p className="mb-2 text-xs text-slate-600">
-            drawn from {latest.source}; pools: {latest.pool["pg-prod"]} pg-prod, {latest.pool.bench} benchmark; pick proportional to pool size
-          </p>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="glass-subtle inline-flex h-6 items-center pill px-2.5 text-xs text-slate-600">drawn from {latest.source}</span>
+            <Source>pools: {latest.pool["pg-prod"]} pg-prod, {latest.pool.bench} benchmark; pick proportional to pool size</Source>
+          </div>
           {latest.source === "pg-prod"
             ? <ProdCard e={latest} threshold={threshold} className="glass-strong ring-2 ring-accent" />
             : <BenchCard e={latest} className="glass-strong ring-2 ring-accent" />}
@@ -129,12 +131,12 @@ export function SlowLog() {
         </ChartCard>
       )}
       {prod.length > 0 && (
-        <div className="glass rounded-xl p-2">
+        <div className="glass rounded-2xl p-2">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>template</TableHead><TableHead>query</TableHead>
-                <TableHead className="text-right">calls</TableHead><TableHead className="text-right">mean</TableHead><TableHead className="text-right">total</TableHead><TableHead>state</TableHead>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className={TH}>template</TableHead><TableHead className={TH}>query</TableHead>
+                <TableHead className={cn(TH, "text-right")}>calls</TableHead><TableHead className={cn(TH, "text-right")}>mean</TableHead><TableHead className={cn(TH, "text-right")}>total</TableHead><TableHead className={TH}>state</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -155,7 +157,7 @@ export function SlowLog() {
       {data && !data.gateway_error && !prod.length && <p className="text-sm text-slate-600">the slow log holds no template yet</p>}
 
       <h2 className="text-lg font-semibold tracking-tight text-slate-900">Benchmark plans (DSB, TPC-H, demo database copy)</h2>
-      <p className="text-xs text-slate-600">{BENCH_LABEL}{data?.bench_note ? `; ${data.bench_note}` : ""}</p>
+      <Source>{BENCH_LABEL}{data?.bench_note ? `; ${data.bench_note}` : ""}</Source>
       <ErrorLine text={data?.bench_error} />
       <div className="space-y-3">{data?.bench.map((e) => <BenchCard key={`${e.database}/${e.template_id}`} e={e} />)}</div>
     </div>

@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react";
 
 export const LocalOnly = () => (
-  <p className="glass-subtle mt-6 rounded-lg px-4 py-3 text-sm text-slate-700">
-    Local web app only (make up): this page reads the private gateway.
-  </p>
+  <p className="inset-field mt-6 px-4 py-3 text-sm text-slate-700">Local web app only (make up): this page reads the private gateway.</p>
 );
 
+/** One error line: off-white, ink text, a signal dot as the only colour. */
 export function ErrorLine({ text }: { text?: string }) {
-  return text ? <p className="rounded-md bg-signal-soft px-3 py-2 font-mono text-xs font-medium text-signal [overflow-wrap:anywhere]">{text}</p> : null;
+  return text ? (
+    <p className="inset-field flex items-start gap-2 px-3 py-2 font-mono text-xs text-ink">
+      <span className="mt-1 size-2 shrink-0 rounded-full bg-signal" aria-hidden /><span className="min-w-0 [overflow-wrap:anywhere]">{text}</span>
+    </p>
+  ) : null;
 }
 
 /** GET `url` (refetched when it changes). `error` is the API's one-line message or the HTTP status;
@@ -33,3 +36,6 @@ export function useJson<T>(url: string | null) {
 }
 
 export const ms = (v: number | null | undefined, digits = 1) => (v === null || v === undefined ? "n/a" : `${v.toFixed(digits)} ms`);
+
+/** Table header cells on the database and slow-log pages (ui/table.tsx does borders off and the zebra). */
+export const TH = "h-auto py-1.5 text-xs font-medium uppercase tracking-wide text-slate-500";

@@ -5,10 +5,7 @@ import {
   getSmoothStepPath, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeProps,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import {
-  Activity, Check, ClipboardCheck, Cpu, Database, FlaskConical, Grid3x3, Maximize, MessageSquareCode,
-  PanelRight, Pause, Pickaxe, Play, RotateCcw, ShieldCheck, SkipBack, SkipForward,
-} from "lucide-react";
+import { Activity, Check, Maximize, PanelRight, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CONFIG } from "@/lib/facts";
 import type { RunView } from "@/lib/run-view";
@@ -16,23 +13,20 @@ import { useView } from "@/lib/view";
 import { RunBanner } from "@/components/viz/run-banner";
 import { SERIES } from "@/components/viz/charts";
 import { STAGES, stageState, useRun, type StageId } from "@/lib/store";
+import { STAGE_ICON } from "@/lib/stages";
 import { Pip } from "./bits";
 
-const ICON: Record<StageId, typeof Database> = {
-  source: Database, gateway: ShieldCheck, miner: Pickaxe, gnn: Cpu, rl: Grid3x3, llm: MessageSquareCode, twin: FlaskConical, dba: ClipboardCheck,
-};
-
-// Card body per stage: [label, value] pairs from the run view, plus a source line.
+// Card body per stage: [label, value] pairs from the run view. Sources live in the inspector sheets.
 const n = (x: number | null, unit = " ms") => (x === null ? "not in bundle" : `${x.toFixed(1)}${unit}`);
-const body = (v: RunView): Record<StageId, { rows: [string, string][]; note: string }> => ({
-  source: { rows: [["mean before", n(v.meanBefore)], ["table rows", v.heroRows === null ? "not in bundle" : v.heroRows.toLocaleString("en-US")], ["slow threshold", `${v.slowThresholdMs} ms`]], note: v.src.prod },
-  gateway: { rows: [["payloads scanned", String(v.payloads)], ["canary hits", `${v.canaryHits} of ${v.canariesPlanted}`], ["names", "HMAC-SHA256"]], note: v.src.ledger },
-  miner: { rows: [["recommended", v.indexCols], ["columns", String(v.recommendedColumns)]], note: v.live ? `${v.candidates.length} candidates mined; FP-Growth, weighted by calls x latency` : "illustrative codes; FP-Growth, weighted by calls x latency; candidate count not in run record" },
-  gnn: { rows: [["predicted before", n(v.predictedBefore)], ["predicted after", n(v.predictedAfter)]], note: v.estimatorLabel },
-  rl: { rows: [["method", "tabular Q-learning"], ["actions", v.live ? String(v.actions.length) : `${CONFIG.episodes} episodes (config.yaml)`]], note: v.searchLabel },
-  llm: { rows: [["model", v.llm.model], ["tool calls", v.llm.toolCalls === null ? "not in bundle" : String(v.llm.toolCalls)], v.live ? ["checker", v.llm.checker ?? "not run"] : ["numbers checked", String(v.llm.numbersChecked)]], note: v.live ? `${v.events.length} events, ${v.canaryHits} canary hits` : `${v.llmPayloads} payloads to the LLM, ${v.canaryHits} canary hits` },
-  twin: { rows: [["before / after", `${n(v.twinBefore)} / ${n(v.twinAfter)}`], ["faster", v.speedupPct === null ? "not in bundle" : `${v.speedupPct.toFixed(1)}%`], ["storage", n(v.storageMb, " MB")]], note: v.src.twin },
-  dba: { rows: [["migration.sql", v.migration ? "CREATE INDEX CONCURRENTLY" : "none"], ["rollback.sql", v.rollback ? "DROP INDEX CONCURRENTLY" : "none"]], note: "the DBA runs the files; nothing runs on pg-prod by itself" },
+const body = (v: RunView): Record<StageId, [string, string][]> => ({
+  source: [["mean before", n(v.meanBefore)], ["table rows", v.heroRows === null ? "not in bundle" : v.heroRows.toLocaleString("en-US")], ["slow threshold", `${v.slowThresholdMs} ms`]],
+  gateway: [["payloads scanned", String(v.payloads)], ["canary hits", `${v.canaryHits} of ${v.canariesPlanted}`], ["names", "HMAC-SHA256"]],
+  miner: [["recommended", v.indexCols], ["columns", String(v.recommendedColumns)]],
+  gnn: [["predicted before", n(v.predictedBefore)], ["predicted after", n(v.predictedAfter)]],
+  rl: [["method", "tabular Q-learning"], ["actions", v.live ? String(v.actions.length) : `${CONFIG.episodes} episodes (config.yaml)`]],
+  llm: [["model", v.llm.model], ["tool calls", v.llm.toolCalls === null ? "not in bundle" : String(v.llm.toolCalls)], v.live ? ["checker", v.llm.checker ?? "not run"] : ["numbers checked", String(v.llm.numbersChecked)]],
+  twin: [["before / after", `${n(v.twinBefore)} / ${n(v.twinAfter)}`], ["faster", v.speedupPct === null ? "not in bundle" : `${v.speedupPct.toFixed(1)}%`], ["storage", n(v.storageMb, " MB")]],
+  dba: [["migration.sql", v.migration ? "CREATE INDEX CONCURRENTLY" : "none"], ["rollback.sql", v.rollback ? "DROP INDEX CONCURRENTLY" : "none"]],
 });
 
 type StageData = { i: number; tgt: Position; src: Position };
@@ -41,18 +35,17 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
   const { step, status, completedAt, selected, gates } = useRun();
   const state = stageState(data.i, step, status);
   const v = useView();
-  const Icon = ICON[id as StageId];
-  const b = body(v)[id as StageId];
+  const Icon = STAGE_ICON[id as StageId];
+  const rows = body(v)[id as StageId];
   return (
     <div className="stage-card w-[260px] p-3" data-state={state} data-selected={selected === id}>
-      <Handle type="target" position={data.tgt} className="!size-2 !border-slate-300 !bg-white" />
+      <Handle type="target" position={data.tgt} className="!size-2 !border-0 !bg-slate-300" />
       <div className="mb-2 flex items-center gap-2">
-        <span className="grid size-7 place-items-center rounded-md border border-slate-200/80 bg-slate-50 text-slate-700">
+        <span className="grid size-7 place-items-center rounded-full bg-slate-100 text-slate-600">
           {state === "processing" ? <Activity className="size-4 animate-pulse text-accent" /> : <Icon className="size-4" />}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-xs uppercase tracking-wide text-slate-400">Stage {data.i + 1}</div>
-          <div className="truncate text-sm font-semibold text-slate-900">{STAGES[data.i].title}</div>
+          <div className="truncate text-base font-semibold text-slate-900">{STAGES[data.i].title}</div>
         </div>
         {state === "done" ? (
           <span className="grid size-5 place-items-center rounded-full bg-accent text-white"><Check className="size-3" /></span>
@@ -61,12 +54,12 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
         )}
       </div>
       {id === "gnn" && (
-        <div className="mb-2 rounded-md border border-slate-300 bg-slate-100/80 px-2 py-1 font-mono text-xs leading-tight text-slate-700">
+        <div className="glass-subtle mb-2 rounded-lg px-2 py-1 font-mono text-xs leading-tight text-slate-600">
           {v.estimatorLabel}
         </div>
       )}
       <dl className="space-y-0.5">
-        {b.rows.map(([k, v]) => (
+        {rows.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-2 text-xs">
             <dt className="text-slate-500">{k}</dt>
             <dd className="truncate font-mono tracking-tight text-slate-800">{v}</dd>
@@ -79,9 +72,8 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
           </div>
         )}
       </dl>
-      {id !== "gnn" && <p className="mt-1.5 line-clamp-2 text-xs leading-snug text-slate-500">{b.note}</p>}
       <div className="mt-1.5 h-4 text-xs text-accent">{completedAt[data.i] && `replayed ${completedAt[data.i]}`}</div>
-      <Handle type="source" position={data.src} className="!size-2 !border-slate-300 !bg-white" />
+      <Handle type="source" position={data.src} className="!size-2 !border-0 !bg-slate-300" />
     </div>
   );
 }
@@ -90,7 +82,7 @@ function ZoneNode({ data }: NodeProps<Node<{ label: string; sub: string; w: numb
   return (
     <div
       style={{ width: data.w, height: data.h }}
-      className={cn("rounded-2xl border border-dashed p-3", data.ai ? "border-accent/40 bg-accent-soft/40" : "border-slate-300/80 bg-white/20")}
+      className={cn("rounded-2xl p-3", data.ai ? "bg-slate-200/50" : "glass-subtle")}
     >
       <div className="text-xs font-semibold text-slate-700">{data.label}</div>
       <div className="text-xs text-slate-500">{data.sub}</div>
@@ -152,11 +144,11 @@ function Toolbar() {
     return () => clearInterval(t);
   }, [status, speed, forward]);
 
-  const btn = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-900/5 disabled:opacity-40 disabled:hover:bg-transparent";
+  const btn = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-900/5 disabled:opacity-40 disabled:hover:bg-transparent";
   return (
     <div className="glass-bar pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 px-3 py-2">
       <div className="flex items-center gap-2">
-        <span className="rounded-md glass-subtle px-1.5 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
+        <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
         <span className="font-mono text-xs text-slate-500">{v.id}</span>
       </div>
       <div className="mx-auto flex flex-wrap items-center gap-1">
@@ -170,10 +162,10 @@ function Toolbar() {
         <button className={btn} onClick={back} disabled={step === 0} title="Step back"><SkipBack className="size-3.5" /> Back</button>
         <button className={btn} onClick={forward} disabled={step === STAGES.length} title="Step forward"><SkipForward className="size-3.5" /> Forward</button>
         <button className={btn} onClick={reset} disabled={step === 0 && status === "idle"} title="Reset"><RotateCcw className="size-3.5" /> Reset</button>
-        <div className="ml-1 flex rounded-md glass-subtle p-0.5" role="group" aria-label="Playback speed">
+        <div className="glass-subtle ml-1 flex rounded-full p-0.5" role="group" aria-label="Playback speed">
           {([1, 2, 5] as const).map((s) => (
             <button key={s} onClick={() => setSpeed(s)} aria-pressed={speed === s}
-              className={cn("h-6 rounded px-2 font-mono text-xs", speed === s ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100")}>
+              className={cn("h-6 rounded-full px-2 font-mono text-xs", speed === s ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100")}>
               {s}x
             </button>
           ))}
@@ -187,7 +179,7 @@ function Toolbar() {
         <span className="flex items-center gap-1.5 text-xs text-slate-500" title="Where the figures come from">
           <Pip tone={v.live ? "ok" : "idle"} /> {v.live ? "bundle" : "run record"}
         </span>
-        <span className="ml-1 rounded-md glass-subtle px-1.5 py-0.5 font-mono text-xs text-slate-700">{Math.round(zoom * 100)}%</span>
+        <span className="glass-subtle ml-1 rounded-full px-2 py-0.5 font-mono text-xs text-slate-700">{Math.round(zoom * 100)}%</span>
         <button className={btn} onClick={() => fitView({ padding: 0.12, duration: 300 })}><Maximize className="size-3.5" /> Fit</button>
         <button className={cn(btn, drawerOpen && "bg-slate-900/5")} onClick={toggleDrawer} aria-pressed={drawerOpen}><PanelRight className="size-3.5" /> Inspector</button>
       </div>
@@ -204,7 +196,7 @@ function EventLog() {
   return (
     <div className="glass pointer-events-auto absolute bottom-3 left-14 z-10 w-[min(340px,calc(100%-68px))] rounded-xl p-3">
       <div className="mb-1 text-xs font-semibold text-slate-900">Replay log</div>
-      <p className="mb-2 text-xs leading-snug text-slate-500">{v.id}: figures from the {v.live ? "bundle" : "run record"}; pacing is not real timing</p>
+      <p className="mb-2 text-xs leading-snug text-slate-500">{v.id}; replay pacing, not measured time</p>
       <ol className="max-h-32 space-y-0.5 overflow-y-auto font-mono text-xs text-slate-700">
         {log.length === 0 && <li className="text-slate-400">no events yet: press Run pipeline or Forward</li>}
         {[...log].reverse().map((e, i) => (
@@ -236,7 +228,7 @@ function Flow() {
       attributionPosition="bottom-right"
     >
       <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color={SERIES.aqua} />
-      <Controls position="bottom-left" className="!rounded-lg !border !border-white/70 !shadow-[0_14px_34px_rgba(15,23,42,0.08)]" />
+      <Controls position="bottom-left" className="!rounded-xl !border-0 !shadow-(--glass-shadow)" />
     </ReactFlow>
   );
 }

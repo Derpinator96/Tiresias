@@ -15,7 +15,7 @@ export const SERIES = { blue: "#2563eb", orange: "#ea580c", aqua: "#94a3b8" } as
 export function ChartCard({ title, caption, children, className }: { title: string; caption?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <figure className={cn("glass min-w-0 rounded-xl p-4", className)}>
-      <figcaption className="mb-3 text-sm font-semibold text-slate-900">{title}</figcaption>
+      <figcaption className="mb-3 text-base font-semibold text-slate-900">{title}</figcaption>
       {children}
       {caption && <div className="mt-2"><Source>{caption}</Source></div>}
     </figure>
@@ -49,7 +49,7 @@ export function HBars({ bars, unit = "", digits = 1, refLine, max }: { bars: Bar
               <div className="absolute inset-y-0.5 left-0 rounded-r-[4px] transition-opacity" style={{ width: pct(b.value), background: b.color, opacity: hover === null || hover === i ? 1 : 0.45 }} />
               <span className="absolute top-1/2 -translate-y-1/2 pl-1.5 font-mono text-xs font-semibold text-slate-900" style={{ left: pct(b.value) }}>{fmt(b.value)}</span>
               {hover === i && b.note && (
-                <div className="glass-strong absolute bottom-full left-0 z-10 mb-1 max-w-64 rounded-md px-2 py-1 text-xs text-slate-700">{b.label}: {fmt(b.value)}. {b.note}</div>
+                <div className="glass-strong absolute bottom-full left-0 z-10 mb-1 max-w-64 rounded-lg px-2 py-1 text-xs text-slate-700">{b.label}: {fmt(b.value)}. {b.note}</div>
               )}
             </div>
           </div>
@@ -100,7 +100,7 @@ export function LineChart({ points, threshold, yMax, digits = 4 }: { points: { l
         <text x={x(points.length - 1) - 8} y={y(points.at(-1)!.value) - 10} textAnchor="end" className="fill-slate-900 font-mono text-xs font-semibold">{points.at(-1)!.value}</text>
       </svg>
       {hover !== null && (
-        <div className="glass-strong pointer-events-none absolute top-0 rounded-md px-2 py-1 font-mono text-xs text-slate-800" style={{ left: `${(x(hover) / W) * 100}%`, transform: "translateX(-50%)" }}>
+        <div className="glass-strong pointer-events-none absolute top-0 rounded-lg px-2 py-1 font-mono text-xs text-slate-800" style={{ left: `${(x(hover) / W) * 100}%`, transform: "translateX(-50%)" }}>
           {points[hover].label}: {points[hover].value.toFixed(digits)}
         </div>
       )}
@@ -137,15 +137,16 @@ export function PartBar({ parts, total, unit = "" }: { parts: { label: string; v
 
 /** A left-to-right chain of steps that wraps on small screens. */
 export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "private" | "ai" | "check" }[] }) {
-  const tone = { private: "border-slate-300 bg-white/80", ai: "border-accent/40 bg-accent-soft/70", check: "border-accent bg-accent-soft" };
+  // Monochrome: the AI side is a deeper grey, a check step is ink.
+  const tone = { private: "glass-subtle text-slate-900", ai: "bg-slate-200/70 text-slate-900", check: "bg-ink text-white" };
   return (
     <ol className="flex flex-wrap items-center gap-1.5">
       {steps.map((s, i) => (
         <Fragment key={s.label}>
           {i > 0 && <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />}
-          <li className={cn("rounded-lg border px-2.5 py-1.5", tone[s.tone ?? "private"])}>
-            <div className="text-xs font-medium text-slate-900">{s.label}</div>
-            {s.sub && <div className="font-mono text-xs text-slate-600">{s.sub}</div>}
+          <li className={cn("rounded-full px-3 py-1.5", tone[s.tone ?? "private"])}>
+            <div className="text-xs font-medium">{s.label}</div>
+            {s.sub && <div className={cn("font-mono text-xs", s.tone === "check" ? "text-white/70" : "text-slate-600")}>{s.sub}</div>}
           </li>
         </Fragment>
       ))}
@@ -156,7 +157,7 @@ export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "
 export function BigNumber({ value, label, tone = "default" }: { value: string; label: string; tone?: "default" | "good" }) {
   return (
     <div>
-      <div className={cn("font-mono text-2xl font-semibold tracking-tight", tone === "good" ? "text-accent" : "text-slate-900")}>{value}</div>
+      <div className={cn("font-mono text-3xl font-semibold tracking-tight", tone === "good" ? "text-accent" : "text-slate-900")}>{value}</div>
       <div className="mt-0.5 text-xs text-slate-600">{label}</div>
     </div>
   );
