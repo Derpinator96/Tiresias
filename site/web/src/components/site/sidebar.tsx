@@ -55,36 +55,37 @@ function History() {
   );
 }
 
+// Desktop: a 64px icon rail that widens to 224px on hover or keyboard focus, over the page
+// (fixed, so no layout shift). Labels fade in with it. Phone: top bar plus a menu sheet.
+const fade = "whitespace-nowrap transition-opacity duration-200 lg:opacity-0 lg:group-hover/side:opacity-100 lg:group-focus-within/side:opacity-100 motion-reduce:transition-none";
+const hideCollapsed = "lg:invisible lg:group-hover/side:visible lg:group-focus-within/side:visible";
+
 export function Sidebar() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const item = (active: boolean) =>
-    cn("group flex h-8 items-center gap-2 rounded-full px-2.5 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900", active && "bg-slate-100 font-medium text-slate-900");
+    cn("flex h-10 items-center gap-3 rounded-2xl text-sm text-slate-700 transition-colors hover:bg-mint hover:text-slate-900", active && "tile-ink font-medium shadow-none hover:bg-ink hover:text-white");
+  const tile = "grid size-10 shrink-0 place-items-center";
+  const link = (href: string, label: string, Icon: typeof House) => (
+    <li key={href}>
+      <Link href={href} className={item(path === href)} aria-label={label}>
+        <span className={tile}><Icon className="size-4" /></span><span className={fade}>{label}</span>
+      </Link>
+    </li>
+  );
   const nav = (
-    <nav className="flex h-full flex-col gap-4 overflow-y-auto p-3" onClick={() => setOpen(false)}>
-      <Link href="/" className="px-2.5 pt-1 text-lg font-semibold tracking-tight text-slate-900">Tiresias</Link>
-      <ul className="space-y-0.5">
-        {MAIN.map(({ href, label, icon: Icon }) => (
-          <li key={href}><Link href={href} className={item(path === href)}><Icon className="size-4 text-slate-500 transition-colors group-hover:text-slate-900" />{label}</Link></li>
-        ))}
-      </ul>
+    <nav className="flex h-full flex-col gap-3 overflow-y-auto overflow-x-hidden p-3 [scrollbar-width:none]" onClick={() => setOpen(false)}>
+      <Link href="/" className="flex items-center gap-3" aria-label="Tiresias overview">
+        <span className={cn(tile, "rounded-2xl bg-lime text-base font-semibold text-ink")}>T</span>
+        <span className={cn(fade, "text-lg font-semibold tracking-tight text-slate-900")}>Tiresias</span>
+      </Link>
+      <ul className="space-y-1">{MAIN.map(({ href, label, icon }) => link(href, label, icon))}</ul>
       <div>
-        <div className="px-2 pb-1 text-xs font-medium uppercase tracking-wide text-slate-500">Stages</div>
-        <ul className="space-y-0.5">
-          {STAGES.map((s) => {
-            const Icon = STAGE_ICON[s.id];
-            return (
-              <li key={s.id}>
-                <Link href={`/stages/${s.id}`} className={item(path === `/stages/${s.id}`)}>
-                  <Icon className="size-4 text-slate-500 transition-colors group-hover:text-slate-900" />{s.title}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <div className={cn(fade, "h-4 px-3 text-xs font-medium uppercase tracking-wide text-slate-500")}>Stages</div>
+        <ul className="space-y-1">{STAGES.map((s) => link(`/stages/${s.id}`, s.title, STAGE_ICON[s.id]))}</ul>
       </div>
-      {LOCAL && <History />}
-      <div className="mt-auto flex flex-wrap gap-x-3 gap-y-1 px-2 text-xs text-slate-600">
+      {LOCAL && <div className={cn(fade, hideCollapsed)}><History /></div>}
+      <div className={cn(fade, hideCollapsed, "mt-auto flex gap-x-3 px-2 text-xs text-slate-600")}>
         <Link href="/privacy" className="hover:underline">Privacy</Link>
         <Link href="/terms" className="hover:underline">Terms</Link>
         <a href="https://github.com/Derpinator96/Tiresias" className="hover:underline">GitHub</a>
@@ -99,7 +100,7 @@ export function Sidebar() {
           {open ? <X className="size-5" /> : <Menu className="size-5" />}
         </button>
       </div>
-      <aside className={cn("glass-bar fixed bottom-3 left-3 top-3 z-50 w-56", open ? "block" : "hidden lg:block")}>{nav}</aside>
+      <aside className={cn("glass-bar group/side fixed bottom-3 left-3 top-3 z-50 w-56 rounded-3xl transition-[width] duration-200 lg:block lg:w-16 lg:hover:w-56 lg:hover:shadow-(--glass-shadow-lg) lg:focus-within:w-56 motion-reduce:transition-none", open ? "block" : "hidden")}>{nav}</aside>
     </>
   );
 }

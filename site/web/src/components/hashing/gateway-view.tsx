@@ -1,62 +1,54 @@
 "use client";
 // Local web app only: the asked question's templates as the real gateway hashed them (from the
-// current bundle). In a public build useBundle() is null and nothing renders.
+// current bundle). In a public build useBundle() is null and only the visualizer renders.
 import { useState } from "react";
-import { ArrowDown } from "lucide-react";
-import { Source, SqlBlock } from "@/components/playground/bits";
-import { HashingVisualizer } from "@/components/hashing/visualizer";
-import { name, useBundle } from "@/lib/context";
+import { Source } from "@/components/playground/bits";
+import { BOX, HashingVisualizer, PILL, useGlitch } from "@/components/hashing/visualizer";
+import { useBundle } from "@/lib/context";
+import { cn } from "@/lib/utils";
 
-const TH = "px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-slate-500";
+const MISSING_REAL = "not in the bundle's names map";
+const MISSING_HASHED = "not in the slow list at ask time";
 
 export function HashingLab() {
   const b = useBundle();
-  const [load, setLoad] = useState<{ sql: string; n: number } | null>(null);
+  const [tid, setTid] = useState<string | null>(null);
+  const [view, setView] = useState<"real" | "hashed">("real");
+  const [shown, play] = useGlitch("");
+  const real = (t: string) => b?.names[t] ?? MISSING_REAL;
+  const hashed = (t: string) => b?.slow.find((q) => q.template_id === t)?.sql ?? MISSING_HASHED;
+
+  const choose = (t: string) => { setTid(t); setView("hashed"); play(real(t), hashed(t)); };
+  const toggle = (v: "real" | "hashed") => {
+    if (!tid || v === view) return;
+    setView(v);
+    if (v === "hashed") play(real(tid), hashed(tid)); else play(hashed(tid), real(tid));
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {b && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Your question&apos;s queries, as hashed</h2>
-          <Source>bundle {b.id}; the gateway&apos;s codes use the .env HMAC key, the visualizer a demo key made in this tab, so codes differ</Source>
-          {b.template_ids.map((tid) => {
-            const q = b.slow.find((t) => t.template_id === tid);
-            const real = b.names[tid];
-            return (
-              <div key={tid} className="glass space-y-3 rounded-2xl p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs text-slate-900">{tid}</span>
-                  {q && <span className="text-xs text-slate-600">{q.calls} calls, mean {q.mean_ms.toFixed(1)} ms</span>}
-                  {real && (
-                    <button onClick={() => setLoad({ sql: real, n: (load?.n ?? 0) + 1 })} className="ml-auto inline-flex h-7 items-center gap-1 pill bg-ink px-3 text-sm text-white hover:bg-slate-800">
-                      <ArrowDown className="size-3.5" /> Load into the visualizer
-                    </button>
-                  )}
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="min-w-0"><div className="mb-1 text-xs text-slate-600">Operator view, real SQL</div><SqlBlock text={real ?? "not in the bundle's names map"} /></div>
-                  <div className="min-w-0"><div className="mb-1 text-xs text-slate-600">AI side, /v1/templates/slow</div><SqlBlock text={q?.sql ?? "not in the slow list at ask time"} /></div>
-                </div>
-                {q && q.columns.length > 0 && (
-                  <div className="overflow-x-auto rounded-lg">
-                    <table className="w-full min-w-[560px] text-left text-sm">
-                      <thead><tr><th className={TH}>role</th><th className={TH}>table.column</th><th className={TH}>code</th><th className={TH}>table code</th><th className={TH}>table</th></tr></thead>
-                      <tbody className="font-mono text-xs">
-                        {q.columns.map((c, i) => (
-                          <tr key={i} className="even:bg-[#f6f7f9]">
-                            <td className="px-2 py-1.5 text-slate-600">{c.role}</td><td className="px-2 text-slate-900">{name(b, c.col)}</td><td className="px-2">{c.col}</td><td className="px-2">{c.table}</td><td className="px-2 text-slate-900">{name(b, c.table)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-                <Source>as stored by gateway/strip.py and gateway/hashing.py; real names from the bundle, local only</Source>
+        <div className="glass p-4">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <span className="text-base font-semibold text-slate-900">Your question&apos;s queries</span>
+            {tid && (
+              <div className="glass-subtle ml-auto flex pill p-0.5">
+                {(["real", "hashed"] as const).map((v) => (
+                  <button key={v} onClick={() => toggle(v)} className={cn(PILL, view === v ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70")}>{v}</button>
+                ))}
               </div>
-            );
-          })}
-        </section>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {b.template_ids.map((t) => (
+              <button key={t} onClick={() => choose(t)} className={cn(PILL, "font-mono text-xs", tid === t ? "bg-ink text-white" : "glass-subtle text-ink hover:bg-slate-200/70")}>{t}</button>
+            ))}
+          </div>
+          {tid && <pre aria-label="Gateway SQL" className={cn(BOX, "mt-3 bg-(--inset-bg) text-ink")}>{shown}</pre>}
+          <Source>bundle {b.id}; real SQL from the bundle&apos;s names map (local only), hashed SQL as the gateway stored it (/v1/templates/slow at ask time). The gateway&apos;s codes use the .env HMAC key, the box below a demo key, so codes differ.</Source>
+        </div>
       )}
-      <HashingVisualizer key={load?.n ?? 0} initialSql={load?.sql} />
+      <HashingVisualizer />
     </div>
   );
 }

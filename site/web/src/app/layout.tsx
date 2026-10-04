@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Urbanist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { SiteEffects } from "@/components/site/site-effects";
 
-const geistSans = Geist({
+const geistSans = Urbanist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });

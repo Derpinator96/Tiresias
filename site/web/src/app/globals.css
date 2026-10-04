@@ -57,15 +57,20 @@
   --text-2xl--line-height: 1.875rem;
   --text-3xl: 1.75rem;
   --text-3xl--line-height: 2.125rem;
-  --text-4xl: 1.75rem;
-  --text-4xl--line-height: 2.125rem;
+  --text-4xl: 2.75rem;
+  --text-4xl--line-height: 3rem; /* hero numbers only */
 
   /* Three colours (human request 2026-10-04): ink for text and primary buttons, accent for
      active and good states, signal for slow, warning and bad states. Everything else is white
      glass and slate greys. */
-  --color-ink: #0f172a;
-  --color-accent: #2563eb;
-  --color-accent-soft: #dbeafe;
+  /* Reference palette (human, 2026-10-04): ink #262726, lime #F0FF97, mint #EDF4EE, canvas
+     #F8F8F8, white. "accent" now means ink for data marks and "accent-soft" means lime, so every
+     component already on those utilities follows. Signal orange stays only for slow states. */
+  --color-ink: #262726;
+  --color-lime: #f0ff97;
+  --color-mint: #edf4ee;
+  --color-accent: #262726;
+  --color-accent-soft: #f0ff97;
   --color-signal: #ea580c;
   --color-signal-soft: #ffedd5;
 }
@@ -93,7 +98,7 @@
   --inset-bg: #f6f7f9;
 
   /* shadcn tokens, pointed at the glass */
-  --background: #f3f4f6; /* off-white canvas */
+  --background: #f8f8f8; /* canvas */
   --foreground: oklch(0.208 0.042 265.755); /* slate-900 */
   --card: var(--glass-bg);
   --card-foreground: oklch(0.208 0.042 265.755);
@@ -133,7 +138,8 @@
        it (human request 2026-10-04: the colour moves only with the cursor). --mx and --my are
        set by src/components/site/site-effects.tsx; without a mouse they stay at the defaults. */
     background-image:
-      radial-gradient(60rem 60rem at var(--mx) var(--my), #ffffff 0%, transparent 60%);
+      radial-gradient(50rem 50rem at var(--mx) var(--my), rgb(240 255 151 / 0.55) 0%, transparent 60%),
+      radial-gradient(60rem 60rem at calc(100% - var(--mx)) calc(100% - var(--my)), var(--color-mint) 0%, transparent 65%);
     background-attachment: fixed;
     transition: --mx 400ms ease-out, --my 400ms ease-out;
     font-size: var(--text-sm);
@@ -148,6 +154,10 @@
   /* press bounce (human request 2026-10-04): every button springs when clicked. The class is set
      by src/components/site/site-effects.tsx on click and removed when the animation ends. */
   button:active { transform: scale(0.96); }
+  /* custom cursor (human request 2026-10-04, overrides CLAUDE.md): ink dot in a lime ring */
+  html { cursor: url("/cursor.svg") 12 12, auto; }
+  a, button, [role="button"], summary, label, select { cursor: url("/cursor-pointer.svg") 12 12, pointer; }
+  input, textarea, [contenteditable="true"] { cursor: text; }
   .is-pressed { animation: press-bounce 360ms cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes press-bounce {
     0% { transform: scale(1); }
@@ -222,24 +232,25 @@
 
 /* cards: a 1px lift, a firmer edge and a deeper shadow on hover, 150 ms; no transform when motion is reduced */
 @utility glass {
-  background-color: #ffffff;
-  border: 1px solid transparent;
-  box-shadow: var(--glass-shadow);
+  background-color: rgb(255 255 255 / 0.7);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid rgb(255 255 255 / 0.8);
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgb(38 39 38 / 0.06);
   transition: transform 250ms ease, box-shadow 250ms ease;
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-lg);
+    box-shadow: 0 14px 40px rgb(38 39 38 / 0.1);
   }
 }
 @utility glass-strong {
-  background-color: #ffffff;
-  border: 1px solid transparent;
-  box-shadow: var(--glass-shadow);
-  transition: transform 250ms ease, box-shadow 250ms ease;
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--glass-shadow-lg);
-  }
+  background-color: rgb(255 255 255 / 0.85);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid rgb(255 255 255 / 0.8);
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgb(38 39 38 / 0.06); /* large panels: no hover lift */
 }
 @media (prefers-reduced-motion: reduce) {
   .glass,
@@ -262,6 +273,22 @@
   body {
     transition: none;
   }
+}
+/* reference tile variants: dark ink and lime highlight */
+@utility tile-ink {
+  background-color: var(--color-ink);
+  color: #ffffff;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgb(38 39 38 / 0.18);
+}
+@utility tile-lime {
+  background-color: rgb(240 255 151 / 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: var(--color-ink);
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 32px rgb(38 39 38 / 0.06);
 }
 @utility glass-subtle {
   background-color: #f6f7f9;

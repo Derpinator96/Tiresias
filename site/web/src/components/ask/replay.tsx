@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { Source, Stat } from "@/components/playground/bits";
+import { Bento } from "@/components/viz/charts";
 import { cn } from "@/lib/utils";
 import data from "@/data/ask_replay.json";
 
@@ -53,8 +54,8 @@ export function AskReplay() {
   const sent = r.ledger.payloads_after - r.ledger.payloads_before;
   const ok = r.status === "ok";
   return (
-    <div className="space-y-4">
-      <div className="glass rounded-2xl p-5">
+    <Bento>
+      <div className="glass min-w-0 p-5 md:col-span-6">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-semibold text-slate-900">Agent events</h3>
           <button onClick={() => { if (shown >= events.length) setShown(0); setPlaying(!playing); }} className="inline-flex h-7 items-center gap-1 pill bg-ink px-3 text-sm text-white hover:bg-slate-800">
@@ -70,12 +71,12 @@ export function AskReplay() {
         <Source>recorded {r.recorded_at}, {r.model}, commit {r.git_commit.slice(0, 12)}; the AI side received {r.question_id} and codes {r.template_ids.join(", ") || "none"} only; pacing is not real timing; {r.tool_calls} tool calls</Source>
       </div>
 
-      <div className="glass rounded-2xl p-5">
+      <div className="glass min-w-0 p-5 md:col-span-6">
         <div className="mb-2 flex items-center gap-2">
           <h3 className="text-sm font-semibold text-slate-900">Answer, hashed</h3>
           <span className={cn(tag, ok ? "glass-subtle text-slate-600" : "bg-signal text-white")}>number checker: {r.status}</span>
         </div>
-        <p className="inset-field whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{r.answer.text}</p>
+        <p className="inset-field max-h-64 overflow-auto whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{r.answer.text}</p>
         {r.unmatched.length > 0 && <p className="mt-2 flex items-center gap-2 text-xs text-ink"><span className="size-2 shrink-0 rounded-full bg-signal" aria-hidden />Unmatched numbers: {r.unmatched.join(", ")}</p>}
         {r.answer.numbers.length > 0 && (
           <table className="mt-2 w-full text-sm">
@@ -87,7 +88,7 @@ export function AskReplay() {
       </div>
 
       {r.simulation ? (
-        <div className="glass rounded-2xl p-5">
+        <div className="glass min-w-0 p-5 md:col-span-8">
           <h3 className="mb-2 text-sm font-semibold text-slate-900">Measured on the twin</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {r.simulation.templates.map((t) => (
@@ -96,13 +97,13 @@ export function AskReplay() {
           </div>
         </div>
       ) : (
-        <div className="glass rounded-2xl p-5 text-sm text-slate-700">No twin measurement in this session.</div>
+        <div className="glass p-5 text-sm text-slate-700 md:col-span-8">No twin measurement in this session.</div>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid content-start gap-2 md:col-span-4">
         <Stat label="payloads sent this session" value={String(sent)} note="gateway ledger, after minus before" />
         <Stat label="canary hits, all payloads" value={String(r.ledger.canary_hits_after)} note="gateway ledger total after the session" />
       </div>
-    </div>
+    </Bento>
   );
 }

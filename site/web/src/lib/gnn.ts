@@ -67,6 +67,12 @@ export const serves = (gnnMedian: number, baselineMedian: number) => (gnnMedian 
 /** How many times the estimate was off the actual rows (always >= 1), for the ANALYZE alert. */
 export const misestimate = (est: number, actual: number) => Math.max(est, actual) / Math.max(1, Math.min(est, actual));
 
+/** q-error of a prediction against the measured value: max/min, always >= 1; null when either is not positive. */
+export const qError = (pred: number, actual: number) => (pred > 0 && actual > 0 ? Math.max(pred, actual) / Math.min(pred, actual) : null);
+
+/** Index of the largest value (the slowest node by a share list); 0 for an empty list. */
+export const argmax = (v: number[]) => v.reduce((best, x, i) => (x > v[best] ? i : best), 0);
+
 // Bundle helpers (src/lib/bundle.ts shapes, structural so this file stays import free).
 type BundleLike = { template_ids: string[]; plans: Record<string, { nodes: PlanNode[] }[]>; names: Record<string, string> };
 

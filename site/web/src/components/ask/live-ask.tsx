@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Loader2, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Source, SqlBlock, Stat } from "@/components/playground/bits";
+import { Source, SqlBlock } from "@/components/playground/bits";
 import type { AskJob } from "@/lib/ask-shared";
 import { useBundle, useContextStore } from "@/lib/context";
+import { Bento, Gauge } from "@/components/viz/charts";
 import { cn } from "@/lib/utils";
 
 type State = AskJob & { poll_ms: number; events: string[]; bundle_ready: boolean };
@@ -22,16 +23,17 @@ function Bad({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** The answer, twin result and SQL of one job: the live one while it runs, or a saved bundle's. */
+/** The answer, twin result and SQL of one job as Bento tiles: the live one while it runs, or a saved bundle's. */
 function Result({ job, live }: { job: AskJob; live: boolean }) {
   const [aiView, setAiView] = useState(false);
   const a = job.ask;
+  const best = job.results?.length ? Math.max(...job.results.map((t) => t.pct)) : null;
   return (
     <>
       {a && (
-        <section>
+        <section className="glass min-w-0 p-5 md:col-span-7">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-slate-900">Answer</h3>
+            <h3 className="text-base font-semibold text-slate-900">Answer</h3>
             <div className="glass-subtle flex pill p-0.5">
               {[false, true].map((v) => (
                 <button key={String(v)} onClick={() => setAiView(v)} className={seg(aiView === v)}>{v ? "What the AI saw" : "Real names"}</button>
@@ -43,38 +45,46 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
           ) : a.checker !== "ok" ? (
             <Bad>Answer blocked: numbers not in any tool result ({a.unmatched?.join(", ")}).</Bad>
           ) : (
-            <p className="inset-field whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{aiView ? a.hashed : a.real}</p>
+            <p className="inset-field max-h-96 overflow-auto whitespace-pre-wrap p-3 text-sm leading-relaxed text-slate-800">{aiView ? a.hashed : a.real}</p>
           )}
         </section>
       )}
 
-      {job.done && job.error && <Bad>Could not measure or write the SQL: {job.error}</Bad>}
-      {live && a && !job.done && <div className="inset-field flex items-center gap-2 p-3 text-sm text-slate-700"><Loader2 className="size-4 animate-spin" /> Measuring on the twin and writing the SQL</div>}
+      <div className={cn("flex min-w-0 flex-col gap-3", a ? "md:col-span-5" : "md:col-span-12")}>
+        {job.done && job.error && <Bad>Could not measure or write the SQL: {job.error}</Bad>}
+        {live && a && !job.done && <div className="inset-field flex items-center gap-2 p-3 text-sm text-slate-700"><Loader2 className="size-4 animate-spin" /> Measuring on the twin and writing the SQL</div>}
+        {job.done && !job.error && !job.results && <div className="glass p-5 text-sm text-slate-700">No change worth its cost, so no SQL to apply.</div>}
+        {job.done && job.results && (
+          <>
+            <section className="tile-lime space-y-2 p-5">
+              <h3 className="text-sm font-semibold">Time saved on the twin</h3>
+              {job.results.map((t) => (
+                <div key={t.template_id} className="min-w-0">
+                  <div className="truncate text-xs text-slate-700" title={aiView ? t.template_id : t.label}>{aiView ? t.template_id : t.label}</div>
+                  <div className="font-mono text-3xl font-semibold tracking-tight">{t.saved_ms.toFixed(1)}<span className="text-lg"> ms</span></div>
+                  <div className="font-mono text-xs text-slate-700">{t.before_ms.toFixed(1)} to {t.after_ms.toFixed(1)} ms</div>
+                </div>
+              ))}
+              <Source>synthetic {job.rows ? `${job.rows.toLocaleString("en-US")}-row ` : ""}twin, median of {job.sim?.runs} runs; not production</Source>
+            </section>
+            {best !== null && <div className="glass p-5"><Gauge value={best} unit="%" label="best speedup on the twin" /></div>}
+          </>
+        )}
+      </div>
 
-      {job.done && !job.error && !job.results && <div className="inset-field p-3 text-sm text-slate-700">No change worth its cost, so no SQL to apply.</div>}
-
-      {job.done && job.results && (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900">Time saved on the twin</h3>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {job.results.map((t) => (
-              <Stat key={t.template_id} label={aiView ? t.template_id : t.label} value={`${t.saved_ms.toFixed(1)} ms saved`} note={`${t.pct.toFixed(0)}% faster (${t.before_ms.toFixed(1)} to ${t.after_ms.toFixed(1)} ms)`} />
-            ))}
-          </div>
-          <Source>synthetic {job.rows ? `${job.rows.toLocaleString("en-US")}-row ` : ""}twin, median of {job.sim?.runs} runs; not production</Source>
-          {aiView ? (
-            <div className="inset-field p-3 text-sm text-slate-700">SQL hidden in the AI view: it holds real names.</div>
-          ) : (
-            <>
-              <h3 className="text-sm font-semibold text-slate-900">SQL to apply</h3>
-              <SqlBlock text={job.migration ?? ""} file="migration.sql" />
-              <h3 className="text-sm font-semibold text-slate-900">Rollback</h3>
-              <SqlBlock text={job.rollback ?? ""} file="rollback.sql" />
-              <Source>the DBA runs these with psql; nothing here touches production</Source>
-            </>
-          )}
-        </section>
-      )}
+      {job.done && job.results && (aiView ? (
+        <div className="inset-field p-3 text-sm text-slate-700 md:col-span-12">SQL hidden in the AI view: it holds real names.</div>
+      ) : (
+        <>
+          {([["SQL to apply", job.migration, "migration.sql"], ["Rollback", job.rollback, "rollback.sql"]] as const).map(([title, text, file]) => (
+            <section key={file} className="glass min-w-0 p-5 md:col-span-6">
+              <h3 className="mb-2 text-base font-semibold text-slate-900">{title}</h3>
+              <div className="max-h-72 overflow-auto rounded-xl"><SqlBlock text={text ?? ""} file={file} /></div>
+              <Source>the DBA runs this with psql; nothing here touches production</Source>
+            </section>
+          ))}
+        </>
+      ))}
     </>
   );
 }
@@ -134,19 +144,31 @@ export function LiveAsk() {
 
   const saved = !state && !error && bundle;
   return (
-    <div className="glass-strong space-y-4 rounded-2xl p-5">
-      <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); ask(); }}>
-        <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: why is the monthly category report slow?" aria-label="Question" className="min-w-60 flex-1" />
-        <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 pill bg-ink px-3.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Ask
-        </button>
-      </form>
-      <Source>live, local gateway and AI service; the question stays private, the AI side gets template codes only</Source>
+    <Bento>
+      <div className="glass space-y-2 p-4 md:col-span-12">
+        <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+          <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: why is the monthly category report slow?" aria-label="Question" className="min-w-0 flex-1 basis-60" />
+          <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 pill bg-ink px-3.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Ask
+          </button>
+        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          {saved && (
+            <div className="glass-subtle inline-flex min-w-0 max-w-full items-center gap-2 pill px-3 py-1 text-xs text-slate-600">
+              <span className="shrink-0">From history</span>
+              <span className="truncate font-medium text-slate-900">{bundle.question}</span>
+              <span className="hidden shrink-0 font-mono text-slate-500 sm:inline">{bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")}</span>
+            </div>
+          )}
+          {(saved || (state?.done && state.bundle_ready)) && <PageLinks />}
+        </div>
+        <Source>live, local gateway and AI service; the question stays private, the AI side gets template codes only</Source>
+      </div>
 
-      {error && <Bad>{error}</Bad>}
+      {error && <div className="md:col-span-12"><Bad>{error}</Bad></div>}
 
       {state && !state.ask && (
-        <div className="inset-field p-3 text-sm text-slate-700">
+        <div className="inset-field p-3 text-sm text-slate-700 md:col-span-12">
           Working: {state.events.filter((e) => e.startsWith("tool ")).length} tool calls so far
           {state.events.filter((e) => e.startsWith("rate limited") || e.startsWith("LLM service unavailable")).map((e) => (
             <div key={e} className="mt-1 flex items-center gap-2 text-ink"><span className="size-2 shrink-0 rounded-full bg-signal" aria-hidden />{e}</div>
@@ -155,19 +177,7 @@ export function LiveAsk() {
       )}
 
       {state && <Result key={state.question_id} job={state} live />}
-      {state?.done && state.bundle_ready && <PageLinks />}
-
-      {saved && (
-        <>
-          <div className="glass-subtle inline-flex max-w-full items-center gap-2 pill px-3 py-1 text-xs text-slate-600">
-            <span className="shrink-0">From history</span>
-            <span className="truncate font-medium text-slate-900">{bundle.question}</span>
-            <span className="shrink-0 font-mono text-slate-500">{bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")}</span>
-          </div>
-          <Result key={bundle.id} job={bundle.job} live={false} />
-          <PageLinks />
-        </>
-      )}
-    </div>
+      {saved && <Result key={bundle.id} job={bundle.job} live={false} />}
+    </Bento>
   );
 }

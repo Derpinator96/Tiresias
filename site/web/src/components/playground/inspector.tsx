@@ -460,7 +460,7 @@ export function Inspector() {
       aria-hidden={!drawerOpen}
       inert={!drawerOpen}
       className={cn(
-        "glass-strong absolute bottom-3 right-3 top-3 lg:top-[76px] z-30 flex flex-col overflow-hidden rounded-xl transition-all duration-200",
+        "glass-strong absolute bottom-3 right-3 top-3 lg:top-[76px] z-30 flex flex-col overflow-hidden transition-all duration-200",
         wide ? "w-[min(860px,calc(100%-24px))]" : "w-[min(520px,calc(100%-24px))]",
         min && "bottom-auto h-11",
         drawerOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",

@@ -70,7 +70,7 @@ const CLAUSES = new Set(["select", "from", "where", "group", "order", "having", 
 
 export type Role = "EQ" | "JOIN" | "RANGE" | "GROUP" | "ORDER" | "SELECT";
 export type HashedColumn = { table: string; column: string; code: string; tableCode: string; roles: Role[] };
-export type HashResult = { sql: string; tables: { name: string; code: string }[]; columns: HashedColumn[] };
+export type HashResult = { sql: string; tables: { name: string; code: string }[]; columns: HashedColumn[]; values: number };
 
 const name = (t: Tok) => (t.k === "qident" ? t.v.slice(1, -1).replace(/""/g, '"') : t.v.toLowerCase());
 
@@ -106,6 +106,7 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
   let clause = "";
   const fnDepth: number[] = []; // paren depths opened by a function call
   let depth = 0;
+  let values = 0; // literals and parameters replaced by ?
   const isValue = (t?: Tok) => !!t && (t.k === "str" || t.k === "num" || t.k === "param");
   const colAt = (i: number) => isId(i) && role[i] === "" && toks[i + 1]?.v !== "(" && toks[i + 1]?.v !== "." && toks[i - 1]?.v !== "::";
 
@@ -123,7 +124,7 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
 
     if (role[i] === "drop") { if (out.at(-1) === "AS") out.pop(); continue; }
     if (role[i] === "table") { out.push(await code("t", name(t), key)); continue; }
-    if (isValue(t)) { out.push("?"); continue; }
+    if (isValue(t)) { out.push("?"); values++; continue; }
 
     // Column alias in the select list (expr AS x): dropped, like the gateway's aliases.
     if (kw(i, "as") && clause === "select") { i++; continue; }
@@ -154,7 +155,7 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
     out.push(t.k === "ident" && KEYWORDS.has(lower) ? t.v.toUpperCase() : t.k === "ident" ? t.v.toUpperCase() : t.v);
   }
   const text = out.join(" ").replace(/\s+([,)])/g, "$1").replace(/\(\s+/g, "(").replace(/ ?(::|\.) ?/g, "$1").replace(/\s*;\s*$/, "");
-  return { sql: text, tables: await Promise.all(tables.map(async (n) => ({ name: n, code: await code("t", n, key) }))), columns: [...cols.values()] };
+  return { sql: text, tables: await Promise.all(tables.map(async (n) => ({ name: n, code: await code("t", n, key) }))), columns: [...cols.values()], values };
 }
 
 /** Role of the column spanning tokens start..end, mirroring gateway/strip.py _role_of. */

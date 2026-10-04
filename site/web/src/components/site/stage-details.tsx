@@ -6,7 +6,7 @@ import type { StageCopy } from "@/lib/stages";
 /** The long text of a stage page, collapsed by default. */
 export function StageDetails({ c }: { c: StageCopy }) {
   return (
-    <Accordion className="glass rounded-xl px-4">
+    <Accordion className="glass px-5">
       <AccordionItem value="how">
         <AccordionTrigger>How it works</AccordionTrigger>
         <AccordionContent>

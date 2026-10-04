@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorLine, LocalOnly, TH, useJson } from "@/components/db/local";
 import { LOCAL } from "@/lib/context";
+import { Bento } from "@/components/viz/charts";
 import { cn } from "@/lib/utils";
 
 type Col = { name: string; type: string; code: string };
@@ -30,14 +31,15 @@ export function DatabaseSample() {
         <span className="text-xs text-slate-500">{loading ? "loading" : data ? `${data.length} tables, /v1/private/tables` : ""}</span>
       </div>
       <ErrorLine text={error} />
+      <Bento>
       {data?.map((t) => (
-        <section key={t.code} className="glass rounded-2xl p-4">
+        <section key={t.code} className="glass flex min-w-0 flex-col p-4 md:col-span-6">
           <header className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h2 className="font-mono text-base font-semibold text-slate-900">{t.table}</h2>
+            <h2 className="min-w-0 truncate font-mono text-base font-semibold text-slate-900">{t.table}</h2>
             <Badge variant="secondary" className="pill font-mono text-xs text-slate-600">{t.code}</Badge>
             <span className="text-xs text-slate-500">{t.rows.toLocaleString()} rows, {t.size_mb.toFixed(1)} MB</span>
           </header>
-          <div className="max-h-96 overflow-auto rounded-lg">
+          <div className="max-h-72 min-w-0 overflow-auto rounded-lg">
             <Table className="text-sm">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -59,6 +61,7 @@ export function DatabaseSample() {
           </div>
         </section>
       ))}
+      </Bento>
     </div>
   );
 }

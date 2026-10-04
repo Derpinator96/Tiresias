@@ -53,3 +53,19 @@ test("changing one letter changes about half of the 256 digest bits", async () =
   const d = bitsDiffer(await hmacHex(KEY, "branch"), await hmacHex(KEY, "brunch"));
   assert.ok(d > 80 && d < 176, String(d));
 });
+
+test("glitch frames run from the plain SQL to the hashed SQL", async () => {
+  const { glitchFrame } = await import("../src/lib/glitch.ts");
+  const from = "SELECT SUM(total) FROM invoices\nWHERE branch = 7";
+  const to = (await hashSql(from, KEY)).sql;
+  assert.equal(glitchFrame(from, to, 0, Math.random), from);
+  assert.equal(glitchFrame(from, to, 1, Math.random), to);
+  const mid = glitchFrame(from, to, 0.5, () => 0);
+  assert.ok(mid.length >= Math.min(from.length, to.length) && mid.length <= Math.max(from.length, to.length), mid);
+  assert.notEqual(mid, from);
+  assert.notEqual(mid, to);
+});
+
+test("hashSql counts the values it strips", async () => {
+  assert.equal((await hashSql("SELECT x FROM t WHERE a = 7 AND b IN ('p', $1)", KEY)).values, 3);
+});

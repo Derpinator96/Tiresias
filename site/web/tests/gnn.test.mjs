@@ -76,3 +76,14 @@ test("predicted shares follow node order and default to 0", () => {
   assert.deepEqual(predictedShares(q1, p), [0.01, 0.99]);
   assert.deepEqual(predictedShares(q1, null), [0, 0]);
 });
+
+import { qError, argmax } from "../src/lib/gnn.ts";
+
+test("q-error is symmetric max/min and refuses non-positive values; argmax finds the slowest node", () => {
+  assert.equal(qError(50, 100), 2);
+  assert.equal(qError(100, 50), 2);
+  assert.equal(qError(7, 7), 1);
+  assert.equal(qError(0, 5), null);
+  assert.equal(argmax(shares(q1, "cost")), 1);
+  assert.equal(argmax([]), 0);
+});

@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <>
       <Sidebar />
-      <main className="min-w-0 flex-1 lg:pl-[15.5rem]">
+      <main className="min-w-0 flex-1 lg:pl-[5.5rem]">
         <Page>
           <H1>This page does not exist</H1>
           <Lead>

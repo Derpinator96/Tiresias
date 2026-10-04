@@ -38,7 +38,7 @@ function StageNode({ data, id }: NodeProps<Node<StageData>>) {
   const Icon = STAGE_ICON[id as StageId];
   const rows = body(v)[id as StageId];
   return (
-    <div className="stage-card w-[260px] p-3" data-state={state} data-selected={selected === id}>
+    <div className="stage-card w-[260px] rounded-3xl bg-white/70 p-3 backdrop-blur-xl" data-state={state} data-selected={selected === id}>
       <Handle type="target" position={data.tgt} className="!size-2 !border-0 !bg-slate-300" />
       <div className="mb-2 flex items-center gap-2">
         <span className="grid size-7 place-items-center rounded-full bg-slate-100 text-slate-600">
@@ -146,7 +146,7 @@ function Toolbar() {
 
   const btn = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-900/5 disabled:opacity-40 disabled:hover:bg-transparent";
   return (
-    <div className="glass-bar pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 px-3 py-2">
+    <div className="pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 rounded-3xl bg-white/80 px-3 py-1.5 shadow-(--glass-shadow) backdrop-blur-xl lg:flex-nowrap lg:rounded-full">
       <div className="flex items-center gap-2">
         <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
         <span className="font-mono text-xs text-slate-500">{v.id}</span>
@@ -183,7 +183,7 @@ function Toolbar() {
         <button className={btn} onClick={() => fitView({ padding: 0.12, duration: 300 })}><Maximize className="size-3.5" /> Fit</button>
         <button className={cn(btn, drawerOpen && "bg-slate-900/5")} onClick={toggleDrawer} aria-pressed={drawerOpen}><PanelRight className="size-3.5" /> Inspector</button>
       </div>
-      <div className="absolute inset-x-3 bottom-0 h-0.5 overflow-hidden rounded bg-slate-200/70">
+      <div className="absolute inset-x-8 bottom-0 h-0.5 overflow-hidden rounded bg-slate-200/70">
         <div className="h-full bg-accent transition-[width] duration-300" style={{ width: `${(step / STAGES.length) * 100}%` }} />
       </div>
     </div>
@@ -194,7 +194,7 @@ function EventLog() {
   const log = useRun((s) => s.log);
   const v = useView();
   return (
-    <div className="glass pointer-events-auto absolute bottom-3 left-14 z-10 w-[min(340px,calc(100%-68px))] rounded-xl p-3">
+    <div className="glass pointer-events-auto absolute bottom-3 left-14 z-10 w-[min(340px,calc(100%-68px))] p-3">
       <div className="mb-1 text-xs font-semibold text-slate-900">Replay log</div>
       <p className="mb-2 text-xs leading-snug text-slate-500">{v.id}; replay pacing, not measured time</p>
       <ol className="max-h-32 space-y-0.5 overflow-y-auto font-mono text-xs text-slate-700">

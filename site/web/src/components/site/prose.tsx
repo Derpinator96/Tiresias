@@ -1,9 +1,9 @@
 // Shared blocks for the content pages: one type scale (globals.css), a page frame.
 export const Page = ({ children }: { children: React.ReactNode }) => (
-  <div className="mx-auto w-full max-w-5xl px-4 py-8 lg:px-8">{children}</div>
+  <div className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-6">{children}</div>
 );
 export const H1 = ({ children }: { children: React.ReactNode }) => (
-  <h1 className="max-w-3xl text-2xl font-semibold tracking-tight text-slate-900">{children}</h1>
+  <h1 className="max-w-4xl text-2xl font-light tracking-tight text-ink">{children}</h1>
 );
 export const H2 = ({ children }: { children: React.ReactNode }) => (
   <h2 className="mb-3 mt-8 text-lg font-semibold tracking-tight text-slate-900">{children}</h2>

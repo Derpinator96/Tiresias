@@ -4,17 +4,18 @@
 // 2026-10-04: blue + orange pass every check; aqua is below 3:1 contrast, so every bar carries a
 // visible value label and every chart a screen-reader table. Bars <= 24px, 4px rounded data end,
 // one axis per chart, hover tooltip on every mark.
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Source } from "@/components/playground/bits";
 import { cn } from "@/lib/utils";
 
 // Two series only (human request 2026-10-04): the accent and the signal colour of globals.css.
-export const SERIES = { blue: "#2563eb", orange: "#ea580c", aqua: "#94a3b8" } as const;
+// Reference palette (2026-10-04): ink for the primary series, signal orange for slow, grey for the rest.
+export const SERIES = { blue: "#262726", orange: "#ea580c", aqua: "#b8bcb8" } as const;
 
 export function ChartCard({ title, caption, children, className }: { title: string; caption?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <figure className={cn("glass min-w-0 rounded-xl p-4", className)}>
+    <figure className={cn("glass min-w-0 p-5", className)}>
       <figcaption className="mb-3 text-base font-semibold text-slate-900">{title}</figcaption>
       {children}
       {caption && <div className="mt-2"><Source>{caption}</Source></div>}
@@ -142,7 +143,7 @@ export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "
   return (
     <ol className="flex flex-wrap items-center gap-1.5">
       {steps.map((s, i) => (
-        <Fragment key={s.label}>
+        <Fragment key={i}>
           {i > 0 && <ArrowRight className="size-4 shrink-0 text-slate-400" aria-hidden />}
           <li className={cn("rounded-full px-3 py-1.5", tone[s.tone ?? "private"])}>
             <div className="text-xs font-medium">{s.label}</div>
@@ -157,8 +158,46 @@ export function Flow({ steps }: { steps: { label: string; sub?: string; tone?: "
 export function BigNumber({ value, label, tone = "default" }: { value: string; label: string; tone?: "default" | "good" }) {
   return (
     <div>
-      <div className={cn("font-mono text-3xl font-semibold tracking-tight", tone === "good" ? "text-accent" : "text-slate-900")}>{value}</div>
+      <div className={cn("font-mono text-3xl font-semibold tracking-tight [overflow-wrap:anywhere]", tone === "good" ? "text-accent" : "text-slate-900")}>{value}</div>
       <div className="mt-0.5 text-xs text-slate-600">{label}</div>
+    </div>
+  );
+}
+
+/** Compact 12-column grid for every page (reference 2026-10-04). Children set their own
+ *  col-span / row-span; one column below md. */
+// Tiles fade up once on first paint, staggered by position (nth-child animation-delay, tw-animate-css
+// keyframes); fill-mode backwards so the hover lift still works after; none under reduced motion.
+const FADE_UP = "*:animate-in *:fade-in *:slide-in-from-bottom-2 *:animation-duration-500 *:fill-mode-backwards motion-reduce:*:animate-none " +
+  "*:nth-2:[animation-delay:60ms] *:nth-3:[animation-delay:120ms] *:nth-4:[animation-delay:180ms] *:nth-5:[animation-delay:240ms] *:nth-6:[animation-delay:300ms] *:nth-[n+7]:[animation-delay:360ms]";
+export function Bento({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("grid grid-cols-1 gap-3 md:grid-cols-12", FADE_UP, className)}>{children}</div>;
+}
+
+/** Semicircle dial like the reference's score gauge: value between min and max, a lime knob at
+ *  the value, big light number in the middle. Sweeps in on mount (none under reduced motion). */
+export function Gauge({ value, min = 0, max = 100, label, unit = "", digits = 0, tone = "light" }: {
+  value: number; min?: number; max?: number; label: string; unit?: string; digits?: number; tone?: "light" | "dark";
+}) {
+  const [shown, setShown] = useState(0);
+  // a timer, not requestAnimationFrame: rAF never fires in a background tab, which left the dial at 0
+  useEffect(() => { const t = setTimeout(() => setShown(1), 30); return () => clearTimeout(t); }, []);
+  const f = Math.max(0, Math.min(1, (value - min) / (max - min || 1))) * shown;
+  const r = 80, len = Math.PI * r;
+  const a = Math.PI * (1 - f), kx = 100 + r * Math.cos(a), ky = 100 - r * Math.sin(a);
+  const ink = tone === "dark" ? "#ffffff" : "#262726";
+  return (
+    <div className="relative mx-auto w-full max-w-[240px] pb-1" role="img" aria-label={`${label}: ${value.toFixed(digits)}${unit}`}>
+      <svg viewBox="0 0 200 112" className="w-full">
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke={tone === "dark" ? "rgb(255 255 255 / 0.15)" : "#e4e7e4"} strokeWidth={10} strokeLinecap="round" strokeDasharray="2 4" />
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke={ink} strokeWidth={10} strokeLinecap="round"
+          strokeDasharray={len} strokeDashoffset={len * (1 - f)} className="transition-[stroke-dashoffset] duration-1000 ease-out motion-reduce:transition-none" />
+        <circle cx={kx} cy={ky} r={9} fill="#f0ff97" stroke={ink} strokeWidth={2} className="transition-all duration-1000 ease-out motion-reduce:transition-none" />
+      </svg>
+      <div className="absolute inset-x-0 bottom-0 text-center">
+        <div className={cn("text-3xl font-light tracking-tight xl:text-4xl", tone === "dark" ? "text-white" : "text-ink")}>{value.toFixed(digits)}<span className="text-lg">{unit}</span></div>
+        <div className={cn("text-xs", tone === "dark" ? "text-white/60" : "text-slate-500")}>{label}</div>
+      </div>
     </div>
   );
 }
