@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { bitsDiffer, code, hashSql, hmacHex, newKey, Unparsed } from "../src/lib/hashing.ts";
+import { bitsDiffer, code, hashSql, hashSteps, hmacHex, newKey, Unparsed } from "../src/lib/hashing.ts";
 
 const KEY = Uint8Array.from({ length: 32 }, (_, i) => i);
 
@@ -68,4 +68,26 @@ test("glitch frames run from the plain SQL to the hashed SQL", async () => {
 
 test("hashSql counts the values it strips", async () => {
   assert.equal((await hashSql("SELECT x FROM t WHERE a = 7 AND b IN ('p', $1)", KEY)).values, 3);
+});
+
+test("hashSteps: five states, each step changes only its own kind, the last is hashSql's", async () => {
+  const sql = "SELECT SUM(total) FROM invoices i WHERE i.branch = 7 AND issued_on >= '2026-09-26' -- weekly report";
+  const steps = await hashSteps(sql, KEY);
+  assert.equal(steps.length, 5);
+  assert.equal(steps[0].text, sql);
+  assert.equal(steps[4].text, (await hashSql(sql, KEY)).sql);
+  // Putting `was` back into each range rebuilds the previous text, so nothing outside the ranges moved.
+  for (let k = 1; k < 5; k++) {
+    const { text, changed, was } = steps[k];
+    let back = "", pos = 0;
+    changed.forEach(([a, b], i) => { back += text.slice(pos, a) + was[i]; pos = b; });
+    assert.equal(back + text.slice(pos), steps[k - 1].text, steps[k].label);
+  }
+  const seg = (k) => steps[k].changed.map(([a, b], i) => [steps[k].was[i], steps[k].text.slice(a, b)]);
+  assert.ok(seg(1).every(([w]) => w.includes("-- weekly report") && !steps[1].text.includes("--")));
+  assert.deepEqual(seg(2), [["7", "?"], ["'2026-09-26'", "?"]]);
+  assert.deepEqual(seg(3).map(([w]) => w), ["invoices"]);
+  assert.ok(seg(3).every(([, n]) => /^t_[0-9a-f]{8}$/.test(n)));
+  assert.deepEqual(seg(4).map(([w]) => w), ["total", "i.branch", "issued_on"]);
+  assert.ok(seg(4).every(([, n]) => /^c_[0-9a-f]{8}$/.test(n)));
 });

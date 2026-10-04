@@ -22,6 +22,19 @@ export const STAGE_ICON: Record<StageId, typeof Database> = {
   source: Database, gateway: ShieldCheck, miner: Pickaxe, gnn: Cpu, rl: Grid3x3, llm: MessageSquareCode, twin: FlaskConical, dba: ClipboardCheck,
 };
 
+/** Zone tint per stage (plan section 5): private source and gateway leaf, AI stages each their own
+ *  pastel, twin and DBA sky. Full class names so Tailwind finds them. */
+export const STAGE_TINT: Record<StageId, { bg: string; soft: string; ink: string }> = {
+  source: { bg: "bg-leaf", soft: "bg-leaf/40", ink: "text-leaf-ink" },
+  gateway: { bg: "bg-leaf", soft: "bg-leaf/40", ink: "text-leaf-ink" },
+  miner: { bg: "bg-sand", soft: "bg-sand/40", ink: "text-sand-ink" },
+  gnn: { bg: "bg-sky", soft: "bg-sky/40", ink: "text-sky-ink" },
+  rl: { bg: "bg-peach", soft: "bg-peach/40", ink: "text-peach-ink" },
+  llm: { bg: "bg-rose", soft: "bg-rose/40", ink: "text-rose-ink" },
+  twin: { bg: "bg-sky", soft: "bg-sky/40", ink: "text-sky-ink" },
+  dba: { bg: "bg-sky", soft: "bg-sky/40", ink: "text-sky-ink" },
+};
+
 export const STAGE_SUMMARY: Record<StageId, string> = {
   source: "Postgres logs the slow query shape; values are already $1.",
   gateway: "Hashes names, strips values, scans every payload for canaries.",

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   Background, BackgroundVariant, BaseEdge, Controls, Handle, Position, ReactFlow, ReactFlowProvider,
   getSmoothStepPath, useReactFlow, useStore, type Edge, type EdgeProps, type Node, type NodeProps,
@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { CONFIG } from "@/lib/facts";
 import type { RunView } from "@/lib/run-view";
 import { useView } from "@/lib/view";
-import { RunBanner } from "@/components/viz/run-banner";
+import { useContextStore } from "@/lib/context";
+import { ORDER } from "@/lib/progress";
 import { SERIES } from "@/components/viz/charts";
 import { STAGES, stageState, useRun, type StageId } from "@/lib/store";
 import { STAGE_ICON } from "@/lib/stages";
@@ -138,18 +139,26 @@ function Toolbar() {
   const { fitView } = useReactFlow();
   const v = useView();
 
+  const live = useContextStore((s) => s.running);
   useEffect(() => {
-    if (status !== "running") return;
+    if (status !== "running" || live) return; // a live question drives the step instead
     const t = setInterval(forward, 1200 / speed); // replay pacing only, not a measured time
     return () => clearInterval(t);
-  }, [status, speed, forward]);
+  }, [status, speed, forward, live]);
 
   const btn = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium text-slate-700 hover:bg-slate-900/5 disabled:opacity-40 disabled:hover:bg-transparent";
   return (
     <div className="pointer-events-auto absolute left-1/2 top-3 z-20 flex w-[min(1180px,calc(100%-24px))] -translate-x-1/2 flex-wrap items-center gap-3 rounded-3xl bg-white/80 px-3 py-1.5 shadow-(--glass-shadow) backdrop-blur-xl lg:flex-nowrap lg:rounded-full">
       <div className="flex items-center gap-2">
-        <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
-        <span className="font-mono text-xs text-slate-500">{v.id}</span>
+        {live ? (
+          <span className="flex max-w-[22rem] items-center gap-1.5 rounded-full bg-lime px-2 py-0.5 text-xs text-ink" title={live.question}>
+            <span className="size-2 shrink-0 animate-pulse rounded-full bg-ink motion-reduce:animate-none" aria-hidden />
+            <span className="truncate">live: {live.question}</span>
+          </span>
+        ) : <>
+          <span className="glass-subtle rounded-full px-2 py-0.5 text-xs text-slate-600">{v.live ? "asked question" : "demo retail DB, 10M rows"}</span>
+          <span className="font-mono text-xs text-slate-500">{v.id}</span>
+        </>}
       </div>
       <div className="mx-auto flex flex-wrap items-center gap-1">
         {status === "running" ? (
@@ -237,11 +246,17 @@ export function Canvas({ children }: { children?: React.ReactNode }) {
   const v = useView();
   const setSource = useRun((s) => s.setSource);
   useEffect(() => setSource(v.id), [v.id, setSource]);
+  // While a question runs, the replay follows it: the live stage is "processing", earlier ones done.
+  const stage = useContextStore((s) => s.running?.stage ?? null);
+  const wasLive = useRef(false);
+  useEffect(() => {
+    if (stage) { wasLive.current = true; useRun.setState({ step: ORDER.indexOf(stage), status: "running" }); }
+    else if (wasLive.current) { wasLive.current = false; useRun.setState({ step: STAGES.length, status: "completed" }); }
+  }, [stage]);
   return (
     <ReactFlowProvider>
       <div className="flex h-[calc(100dvh-3rem)] w-full flex-col overflow-hidden lg:h-dvh">
         <h1 className="sr-only">Tiresias pipeline replay of {v.id}</h1>
-        <RunBanner className="m-2 mb-0 shrink-0" />
         <div className="relative min-h-0 flex-1">
           <Flow />
           <Toolbar />

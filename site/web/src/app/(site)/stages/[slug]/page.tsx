@@ -4,12 +4,11 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { StageSheet } from "@/components/playground/inspector";
 import { HashingVisualizer } from "@/components/hashing/visualizer";
-import { StageDetails } from "@/components/site/stage-details";
+import { RunningNow, StageDetails } from "@/components/site/stage-details";
 import { H1, Page } from "@/components/site/prose";
-import { RunBanner } from "@/components/viz/run-banner";
 import { StageVisual } from "@/components/viz/stage-visuals";
 import { Bento } from "@/components/viz/charts";
-import { STAGES, STAGE_COPY, type StageId } from "@/lib/stages";
+import { STAGES, STAGE_COPY, STAGE_TINT, type StageId } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 
 export const dynamicParams = false;
@@ -42,8 +41,7 @@ export default async function StagePage({ params }: { params: Promise<{ slug: st
   const next = STAGES[i + 1];
   return (
     <Page>
-      <RunBanner className="mb-3" />
-      <H1>{c.heading}</H1>
+      <div className="flex flex-wrap items-center gap-3"><H1>{c.heading}</H1><RunningNow id={id} /></div>
       <ul className="mt-3 flex flex-wrap gap-1.5">
         {c.status.map((s) => (
           <li key={s.text} className="pill flex max-w-full items-center gap-2 bg-white/80 py-1 pl-1 pr-3 text-xs text-slate-700 shadow-(--glass-shadow)" title={s.text}>
@@ -58,7 +56,7 @@ export default async function StagePage({ params }: { params: Promise<{ slug: st
 
       {id === "gateway" && <div className="mt-3"><HashingVisualizer /></div>}
       <Bento className="mt-3 items-start">
-        <div className="glass-strong p-5 md:col-span-7"><StageSheet id={id} /></div>
+        <div className={cn("rounded-3xl p-5 shadow-(--glass-shadow) md:col-span-7", STAGE_TINT[id].bg)}><StageSheet id={id} /></div>
         <div className="md:col-span-5"><StageDetails c={c} /></div>
       </Bento>
 

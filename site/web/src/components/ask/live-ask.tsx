@@ -1,15 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { Loader2, Send } from "lucide-react";
+import { Check, Loader2, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Source, SqlBlock } from "@/components/playground/bits";
 import type { AskJob } from "@/lib/ask-shared";
 import { useBundle, useContextStore } from "@/lib/context";
 import { Bento, Gauge } from "@/components/viz/charts";
+import { ORDER } from "@/lib/progress";
+import { STAGES, STAGE_ICON } from "@/lib/stages";
 import { cn } from "@/lib/utils";
-
-type State = AskJob & { poll_ms: number; events: string[]; bundle_ready: boolean };
 
 const PAGES = [["Open in Playground", "/playground"], ["GNN", "/gnn"], ["Hashing", "/hashing"], ["Stage pages", "/stages/source"]];
 const seg = (on: boolean) => cn("h-7 pill px-2.5 text-sm", on ? "bg-ink text-white" : "text-slate-600 hover:bg-white/70");
@@ -24,14 +24,14 @@ function Bad({ children }: { children: React.ReactNode }) {
 }
 
 /** The answer, twin result and SQL of one job as Bento tiles: the live one while it runs, or a saved bundle's. */
-function Result({ job, live }: { job: AskJob; live: boolean }) {
+function Result({ job, live, flash = false }: { job: AskJob; live: boolean; flash?: boolean }) {
   const [aiView, setAiView] = useState(false);
   const a = job.ask;
   const best = job.results?.length ? Math.max(...job.results.map((t) => t.pct)) : null;
   return (
     <>
       {a && (
-        <section className="glass min-w-0 p-5 md:col-span-7">
+        <section className={cn("glass min-w-0 p-5 md:col-span-7", flash && "fresh-flash")}>
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-slate-900">Answer</h3>
             <div className="glass-subtle flex pill p-0.5">
@@ -56,7 +56,7 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
         {job.done && !job.error && !job.results && <div className="glass p-5 text-sm text-slate-700">No change worth its cost, so no SQL to apply.</div>}
         {job.done && job.results && (
           <>
-            <section className="tile-lime space-y-2 p-5">
+            <section className={cn("space-y-2 rounded-3xl bg-rose p-5 text-ink", flash && "fresh-flash")}>
               <h3 className="text-sm font-semibold">Time saved on the twin</h3>
               {job.results.map((t) => (
                 <div key={t.template_id} className="min-w-0">
@@ -67,7 +67,7 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
               ))}
               <Source>synthetic {job.rows ? `${job.rows.toLocaleString("en-US")}-row ` : ""}twin, median of {job.sim?.runs} runs; not production</Source>
             </section>
-            {best !== null && <div className="glass p-5"><Gauge value={best} unit="%" label="best speedup on the twin" /></div>}
+            {best !== null && <div className={cn("glass p-5", flash && "fresh-flash")}><Gauge value={best} unit="%" label="best speedup on the twin" /></div>}
           </>
         )}
       </div>
@@ -77,7 +77,7 @@ function Result({ job, live }: { job: AskJob; live: boolean }) {
       ) : (
         <>
           {([["SQL to apply", job.migration, "migration.sql"], ["Rollback", job.rollback, "rollback.sql"]] as const).map(([title, text, file]) => (
-            <section key={file} className="glass min-w-0 p-5 md:col-span-6">
+            <section key={file} className={cn("glass min-w-0 p-5 md:col-span-6", flash && "fresh-flash")}>
               <h3 className="mb-2 text-base font-semibold text-slate-900">{title}</h3>
               <div className="max-h-72 overflow-auto rounded-xl"><SqlBlock text={text ?? ""} file={file} /></div>
               <Source>the DBA runs this with psql; nothing here touches production</Source>
@@ -100,84 +100,92 @@ function PageLinks() {
   );
 }
 
+const TITLE = Object.fromEntries(STAGES.map((x) => [x.id, x.title])) as Record<(typeof STAGES)[number]["id"], string>;
+
+/** The 8 stages of the running question: ticks on the ones reached, the current one pulsing, and
+ *  the ai service's progress events beside them. */
+function Progress() {
+  const run = useContextStore((s) => s.running);
+  if (!run) return null;
+  return (
+    <>
+      <section className="space-y-1.5 rounded-3xl bg-rose p-5 text-ink md:col-span-5">
+        <h3 className="mb-2 text-sm font-semibold">Pipeline progress</h3>
+        {ORDER.map((id) => {
+          const Icon = STAGE_ICON[id], on = id === run.stage && !run.error, done = run.reached.includes(id) && !on;
+          return (
+            <div key={id} className={cn("flex items-center gap-2 text-sm", !done && !on && "text-slate-500", on && "animate-pulse font-semibold")}>
+              <span className={cn("flex size-6 items-center justify-center rounded-full", done ? "bg-ink text-white" : on ? "bg-white" : "bg-white/50")}>
+                {done ? <Check className="size-3.5" /> : <Icon className="size-3.5" />}
+              </span>
+              {TITLE[id]}
+            </div>
+          );
+        })}
+      </section>
+      <section className="glass min-w-0 p-5 md:col-span-7">
+        <h3 className="mb-2 text-sm font-semibold text-slate-900">Events from the AI service</h3>
+        {run.events.length ? (
+          <ol className="max-h-72 space-y-1 overflow-auto font-mono text-xs text-slate-700">
+            {run.events.map((e, k) => <li key={k} className="[overflow-wrap:anywhere]">{e}</li>)}
+          </ol>
+        ) : <p className="text-sm text-slate-600">Question received; waiting for the first tool call.</p>}
+      </section>
+    </>
+  );
+}
+
 // Local web container only: rendered when the build sets NEXT_PUBLIC_BT_LOCAL=1. Shows real names
-// (dehashed by the gateway on the private side); the toggle shows what the AI side saw. With no
-// live job, shows the history-selected bundle (sidebar) so an old question reads as it did.
+// (dehashed by the gateway on the private side); the toggle shows what the AI side saw. The run
+// itself lives in the context store (one poller, src/lib/context.ts), so leaving this page does not
+// lose it; once it lands, the new bundle is selected and renders here like any history entry.
 export function LiveAsk() {
+  const { running, fresh, start } = useContextStore();
   const [question, setQuestion] = useState("");
-  const [qid, setQid] = useState<string | null>(null);
-  const [state, setState] = useState<State | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bundle = useBundle();
-  const busy = !!qid && !state?.done && !error;
-
-  useEffect(() => {
-    if (!qid) return;
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const tick = async () => {
-      const r = await fetch(`/api/ask?qid=${encodeURIComponent(qid)}`, { cache: "no-store" });
-      const body: State & { error?: string } = await r.json();
-      if (!live) return;
-      if (!r.ok) return setError(body.error ?? `HTTP ${r.status}`);
-      setState(body);
-      if (!body.done || !body.bundle_ready) timer = setTimeout(tick, body.poll_ms);
-      else { // the saved bundle becomes the current context for every page
-        const s = useContextStore.getState();
-        await s.refresh();
-        await s.select(body.question_id);
-      }
-    };
-    tick();
-    return () => { live = false; clearTimeout(timer); };
-  }, [qid]);
+  const busy = !!running && !running.error;
 
   const ask = async () => {
-    setError(null);
-    setState(null);
-    setQid(null);
-    const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question }) });
-    const body = await r.json();
-    if (!r.ok) return setError(body.error ?? `HTTP ${r.status}`);
-    setQid(body.question_id);
+    setError(await start(question.trim()));
   };
 
-  const saved = !state && !error && bundle;
+  const job = running?.job as AskJob | null | undefined;
+  const saved = !running && bundle;
   return (
     <Bento>
       <div className="glass space-y-2 p-4 md:col-span-12">
-        <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); ask(); }}>
+        <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void ask(); }}>
           <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="For example: why is the monthly category report slow?" aria-label="Question" className="min-w-0 flex-1 basis-60" />
           <button type="submit" disabled={!question.trim() || busy} className="inline-flex h-8 items-center gap-1.5 pill bg-ink px-3.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-40">
             {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Ask
           </button>
         </form>
         <div className="flex flex-wrap items-center gap-2">
-          {saved && (
+          {running && (
             <div className="glass-subtle inline-flex min-w-0 max-w-full items-center gap-2 pill px-3 py-1 text-xs text-slate-600">
-              <span className="shrink-0">From history</span>
+              <span className="shrink-0">Running</span>
+              <span className="truncate font-medium text-slate-900">{running.question}</span>
+            </div>
+          )}
+          {saved && (
+            <div className={cn("inline-flex min-w-0 max-w-full items-center gap-2 pill px-3 py-1 text-xs text-slate-600", fresh === bundle.id ? "bg-lime" : "glass-subtle")}>
+              <span className="shrink-0">{fresh === bundle.id ? "Fresh result" : "From history"}</span>
               <span className="truncate font-medium text-slate-900">{bundle.question}</span>
               <span className="hidden shrink-0 font-mono text-slate-500 sm:inline">{bundle.id}, {new Date(bundle.created_at).toLocaleString("en-GB")}</span>
             </div>
           )}
-          {(saved || (state?.done && state.bundle_ready)) && <PageLinks />}
+          {saved && <PageLinks />}
         </div>
         <Source>live, local gateway and AI service; the question stays private, the AI side gets template codes only</Source>
       </div>
 
       {error && <div className="md:col-span-12"><Bad>{error}</Bad></div>}
+      {running?.error && <div className="md:col-span-12"><Bad>The run stopped: {running.error}</Bad></div>}
 
-      {state && !state.ask && (
-        <div className="inset-field p-3 text-sm text-slate-700 md:col-span-12">
-          Working: {state.events.filter((e) => e.startsWith("tool ")).length} tool calls so far
-          {state.events.filter((e) => e.startsWith("rate limited") || e.startsWith("LLM service unavailable")).map((e) => (
-            <div key={e} className="mt-1 flex items-center gap-2 text-ink"><span className="size-2 shrink-0 rounded-full bg-signal" aria-hidden />{e}</div>
-          ))}
-        </div>
-      )}
-
-      {state && <Result key={state.question_id} job={state} live />}
-      {saved && <Result key={bundle.id} job={bundle.job} live={false} />}
+      {running && <Progress />}
+      {running && job?.ask && <Result key={running.qid} job={job} live />}
+      {saved && <Result key={bundle.id} job={bundle.job} live={false} flash={fresh === bundle.id} />}
     </Bento>
   );
 }

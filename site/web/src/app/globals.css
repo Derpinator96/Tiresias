@@ -69,6 +69,19 @@
   --color-ink: #262726;
   --color-lime: #f0ff97;
   --color-mint: #edf4ee;
+  /* Soft tab tints (human request 2026-10-04: less monochrome). One per page or zone, used on
+     highlight tiles, active pills and icon tiles; the -ink shades are for chart marks and text. */
+  --color-sky: #cfe3ff;
+  --color-sky-ink: #4c7bd9;
+  --color-peach: #ffd9c2;
+  --color-peach-ink: #e07a45;
+  --color-leaf: #cdefd9;
+  --color-leaf-ink: #3f9a63;
+  --color-sand: #f6e7b8;
+  --color-sand-ink: #b0892a;
+  --color-rose: #fad1d8;
+  --color-rose-ink: #cf5a70;
+  --color-lime-ink: #b7c93a;
   --color-accent: #262726;
   --color-accent-soft: #f0ff97;
   --color-signal: #ea580c;
@@ -138,8 +151,7 @@
        it (human request 2026-10-04: the colour moves only with the cursor). --mx and --my are
        set by src/components/site/site-effects.tsx; without a mouse they stay at the defaults. */
     background-image:
-      radial-gradient(50rem 50rem at var(--mx) var(--my), rgb(240 255 151 / 0.55) 0%, transparent 60%),
-      radial-gradient(60rem 60rem at calc(100% - var(--mx)) calc(100% - var(--my)), var(--color-mint) 0%, transparent 65%);
+      radial-gradient(18rem 18rem at var(--mx) var(--my), rgb(240 255 151 / 0.18) 0%, transparent 70%);
     background-attachment: fixed;
     transition: --mx 400ms ease-out, --my 400ms ease-out;
     font-size: var(--text-sm);
@@ -289,6 +301,15 @@
   border: 1px solid rgb(255 255 255 / 0.6);
   border-radius: 1.5rem;
   box-shadow: 0 8px 32px rgb(38 39 38 / 0.06);
+}
+/* one-shot flash on tiles when a fresh result arrives (class added while context.fresh is set) */
+@utility fresh-flash {
+  animation: fresh-flash 1.6s ease-out 1;
+}
+@keyframes fresh-flash {
+  0% { box-shadow: 0 0 0 0 rgb(240 255 151 / 0.9), 0 8px 32px rgb(38 39 38 / 0.06); }
+  40% { box-shadow: 0 0 0 6px rgb(240 255 151 / 0.7), 0 8px 32px rgb(38 39 38 / 0.06); }
+  100% { box-shadow: 0 0 0 0 rgb(240 255 151 / 0), 0 8px 32px rgb(38 39 38 / 0.06); }
 }
 @utility glass-subtle {
   background-color: #f6f7f9;

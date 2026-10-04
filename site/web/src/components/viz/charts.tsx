@@ -4,14 +4,14 @@
 // 2026-10-04: blue + orange pass every check; aqua is below 3:1 contrast, so every bar carries a
 // visible value label and every chart a screen-reader table. Bars <= 24px, 4px rounded data end,
 // one axis per chart, hover tooltip on every mark.
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Source } from "@/components/playground/bits";
 import { cn } from "@/lib/utils";
 
 // Two series only (human request 2026-10-04): the accent and the signal colour of globals.css.
 // Reference palette (2026-10-04): ink for the primary series, signal orange for slow, grey for the rest.
-export const SERIES = { blue: "#262726", orange: "#ea580c", aqua: "#b8bcb8" } as const;
+export const SERIES = { blue: "#262726", orange: "#e07a45", aqua: "#4c7bd9", lime: "#b7c93a", rose: "#cf5a70" } as const;
 
 export function ChartCard({ title, caption, children, className }: { title: string; caption?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -200,4 +200,26 @@ export function Gauge({ value, min = 0, max = 100, label, unit = "", digits = 0,
       </div>
     </div>
   );
+}
+
+/** Animates a number from its previous value to the new one (600 ms ease-out); instant under
+ *  reduced motion. Used so fresh results visibly arrive. */
+export function useCountUp(value: number, ms = 600): number {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const start = from.current, t0 = performance.now();
+    let id = 0;
+    const step = () => {
+      const k = reduce ? 1 : Math.min(1, (performance.now() - t0) / ms);
+      const v = start + (value - start) * (1 - (1 - k) ** 3);
+      from.current = v;
+      setShown(v);
+      if (k < 1) id = window.setTimeout(step, 16); // a timer, not rAF: keeps working in background tabs
+    };
+    id = window.setTimeout(step, 0);
+    return () => clearTimeout(id);
+  }, [value, ms]);
+  return shown;
 }

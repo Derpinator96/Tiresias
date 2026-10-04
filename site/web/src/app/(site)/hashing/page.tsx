@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
-import { HashingLab } from "@/components/hashing/gateway-view";
+import { HashingVisualizer } from "@/components/hashing/visualizer";
 import { H1, Page } from "@/components/site/prose";
 
 export const metadata: Metadata = {
   title: "Hashing visualizer | Tiresias",
-  description: "Type SQL and watch the gateway's steps in your browser: HMAC-SHA256 codes, values as ?, role flags.",
+  description: "One query, hashed step by step in your browser: comments removed, values as ?, names as HMAC-SHA256 codes.",
 };
 
 export default function Hashing() {
   return (
     <Page>
-      <H1>Hash your own SQL</H1>
-      <div className="mt-6"><HashingLab /></div>
+      <H1>What the gateway does to a query</H1>
+      <div className="mt-6"><HashingVisualizer /></div>
     </Page>
   );
 }

@@ -1,7 +1,19 @@
 "use client";
 import { Check, X } from "lucide-react";
+import { useContextStore } from "@/lib/context";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import type { StageCopy } from "@/lib/stages";
+import type { StageCopy, StageId } from "@/lib/stages";
+
+/** Pulsing lime pill beside the H1 while the live question is at this stage. */
+export function RunningNow({ id }: { id: StageId }) {
+  const on = useContextStore((s) => s.running?.stage === id);
+  if (!on) return null;
+  return (
+    <span className="pill inline-flex h-7 items-center gap-1.5 bg-lime px-3 text-xs font-medium text-ink">
+      <span className="size-2 animate-pulse rounded-full bg-ink motion-reduce:animate-none" aria-hidden /> running now
+    </span>
+  );
+}
 
 /** The long text of a stage page, collapsed by default. */
 export function StageDetails({ c }: { c: StageCopy }) {

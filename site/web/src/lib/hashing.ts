@@ -75,6 +75,52 @@ export type HashResult = { sql: string; tables: { name: string; code: string }[]
 const name = (t: Tok) => (t.k === "qident" ? t.v.slice(1, -1).replace(/""/g, '"') : t.v.toLowerCase());
 
 export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult> {
+  return (await hashParts(sql, key)).result;
+}
+
+/** One output token: `v` as the AI side sees it, `was` as written (value, table and column parts). */
+type Part = { v: string; was: string; k: "" | "value" | "table" | "column" };
+const KINDS = ["value", "table", "column"] as const;
+
+/** Joins parts; kinds before `level` in KINDS are shown hashed. Ranges cover the `mark` kind's parts. */
+function render(parts: Part[], level: number, mark?: Part["k"]) {
+  let text = "";
+  const changed: [number, number][] = [];
+  const was: string[] = [];
+  const ps = parts.at(-1)?.v === ";" ? parts.slice(0, -1) : parts;
+  ps.forEach((p, i) => {
+    const prev = ps[i - 1];
+    if (prev && !/^[,)]/.test(p.v) && !prev.v.endsWith("(") && ![prev.v, p.v].some((x) => x === "::" || x === ".")) text += " ";
+    const shown = p.k && KINDS.indexOf(p.k) < level ? p.v : p.was;
+    if (mark && p.k === mark) { changed.push([text.length, text.length + shown.length]); was.push(p.was); }
+    text += shown;
+  });
+  return { text, changed, was };
+}
+
+export type HashStep = { label: string; text: string; changed: [number, number][]; was: string[] };
+
+/** The gateway's rewrite as five states: original, then comments, values, table names and column
+ *  names replaced in turn. `changed` holds ranges in this step's text, `was` the previous step's
+ *  text for each range (outside the ranges the two texts are equal). The last text is hashSql's. */
+export async function hashSteps(sql: string, key: Uint8Array): Promise<HashStep[]> {
+  const { parts } = await hashParts(sql, key);
+  const clean = render(parts, 0).text;
+  // Step 1 also normalises spacing and keyword case, so it is one prefix/suffix range.
+  let a = 0;
+  while (a < sql.length && a < clean.length && sql[a] === clean[a]) a++;
+  let b = 0;
+  while (b < sql.length - a && b < clean.length - a && sql.at(-1 - b) === clean.at(-1 - b)) b++;
+  const steps: HashStep[] = [
+    { label: "original", text: sql, changed: [], was: [] },
+    { label: "comments removed", text: clean, changed: [[a, clean.length - b]], was: [sql.slice(a, sql.length - b)] },
+  ];
+  const labels = ["values become ?", "table names become t_ codes", "column names become c_ codes"];
+  KINDS.forEach((k, i) => steps.push({ label: labels[i], ...render(parts, i + 1, k) }));
+  return steps;
+}
+
+async function hashParts(sql: string, key: Uint8Array): Promise<{ result: HashResult; parts: Part[] }> {
   const toks = tokenize(sql).filter((t) => t.k !== "ws" && t.k !== "comment");
   const isId = (i: number) => toks[i] && (toks[i].k === "ident" || toks[i].k === "qident") && !(toks[i].k === "ident" && KEYWORDS.has(toks[i].v.toLowerCase()));
   const kw = (i: number, w: string) => toks[i]?.k === "ident" && toks[i].v.toLowerCase() === w;
@@ -102,7 +148,8 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
 
   // Pass 2: columns, roles and output.
   const cols = new Map<string, HashedColumn>();
-  const out: string[] = [];
+  const out: Part[] = [];
+  const other = (v: string): Part => ({ v, was: v, k: "" });
   let clause = "";
   const fnDepth: number[] = []; // paren depths opened by a function call
   let depth = 0;
@@ -116,15 +163,15 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
     if (t.k === "ident" && CLAUSES.has(lower) && depth === 0) clause = lower;
     if (t.v === "(") {
       const fn = isId(i - 1) && role[i - 1] === "" && toks[i - 2]?.v !== "::";
-      if (fn) { fnDepth.push(depth); out[out.length - 1] += "("; } else out.push("(");
+      if (fn) { fnDepth.push(depth); out[out.length - 1].v += "("; out[out.length - 1].was += "("; } else out.push(other("("));
       depth++;
       continue;
     }
     if (t.v === ")") { depth--; if (fnDepth.at(-1) === depth) fnDepth.pop(); }
 
-    if (role[i] === "drop") { if (out.at(-1) === "AS") out.pop(); continue; }
-    if (role[i] === "table") { out.push(await code("t", name(t), key)); continue; }
-    if (isValue(t)) { out.push("?"); values++; continue; }
+    if (role[i] === "drop") { if (out.at(-1)?.v === "AS") out.pop(); continue; }
+    if (role[i] === "table") { out.push({ v: await code("t", name(t), key), was: t.v, k: "table" }); continue; }
+    if (isValue(t)) { out.push({ v: "?", was: t.v, k: "value" }); values++; continue; }
 
     // Column alias in the select list (expr AS x): dropped, like the gateway's aliases.
     if (kw(i, "as") && clause === "select") { i++; continue; }
@@ -148,14 +195,14 @@ export async function hashSql(sql: string, key: Uint8Array): Promise<HashResult>
       cols.set(c, entry);
       const r = roleOf(toks, i, ci, clause, fnDepth.length > 0, isId);
       if (r && !entry.roles.includes(r)) entry.roles.push(r);
-      out.push(c);
+      out.push({ v: c, was: qual !== null ? `${t.v}.${toks[ci].v}` : t.v, k: "column" });
       i = ci;
       continue;
     }
-    out.push(t.k === "ident" && KEYWORDS.has(lower) ? t.v.toUpperCase() : t.k === "ident" ? t.v.toUpperCase() : t.v);
+    out.push(other(t.k === "ident" ? t.v.toUpperCase() : t.v));
   }
-  const text = out.join(" ").replace(/\s+([,)])/g, "$1").replace(/\(\s+/g, "(").replace(/ ?(::|\.) ?/g, "$1").replace(/\s*;\s*$/, "");
-  return { sql: text, tables: await Promise.all(tables.map(async (n) => ({ name: n, code: await code("t", n, key) }))), columns: [...cols.values()], values };
+  const tableCodes = await Promise.all(tables.map(async (n) => ({ name: n, code: await code("t", n, key) })));
+  return { result: { sql: render(out, KINDS.length).text, tables: tableCodes, columns: [...cols.values()], values }, parts: out };
 }
 
 /** Role of the column spanning tokens start..end, mirroring gateway/strip.py _role_of. */

@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "bt-live-ask": ["./src/components/ask/live-ask.tsx"]
+      "bt-live-ask": ["./src/components/ask/live-ask.tsx"],
+      "bt-ask-api": ["./src/components/ask/ask-api.ts"]
     }
   },
   "include": [

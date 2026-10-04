@@ -5,6 +5,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { dehashWith, type Bundle, type BundleSummary } from "@/lib/bundle";
+import { reached, stageOf, type StageId } from "@/lib/progress";
+// public build: a stub (null), so the live Ask path is not in any client chunk (next.config.ts)
+import { askApi } from "bt-ask-api";
 
 export const LOCAL = process.env.NEXT_PUBLIC_BT_LOCAL === "1";
 const KEY = "bt.current";
@@ -19,10 +22,63 @@ type S = {
   loading: boolean;   // a bundle is being fetched
   refresh: () => Promise<void>;
   select: (id: string | null) => Promise<void>;
+  /** The question being answered right now, shared by every page (one poller). */
+  running: Running | null;
+  /** Bundle id of a result that just arrived; cleared after FRESH_MS, drives the "fresh" flash. */
+  fresh: string | null;
+  start: (question: string) => Promise<string | null>;  // null on success, else the error text
 };
 
+export type Running = {
+  qid: string; question: string; startedAt: number; events: string[];
+  stage: StageId; reached: StageId[]; answered: boolean; error: string | null;
+  job: Record<string, unknown> | null;   // the polled job state (src/lib/ask-server.ts askState)
+};
+const FRESH_MS = 6000;
+
 export const useContextStore = create<S>()((set, get) => ({
-  list: [], current: null, loaded: false, loading: false,
+  list: [], current: null, loaded: false, loading: false, running: null, fresh: null,
+  start: async (question) => {
+    if (!LOCAL || !askApi) return "live Ask is off in this build";
+    if (get().running && !get().running?.error) return "a question is already running";
+    let qid: string;
+    try {
+      const r = await askApi.post(question);
+      if (!r.ok) return (r.body.error as string) ?? `HTTP ${r.status}`;
+      qid = r.body.question_id as string;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+    set({ running: { qid, question, startedAt: Date.now(), events: [], stage: "source", reached: ["source"], answered: false, error: null, job: null } });
+    const tick = async () => {
+      const run = get().running;
+      if (!run || run.qid !== qid) return;
+      let st: Record<string, unknown> & { events?: string[]; done?: boolean; bundle_ready?: boolean; ask?: unknown; error?: string; poll_ms?: number };
+      try {
+        const r = await askApi.get(qid);
+        st = r.body;
+        if (!r.ok) { set({ running: { ...run, error: (st.error as string) ?? `HTTP ${r.status}` } }); return; }
+      } catch {
+        setTimeout(tick, 2000);
+        return;
+      }
+      // events stop arriving once the answer is back (askState sends []), so keep the last list
+      const events = st.events?.length ? st.events : run.events;
+      const answered = !!st.ask, done = !!st.done && !!st.bundle_ready;
+      set({ running: { ...run, events, answered, job: st, error: (st.error as string) ?? null,
+        stage: stageOf(events, answered, done), reached: [...reached(events, answered, done)] } });
+      if (done) {
+        await get().refresh();
+        await get().select(qid);
+        set({ running: null, fresh: qid });
+        setTimeout(() => { if (get().fresh === qid) set({ fresh: null }); }, FRESH_MS);
+        return;
+      }
+      setTimeout(tick, typeof st.poll_ms === "number" ? st.poll_ms : 1000);
+    };
+    void tick();
+    return null;
+  },
   refresh: async () => {
     if (!LOCAL) return;
     try {

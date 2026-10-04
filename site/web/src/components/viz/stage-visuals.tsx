@@ -177,5 +177,6 @@ const VISUALS: Record<StageId, () => React.ReactElement> = { source: Source, gat
 
 export function StageVisual({ id }: { id: StageId }) {
   const V = VISUALS[id];
-  return <Bento><V /></Bento>;
+  // small gauges on stage pages: cap the dial width and its number size
+  return <Bento className="[&_div[role=img]]:max-w-[160px] [&_div[role=img]_.tracking-tight]:text-2xl!"><V /></Bento>;
 }
