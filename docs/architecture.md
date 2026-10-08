@@ -66,7 +66,7 @@ Every term in this doc, explained with the QuickMart example.
 | Agent / state / action / reward | Tuner / current indexes and workload / add or drop one index / speedup minus write and storage penalties. |
 | Multi-armed bandit | The simplest RL: a row of slot machines (candidate fixes), learning which pays best. |
 | Exploration vs. exploitation | Mostly picking the best-known option, sometimes trying others in case they are better. |
-| LLM | Large language model, like Claude or GPT. Used as-is, never trained by us. |
+| LLM | Large language model, like GPT or Gemini. Used as-is, never trained by us. |
 | Tool calling | The LLM calls our functions, e.g. `get_plan()` or `simulate()`, and reads their results. |
 | RAG | Retrieval-augmented generation: feeding the LLM reference material, e.g. known rewrite rules. |
 | Query rewrite | Changing SQL to run faster while returning exactly the same answer. |
@@ -240,7 +240,7 @@ The gateway runs inside QuickMart and turns logs, plans and statistics into disg
 | Rounded counts hurt GNN accuracy | Coarser numbers carry less signal | Round to two significant figures, not wide buckets; report the accuracy cost |
 | Outsiders guess names (dictionary attack) | Plain SHA-256 is public, so anyone can hash "sales" and compare codes | HMAC with a secret key: guesses cannot be checked without the key |
 | Two names get the same code | 4 hex characters leave only 65,536 codes, so 300 names collide about half the time (birthday paradox) | Keep at least 8 characters: about 4.3 billion codes, roughly a 1-in-100,000 chance |
-| The HMAC key leaks | Key committed to the repo, printed or logged by an agent | Store it as a secret in the gateway's environment; every CLAUDE.md forbids committing, printing or logging it |
+| The HMAC key leaks | Key committed to the repo, printed or logged by an agent | Store it as a secret in the gateway's environment; every AGENTS.md forbids committing, printing or logging it |
 
 *Fail closed* means: when unsure, send nothing.
 
@@ -543,7 +543,7 @@ blind-tuner/
 1. Postgres 16 and Python 3.11 everywhere. Pin every Python package in a lockfile on day 0, and test the image on the Quadro before the event.
 2. The HMAC key lives only in the gateway's environment file, which is never committed.
 3. Each agent works on its own git branch; humans merge at gates after reviewing test diffs.
-4. Each folder has a `CLAUDE.md` with the agent rules from the build plan, plus a `NOTES.md` recording decisions.
+4. Each folder has a `AGENTS.md` with the agent rules from the build plan, plus a `NOTES.md` recording decisions.
 5. This doc is exported to `docs/architecture.md` and is the single source of truth. If the code and this doc disagree, ask a human.
 
 ## Interface contracts
@@ -863,7 +863,7 @@ These choices need a human answer before hour 0; until then, agents build with t
 | Work prepared before the event | Depends on hackathon rules | Prepare it, then regenerate a fresh data batch on-site and say so |
 | Size of QuickMart's `sales` table | 50M or 10M rows | 50M if generation finishes within 30 minutes on the Quadro; otherwise 10M |
 | Start from zero-shot model weights | Fine-tune or train our own | Train our own; try fine-tuning only if the weights download and load quickly |
-| Agent tooling | Claude Code on the Quadro, or elsewhere | Claude Code on the Quadro, in the shared repo |
+| Agent tooling | AI coding agents on the Quadro, or elsewhere | AI coding agents on the Quadro, in the shared repo |
 
 Already decided: sharding is written advice only; the dashboard is Streamlit; QuickMart is the demo database.
 
@@ -984,7 +984,7 @@ Every number on the results slide is measured against a baseline, on query templ
 
 ## 24-hour build plan
 
-Four Claude agents write the code, so machine time and testing set the schedule, not typing. Plan generation starts at hour 0, the hero query must pass end-to-end tests by hour 12, and code freezes at hour 18. The human team coordinates, runs the gate tests and owns the pitch.
+Four AI coding agents write the code, so machine time and testing set the schedule, not typing. Plan generation starts at hour 0, the hero query must pass end-to-end tests by hour 12, and code freezes at hour 18. The human team coordinates, runs the gate tests and owns the pitch.
 
 &#91;embedded content: 24-hour build plan · 5 phases, 4 gates\]
 
@@ -992,7 +992,7 @@ A gate passes only when its tests pass in the shared Docker environment, never b
 
 **Who does what**
 
-Each agent owns one folder of the repo and never edits another's. All agents run Claude Code on the offline Quadro machine, against one Docker image and one database.
+Each agent owns one folder of the repo and never edits another's. All agents run on the offline Quadro machine, against one Docker image and one database.
 
 | Owner | Builds | Tests it owns | Done by hour 2 |
 | --- | --- | --- | --- |
@@ -1021,7 +1021,7 @@ Testing is built in from day 0, in layers. A test written against a fake Postgre
 
 **Rules that keep heavy testing useful**
 
-Opus tests thoroughly, which is good, but untamed it can spend hours polishing tests instead of shipping. These rules go in each folder's `CLAUDE.md` instruction file:
+The coding agents test thoroughly, which is good, but untamed they can spend hours polishing tests instead of shipping. These rules go in each folder's `AGENTS.md` instruction file:
 
 1. "Done" means contract and component tests pass in the shared Docker image. Nothing else counts.
 2. Never weaken a test to make it pass. Deleting an assertion or loosening a threshold needs human approval.

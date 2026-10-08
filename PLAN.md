@@ -30,7 +30,7 @@ Additional requirements:
 ## Repository layout
 
 ```text
-CLAUDE.md  PLAN.md  config.yaml  Makefile  README.md  .env.example
+AGENTS.md  PLAN.md  config.yaml  Makefile  README.md  .env.example
 contracts/      schemas/*.schema.json, examples/, tests/
 infra/          docker-compose.yml, postgres/ (Dockerfile, postgresql.conf), python/ (Dockerfile, requirements.in, requirements.lock), tests/
 db/             schema.sql, generate.py, canaries.py, run_q1.py, twin/ (build.py), sandbox/ (hypopg.py, twin_measure.py), tests/
