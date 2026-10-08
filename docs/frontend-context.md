@@ -45,7 +45,7 @@ Not done: adversarial leak test live score, trained GNN, real air-gapped model, 
 - site/: public static site, 5 pages plus favicon, built by site/build.py, not deployed. site/results.json is run_9247c060 (1M rows) and is stale against run_d1b30d38.
 - site/web/: empty Next.js, Tailwind and shadcn scaffold for the new front end (see site/web/NOTES.md).
 
-## Hard rules for any front end (CLAUDE.md)
+## Hard rules for any front end (AGENTS.md)
 - No purple gradients, no pill-shaped buttons, no emoji icons, no scroll animation, parallax or custom cursors, no AI imagery.
 - No em dashes anywhere. Headings state a fact or name a function. No filler copy.
 - No fabricated reviews, logos or metrics. Every number traces to a real computation, with its assumption beside it. Placeholders are visibly labelled. Simplified components are labelled on screen.

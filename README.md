@@ -2,7 +2,7 @@
 
 Blind Tuner recommends fixes for slow PostgreSQL queries. The AI side sees only hashed metadata, never raw values or real names. Every recommended fix is measured on a statistical twin before a DBA applies it. Entry for CodeUtsava X.0, Problem Statement 4.
 
-Design and rules: [docs/architecture.md](docs/architecture.md) is the single source of truth. [CLAUDE.md](CLAUDE.md) holds the rules every contributor follows and the current state of each component.
+Design and rules: [docs/architecture.md](docs/architecture.md) is the single source of truth. [AGENTS.md](AGENTS.md) holds the rules every contributor follows and the current state of each component.
 
 ## Layout
 
@@ -115,14 +115,14 @@ The HMAC key and `GEMINI_API_KEY` live only in an uncommitted `.env` file. Never
 
 ## Deploying the public site
 
-Only `site/dist` is public. It is static HTML with no database access. After `make export` and `make site`:
+The public site is the Next.js app in `site/web` (decision recorded in `site/NOTES.md`). It must be built with `NEXT_PUBLIC_BT_LOCAL` and `BT_LOCAL` unset: that build has no live Ask, sign-in, alerts, workbench or data pages and its `/api/*` routes return 404. The local build (`web` service, 127.0.0.1:3000) shows real table and column names and is never hosted. On Vercel, set the project's Root Directory to `site/web`, leave both variables unset, and deploy:
 
 ```bash
 npm i -g vercel
 vercel login
-cd site/dist
-vercel link --yes --project blind-tuner
+cd site/web
+vercel link --yes
 vercel deploy --prod
 ```
 
-If the production URL is not `blind-tuner.vercel.app` (the name is taken), rename the project to `blind-tuner-demo` and deploy again. Never deploy the operator dashboard.
+Never deploy the operator dashboard, the `web` container or any other backend service.

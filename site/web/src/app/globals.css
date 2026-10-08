@@ -93,7 +93,7 @@
 @property --mx { syntax: "<percentage>"; inherits: true; initial-value: 30%; }
 @property --my { syntax: "<percentage>"; inherits: true; initial-value: 20%; }
 
-/* Light only (CLAUDE.md design rules): no dark theme, no purple, no pill buttons.
+/* Light only (AGENTS.md design rules): no dark theme, no purple, no pill buttons.
    Glass = translucent white over a slate page with faint blue and slate tints. */
 :root {
   /* surfaces (reference 2026-10-04): pure white cards on a faint off-white canvas, no hard
@@ -167,7 +167,7 @@
   /* press bounce (human request 2026-10-04): every button springs when clicked. The class is set
      by src/components/site/site-effects.tsx on click and removed when the animation ends. */
   button:active { transform: scale(0.96); }
-  /* custom cursor (human request 2026-10-04, overrides CLAUDE.md): ink dot in a lime ring */
+  /* custom cursor (human request 2026-10-04, overrides AGENTS.md): ink dot in a lime ring */
   html { cursor: url("/cursor.svg") 12 12, auto; }
   a, button, [role="button"], summary, label, select { cursor: url("/cursor-pointer.svg") 12 12, pointer; }
   input, textarea, [contenteditable="true"] { cursor: text; }
@@ -328,7 +328,7 @@
   border-radius: 0.75rem;
 }
 /* small buttons, tags and segmented controls are pills (reference 2026-10-04, human decision;
-   CLAUDE.md's no-pill rule is overridden for this site by the human) */
+   AGENTS.md's no-pill rule is overridden for this site by the human) */
 @utility pill {
   border-radius: 9999px;
 }
